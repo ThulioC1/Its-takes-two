@@ -73,8 +73,6 @@ export interface LoveLetter {
 
 export interface Post {
     id: string;
-    userId: string; // UID of the author
-    name: string; // display name of the author
     text: string;
     dateTime: Timestamp;
     likes: string[]; // Array of UIDs

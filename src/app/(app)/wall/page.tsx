@@ -94,14 +94,14 @@ export default function WallPage() {
     const handlePublish = async () => {
         if (newPostContent.trim() && postsRef && user && userProfile) {
             await addDoc(postsRef, {
-                // Assuming Post requires these fields
                 text: newPostContent,
                 dateTime: serverTimestamp(),
                 likes: [],
-                // These might not be directly available, adjust as needed
-                userId: user.uid, 
-                name: userProfile.displayName,
-                comments: 0
+                comments: 0,
+                author: {
+                  uid: user.uid,
+                  displayName: userProfile.displayName,
+                }
             });
             setNewPostContent('');
         }
@@ -174,15 +174,15 @@ export default function WallPage() {
                 <CardHeader className="flex-row gap-4 items-center">
                     <Avatar>
                         {/* Placeholder for author avatar */}
-                        <AvatarFallback>{(userProfile?.displayName || 'U').charAt(0)}</AvatarFallback>
+                        <AvatarFallback>{post.author?.displayName?.charAt(0) || 'U'}</AvatarFallback>
                     </Avatar>
                     <div>
-                        <p className="font-semibold">{userProfile?.displayName}</p>
+                        <p className="font-semibold">{post.author?.displayName}</p>
                         <p className="text-xs text-muted-foreground">
                             {formatDistanceToNow(post.dateTime.toDate(), { addSuffix: true, locale: ptBR })}
                         </p>
                     </div>
-                    {user?.uid === user?.uid && ( // This logic seems wrong, should be post.userId === user.uid
+                    {user?.uid === post.author?.uid && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" className="h-8 w-8 p-0 ml-auto">

@@ -31,14 +31,17 @@
           "type": "string",
           "description": "Date when the to-do item was completed (if applicable).",
           "format": "date-time"
+        },
+        "author": {
+          "$ref": "#/entities/Author"
         }
       },
       "required": [
         "id",
         "title",
-        "description",
         "status",
-        "creationDate"
+        "creationDate",
+        "author"
       ]
     },
     "Expense": {
@@ -71,6 +74,9 @@
         "observation": {
           "type": "string",
           "description": "Optional notes or observations about the expense."
+        },
+        "author": {
+          "$ref": "#/entities/Author"
         }
       },
       "required": [
@@ -78,7 +84,8 @@
         "value",
         "category",
         "payer",
-        "date"
+        "date",
+        "author"
       ]
     },
     "MovieSeries": {
@@ -116,13 +123,17 @@
           "type": "string",
           "description": "Date when the movie or series was watched.",
           "format": "date-time"
+        },
+        "author": {
+          "$ref": "#/entities/Author"
         }
       },
       "required": [
         "id",
         "name",
         "type",
-        "status"
+        "status",
+        "author"
       ]
     },
     "ImportantDate": {
@@ -151,13 +162,17 @@
         "observation": {
           "type": "string",
           "description": "Optional notes or observations about the important date."
+        },
+        "author": {
+          "$ref": "#/entities/Author"
         }
       },
       "required": [
         "id",
         "title",
         "date",
-        "type"
+        "type",
+        "author"
       ]
     },
     "Post": {
@@ -185,12 +200,20 @@
           "items": {
             "type": "string"
           }
+        },
+        "comments": {
+          "type": "number",
+          "description": "Count of comments on the post."
+        },
+        "author": {
+          "$ref": "#/entities/Author"
         }
       },
       "required": [
         "id",
         "text",
-        "dateTime"
+        "dateTime",
+        "author"
       ]
     },
     "Comment": {
@@ -255,13 +278,17 @@
         "location": {
           "type": "string",
           "description": "Optional location where the memory was captured."
+        },
+        "author": {
+          "$ref": "#/entities/Author"
         }
       },
       "required": [
         "id",
         "image",
         "description",
-        "date"
+        "date",
+        "author"
       ]
     },
     "LoveLetter": {
@@ -294,6 +321,9 @@
         "isVisible": {
           "type": "boolean",
           "description": "Indicates whether the message is visible to the recipient."
+        },
+        "author": {
+          "$ref": "#/entities/Author"
         }
       },
       "required": [
@@ -302,7 +332,8 @@
         "recipientId",
         "message",
         "scheduledDate",
-        "isVisible"
+        "isVisible",
+        "author"
       ]
     },
     "CoupleGoal": {
@@ -335,6 +366,9 @@
         "type": {
           "type": "string",
           "description": "Type of goal (e.g., 'Financial', 'Personal', 'Relationship')."
+        },
+        "author": {
+          "$ref": "#/entities/Author"
         }
       },
       "required": [
@@ -343,7 +377,8 @@
         "description",
         "progress",
         "status",
-        "type"
+        "type",
+        "author"
       ]
     },
     "User": {
@@ -366,14 +401,34 @@
           "description": "Display name of the user."
         },
         "coupleId": {
-            "type": "string",
-            "description": "Identifier for the couple this user belongs to."
+          "type": "string",
+          "description": "Identifier for the couple this user belongs to."
         }
       },
       "required": [
         "uid",
         "email",
         "coupleId"
+      ]
+    },
+    "Author": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Author",
+      "type": "object",
+      "description": "Represents the user who created a document.",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "The user's unique ID from Firebase Authentication."
+        },
+        "displayName": {
+          "type": "string",
+          "description": "The user's display name."
+        }
+      },
+      "required": [
+        "uid",
+        "displayName"
       ]
     }
   },
