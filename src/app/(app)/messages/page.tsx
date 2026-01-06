@@ -8,20 +8,13 @@ import { Calendar, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
-import type { LoveLetter } from "@/types";
+import type { LoveLetter, UserProfile } from "@/types";
 
 // NOTE: This is a placeholder for a real user profile fetching logic
 const userAvatars: { [key: string]: string } = {
   'user-1': 'https://images.unsplash.com/photo-1615538785945-6625ccdb4b25?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxwb3J0cmFpdCUyMHdvbWFufGVufDB8fHx8MTc2NzY5OTA5OXww&ixlib=rb-4.1.0&q=80&w=1080',
   'user-2': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxwb3J0cmFpdCUyMG1hbnxlbnwwfHx8fDE3Njc1OTUwOTN8MA&ixlib=rb-4.1.0&q=80&w=1080',
 };
-
-interface UserProfile {
-  uid: string;
-  email: string;
-  displayName: string;
-  coupleId: string;
-}
 
 export default function MessagesPage() {
   const [newMessage, setNewMessage] = useState("");
@@ -41,7 +34,7 @@ export default function MessagesPage() {
     return collection(firestore, 'couples', coupleId, 'loveLetters');
   }, [firestore, coupleId]);
 
-  const { data: messages, isLoading } = useCollection<LoveLetter>(messagesRef as any);
+  const { data: messages, isLoading } = useCollection<LoveLetter>(messagesRef);
 
   const sortedMessages = useMemo(() => {
     if (!messages) return [];
@@ -117,7 +110,7 @@ export default function MessagesPage() {
                   )}>
                 <p className="text-sm">{message.message}</p>
                 <p className={cn("text-xs mt-1 opacity-70", message.senderId === user?.uid ? "text-right" : "text-left")}>
-                    {!message.isVisible ? `Agendada (em breve)` : message.scheduledDate?.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    {!message.isVisible ? `Agendada (em breve)` : (message.scheduledDate ? message.scheduledDate.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '')}
                 </p>
               </div>
               {message.senderId === user?.uid && (

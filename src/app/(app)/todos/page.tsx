@@ -12,17 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, DocumentData } from "firebase/firestore";
-import type { ToDoItem } from "@/types";
+import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import type { ToDoItem, UserProfile } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
-interface UserProfile {
-  uid: string;
-  email: string;
-  displayName: string;
-  coupleId: string;
-}
 
 function TodoForm({ todo, onSave, onCancel }: { todo?: ToDoItem; onSave: (data: Partial<ToDoItem>) => void; onCancel: () => void; }) {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -74,7 +67,7 @@ export default function TodosPage() {
     return collection(firestore, 'couples', coupleId, 'todos');
   }, [firestore, coupleId]);
 
-  const { data: todos, isLoading } = useCollection<ToDoItem>(todosRef as any);
+  const { data: todos, isLoading } = useCollection<ToDoItem>(todosRef);
 
   const handleOpenDialog = (todo: ToDoItem | null = null) => {
     setEditingTodo(todo);

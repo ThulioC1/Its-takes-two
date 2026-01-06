@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, getDoc, query, where } from "firebase/firestore";
+import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, getDoc } from "firebase/firestore";
 import type { Expense, UserProfile } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -103,7 +103,7 @@ export default function FinancesPage() {
 
   useEffect(() => {
     const fetchCoupleMembers = async () => {
-        if (!firestore || !coupleId || !user) return;
+        if (!firestore || !coupleId) return;
 
         const coupleDocRef = doc(firestore, 'couples', coupleId);
         const coupleDocSnap = await getDoc(coupleDocRef);
@@ -126,14 +126,14 @@ export default function FinancesPage() {
     };
 
     fetchCoupleMembers();
-  }, [firestore, coupleId, user, userProfile]);
+  }, [firestore, coupleId, userProfile]);
 
   const expensesRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return collection(firestore, 'couples', coupleId, 'expenses');
   }, [firestore, coupleId]);
 
-  const { data: expenses, isLoading } = useCollection<Expense>(expensesRef as any);
+  const { data: expenses, isLoading } = useCollection<Expense>(expensesRef);
 
   const coupleMembersMap = useMemo(() => {
     return coupleMembers.reduce((acc, member) => {
@@ -145,7 +145,11 @@ export default function FinancesPage() {
 
   const sortedExpenses = useMemo(() => {
     if (!expenses) return [];
-    return [...expenses].sort((a, b) => b.date.toDate().getTime() - a.date.toDate().getTime());
+    return [...expenses].sort((a, b) => {
+        const timeA = a.date ? a.date.toDate().getTime() : 0;
+        const timeB = b.date ? b.date.toDate().getTime() : 0;
+        return timeB - timeA;
+    });
   }, [expenses]);
 
   const totalExpenses = useMemo(() => sortedExpenses.reduce((acc, expense) => acc + expense.value, 0), [sortedExpenses]);
@@ -306,7 +310,7 @@ export default function FinancesPage() {
                           <TableCell className="hidden sm:table-cell">
                               <Badge variant="outline">{coupleMembersMap[expense.payer] || 'Desconhecido'}</Badge>
                           </TableCell>
-                          <TableCell className="hidden md:table-cell">{expense.date.toDate().toLocaleDateString('pt-BR')}</TableCell>
+                          <TableCell className="hidden md:table-cell">{expense.date ? expense.date.toDate().toLocaleDateString('pt-BR') : ''}</TableCell>
                           <TableCell>
                             {expense.author && (
                                 <Tooltip>

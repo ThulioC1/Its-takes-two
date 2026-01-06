@@ -13,14 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
-import type { Memory } from "@/types";
-
-interface UserProfile {
-  uid: string;
-  email: string;
-  displayName: string;
-  coupleId: string;
-}
+import type { Memory, UserProfile } from "@/types";
 
 function MemoryForm({ memory, onSave, onCancel }: { memory?: Memory; onSave: (data: Partial<Memory>) => void; onCancel: () => void; }) {
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -76,11 +69,15 @@ export default function MemoriesPage() {
     return collection(firestore, 'couples', coupleId, 'memories');
   }, [firestore, coupleId]);
 
-  const { data: memories, isLoading } = useCollection<Memory>(memoriesRef as any);
+  const { data: memories, isLoading } = useCollection<Memory>(memoriesRef);
 
   const sortedMemories = useMemo(() => {
     if (!memories) return [];
-    return [...memories].sort((a, b) => b.date.toDate().getTime() - a.date.toDate().getTime());
+    return [...memories].sort((a, b) => {
+        const timeA = a.date ? a.date.toDate().getTime() : 0;
+        const timeB = b.date ? b.date.toDate().getTime() : 0;
+        return timeB - timeA;
+    });
   }, [memories]);
 
   const handleOpenDialog = (memory: Memory | null = null) => {
@@ -187,7 +184,7 @@ export default function MemoriesPage() {
                <div className={`flex items-center mt-4 md:mt-0 w-full md:max-w-md ${index % 2 === 0 ? 'md:order-1 md:justify-end' : 'md:order-3 md:justify-start'}`}>
                   <div className={`p-4 w-full flex justify-between items-center ${index % 2 === 0 ? 'md:text-right' : ''}`}>
                       <div>
-                        <p className="font-semibold text-lg font-headline">{format(memory.date.toDate(), "dd 'de' MMMM, yyyy", { locale: ptBR })}</p>
+                        <p className="font-semibold text-lg font-headline">{memory.date ? format(memory.date.toDate(), "dd 'de' MMMM, yyyy", { locale: ptBR }) : ''}</p>
                         {memory.location && (
                             <div className={`flex items-center text-muted-foreground mt-1 ${index % 2 === 0 ? 'md:justify-end' : ''}`}>
                                 <MapPin className="w-4 h-4 mr-1"/>

@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from "firebase/firestore";
-import type { MovieSeries } from "@/types";
+import type { MovieSeries, UserProfile } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -22,13 +22,6 @@ import { Calendar } from "@/components/ui/calendar";
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from "@/lib/utils";
-
-interface UserProfile {
-  uid: string;
-  email: string;
-  displayName: string;
-  coupleId: string;
-}
 
 function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave: (data: Partial<MovieSeries>) => void; onCancel: () => void; }) {
   const [itemType, setItemType] = useState(item?.type);
@@ -146,7 +139,7 @@ export default function WatchlistPage() {
     return collection(firestore, 'couples', coupleId, 'movies');
   }, [firestore, coupleId]);
 
-  const { data: watchlist, isLoading } = useCollection<MovieSeries>(watchlistRef as any);
+  const { data: watchlist, isLoading } = useCollection<MovieSeries>(watchlistRef);
   
   const handleOpenDialog = (item: MovieSeries | null = null) => {
     setEditingItem(item);
