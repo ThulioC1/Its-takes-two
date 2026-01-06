@@ -4,8 +4,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/firebase';
+import { useAuth, useFirestore } from '@/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+
 
 import { Button } from '@/components/ui/button';
 import {
@@ -28,6 +30,7 @@ const formSchema = z.object({
 export function SignupForm() {
   const router = useRouter();
   const auth = useAuth();
+  const firestore = useFirestore();
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -40,22 +43,32 @@ export function SignupForm() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!auth) {
+    if (!auth || !firestore) {
       toast({
         variant: "destructive",
         title: "Erro de autenticação",
-        description: "O serviço de autenticação não está disponível.",
+        description: "O serviço de autenticação ou banco de dados não está disponível.",
       });
       return;
     }
     
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      const user = userCredential.user;
       
-      // Update user profile with name
-      if (userCredential.user) {
-        await updateProfile(userCredential.user, {
+      if (user) {
+        // Update user profile with name
+        await updateProfile(user, {
           displayName: values.name,
+        });
+
+        // Create a user profile document in Firestore
+        const userProfileRef = doc(firestore, 'users', user.uid);
+        await setDoc(userProfileRef, {
+          uid: user.uid,
+          email: user.email,
+          displayName: values.name,
+          coupleId: user.uid, // Initially, the user is in a "couple" by themselves
         });
       }
 

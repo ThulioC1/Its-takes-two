@@ -352,19 +352,28 @@
       "type": "object",
       "description": "Represents a user of the application.",
       "properties": {
-        "id": {
+        "uid": {
           "type": "string",
-          "description": "Unique identifier for the user."
+          "description": "Unique identifier for the user, from Firebase Auth."
         },
         "email": {
           "type": "string",
           "description": "Email address of the user.",
           "format": "email"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Display name of the user."
+        },
+        "coupleId": {
+            "type": "string",
+            "description": "Identifier for the couple this user belongs to."
         }
       },
       "required": [
-        "id",
-        "email"
+        "uid",
+        "email",
+        "coupleId"
       ]
     }
   },
@@ -377,11 +386,27 @@
   "firestore": {
     "structure": [
       {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/entities/User"
+          },
+          "description": "Stores user profile information, including their couple ID.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The user's unique ID from Firebase Authentication."
+            }
+          ]
+        }
+      },
+      {
         "path": "/couples/{coupleId}",
         "definition": {
           "entityName": "User",
           "schema": {
-            "$ref": "#/backend/entities/User"
+            "$ref": "#/entities/User"
           },
           "description": "Represents a couple. All couple related data is stored under this document.",
           "params": [
@@ -397,7 +422,7 @@
         "definition": {
           "entityName": "ToDoItem",
           "schema": {
-            "$ref": "#/backend/entities/ToDoItem"
+            "$ref": "#/entities/ToDoItem"
           },
           "description": "Represents a to-do item for the couple.",
           "params": [
@@ -417,7 +442,7 @@
         "definition": {
           "entityName": "Expense",
           "schema": {
-            "$ref": "#/backend/entities/Expense"
+            "$ref": "#/entities/Expense"
           },
           "description": "Represents an expense for the couple.",
           "params": [
@@ -437,7 +462,7 @@
         "definition": {
           "entityName": "MovieSeries",
           "schema": {
-            "$ref": "#/backend/entities/MovieSeries"
+            "$ref": "#/entities/MovieSeries"
           },
           "description": "Represents a movie or series in the shared list.",
           "params": [
@@ -457,7 +482,7 @@
         "definition": {
           "entityName": "ImportantDate",
           "schema": {
-            "$ref": "#/backend/entities/ImportantDate"
+            "$ref": "#/entities/ImportantDate"
           },
           "description": "Represents an important date for the couple.",
           "params": [
@@ -477,7 +502,7 @@
         "definition": {
           "entityName": "Post",
           "schema": {
-            "$ref": "#/backend/entities/Post"
+            "$ref": "#/entities/Post"
           },
           "description": "Represents a post on the couple's wall.",
           "params": [
@@ -497,7 +522,7 @@
         "definition": {
           "entityName": "Comment",
           "schema": {
-            "$ref": "#/backend/entities/Comment"
+            "$ref": "#/entities/Comment"
           },
           "description": "Represents a comment on a post.",
           "params": [
@@ -521,7 +546,7 @@
         "definition": {
           "entityName": "Memory",
           "schema": {
-            "$ref": "#/backend/entities/Memory"
+            "$ref": "#/entities/Memory"
           },
           "description": "Represents a shared photo in the memories album.",
           "params": [
@@ -541,7 +566,7 @@
         "definition": {
           "entityName": "LoveLetter",
           "schema": {
-            "$ref": "#/backend/entities/LoveLetter"
+            "$ref": "#/entities/LoveLetter"
           },
           "description": "Represents a private message between the couple.",
           "params": [
@@ -561,7 +586,7 @@
         "definition": {
           "entityName": "CoupleGoal",
           "schema": {
-            "$ref": "#/backend/entities/CoupleGoal"
+            "$ref": "#/entities/CoupleGoal"
           },
           "description": "Represents a shared goal for the couple.",
           "params": [

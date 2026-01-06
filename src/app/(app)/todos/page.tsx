@@ -11,9 +11,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useCollection, useFirestore, useUser, useMemoFirebase } from "@/firebase";
-import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
+import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, DocumentData } from "firebase/firestore";
 import type { ToDoItem } from "@/types";
+
+interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  coupleId: string;
+}
 
 function TodoForm({ todo, onSave, onCancel }: { todo?: ToDoItem; onSave: (data: Partial<ToDoItem>) => void; onCancel: () => void; }) {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -50,14 +57,22 @@ export default function TodosPage() {
 
   const firestore = useFirestore();
   const { user } = useUser();
-  const coupleId = user?.uid; // Placeholder for couple ID logic
+  
+  const userProfileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
+
+  const coupleId = userProfile?.coupleId;
 
   const todosRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return collection(firestore, 'couples', coupleId, 'todos');
   }, [firestore, coupleId]);
 
-  const { data: todos, isLoading } = useCollection<ToDoItem>(todosRef);
+  const { data: todos, isLoading } = useCollection<ToDoItem>(todosRef as any);
 
   const handleOpenDialog = (todo: ToDoItem | null = null) => {
     setEditingTodo(todo);
@@ -107,7 +122,7 @@ export default function TodosPage() {
           <h1 className="text-3xl font-bold font-headline">Lista de Tarefas do Casal</h1>
           <p className="text-muted-foreground">Atividades e planos para fazerem juntos.</p>
         </div>
-        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
+        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()} disabled={!coupleId}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Adicionar Tarefa
         </Button>
@@ -141,8 +156,8 @@ export default function TodosPage() {
                   <p className="text-sm text-muted-foreground">{todo.description}</p>
                   {todo.creationDate && (
                     <p className="text-xs text-muted-foreground">
-                      Criado em: {new Date(todo.creationDate.toDate()).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
-                      {todo.completionDate && ` | Concluído em: ${new Date(todo.completionDate.toDate()).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`}
+                      Criado em: {todo.creationDate.toDate().toLocaleDateString('pt-BR')}
+                      {todo.completionDate && ` | Concluído em: ${todo.completionDate.toDate().toLocaleDateString('pt-BR')}`}
                     </p>
                   )}
                 </div>
