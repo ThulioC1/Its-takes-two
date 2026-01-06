@@ -164,6 +164,8 @@ export default function WatchlistPage() {
     const updateData: {status: string, dateWatched?: Timestamp | null} = { status: newStatus };
     if (newStatus === 'Watched') {
         updateData.dateWatched = serverTimestamp();
+    } else {
+        updateData.dateWatched = null;
     }
     await updateDoc(itemDoc, updateData);
   };
@@ -176,16 +178,30 @@ export default function WatchlistPage() {
   
   const handleSaveItem = async (data: Partial<MovieSeries>) => {
     if(!watchlistRef || !user || !userProfile) return;
-    const fullData = {
-        ...data,
-        link: data.link || `https://picsum.photos/seed/${Date.now()}/300/450`
+
+    // Dynamically build the data object to avoid sending undefined fields
+    const dataToSave: any = {
+      name: data.name,
+      type: data.type,
+      platform: data.platform,
+      link: data.link || `https://picsum.photos/seed/${Date.now()}/300/450`,
+    };
+
+    if (data.type === 'Series') {
+      if (data.season !== undefined && !isNaN(data.season)) dataToSave.season = data.season;
+      if (data.episode !== undefined && !isNaN(data.episode)) dataToSave.episode = data.episode;
     }
+
+    if (data.dateWatched) {
+      dataToSave.dateWatched = data.dateWatched;
+    }
+
     if (editingItem) {
       const itemDoc = doc(watchlistRef, editingItem.id);
-      await updateDoc(itemDoc, data); // Pass only `data` which includes new fields
+      await updateDoc(itemDoc, dataToSave);
     } else {
       await addDoc(watchlistRef, {
-        ...fullData,
+        ...dataToSave,
         status: 'To Watch',
         author: {
             uid: user.uid,
