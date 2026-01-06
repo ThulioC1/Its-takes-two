@@ -10,7 +10,7 @@ import {
   LayoutDashboard,
   ListTodo,
   LogOut,
-  MailHeart,
+  Mail,
   Users,
 } from "lucide-react"
 
@@ -41,11 +41,11 @@ const navItems = [
   { href: "/dates", icon: CalendarHeart, label: "Datas Importantes" },
   { href: "/wall", icon: Users, label: "Mural do Casal" },
   { href: "/memories", icon: ImageIcon, label: "Álbum de Memórias" },
-  { href: "/messages", icon: MailHeart, label: "Cartas de Amor" },
+  { href: "/messages", icon: Mail, label: "Cartas de Amor" },
   { href: "/goals", icon: Goal, label: "Metas do Casal" },
 ]
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
+export default function AppLayout({ children }: { children: React.React.Node }) {
   const userAvatar1 = PlaceHolderImages.find((p) => p.id === "user-avatar-1")
   
   return (
