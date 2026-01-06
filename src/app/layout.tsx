@@ -6,6 +6,9 @@ import { FirebaseClientProvider } from '@/firebase';
 export const metadata: Metadata = {
   title: 'It Takes Two',
   description: 'Seu espaço para cultivar o amor e a parceria.',
+  icons: {
+    icon: '/favicon.svg',
+  }
 };
 
 export default function RootLayout({
