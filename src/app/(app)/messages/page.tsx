@@ -1,3 +1,5 @@
+'use client';
+import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,7 +8,7 @@ import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Calendar, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const messages = [
+const initialMessages = [
   { id: 1, userId: 'user-avatar-2', text: 'Oi, meu amor! Só passando para dizer que te amo e estou com saudades. ❤️', timestamp: '10:30 AM', sent: true },
   { id: 2, userId: 'user-avatar-1', text: 'Oi, vida! Também te amo muito. Que tal um cinema hoje à noite?', timestamp: '10:32 AM', sent: false },
   { id: 3, userId: 'user-avatar-2', text: 'Adorei a ideia! Combinado! 😘', timestamp: '10:33 AM', sent: true },
@@ -14,9 +16,43 @@ const messages = [
 ];
 
 export default function MessagesPage() {
+  const [messages, setMessages] = useState(initialMessages);
+  const [newMessage, setNewMessage] = useState("");
   const userAvatar1 = PlaceHolderImages.find((p) => p.id === "user-avatar-1");
   const userAvatar2 = PlaceHolderImages.find((p) => p.id === "user-avatar-2");
   const avatars = { "user-avatar-1": userAvatar1, "user-avatar-2": userAvatar2 };
+  
+  const handleSendMessage = () => {
+    if (newMessage.trim() === "") return;
+
+    const newMsg = {
+      id: Date.now(),
+      userId: 'user-avatar-2', // Assuming current user is user 2 (João/V)
+      text: newMessage,
+      timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      sent: true
+    };
+
+    setMessages([...messages, newMsg]);
+    setNewMessage("");
+  };
+  
+  // NOTE: A real scheduling feature would require a backend.
+  // This is a placeholder to show the UI.
+  const handleScheduleMessage = () => {
+    if (newMessage.trim() === "") return;
+     const newMsg = {
+      id: Date.now(),
+      userId: 'user-avatar-2',
+      text: newMessage,
+      timestamp: `Agendada (em breve)`,
+      sent: true,
+      scheduled: true,
+    };
+    setMessages([...messages, newMsg]);
+    setNewMessage("");
+  }
+
 
   return (
     <div className="flex flex-col h-[calc(100vh-theme(spacing.24))]">
@@ -54,10 +90,21 @@ export default function MessagesPage() {
         </CardContent>
         <div className="p-4 border-t">
           <div className="relative">
-            <Textarea placeholder="Escreva uma carta de amor..." className="pr-24"/>
+            <Textarea 
+                placeholder="Escreva uma carta de amor..." 
+                className="pr-24"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={(e) => {
+                    if(e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                    }
+                }}
+            />
             <div className="absolute top-1/2 right-3 -translate-y-1/2 flex gap-1">
-                <Button variant="ghost" size="icon"><Calendar className="h-5 w-5"/></Button>
-                <Button size="icon"><Send className="h-5 w-5"/></Button>
+                <Button variant="ghost" size="icon" onClick={handleScheduleMessage}><Calendar className="h-5 w-5"/></Button>
+                <Button size="icon" onClick={handleSendMessage}><Send className="h-5 w-5"/></Button>
             </div>
           </div>
         </div>
@@ -65,3 +112,5 @@ export default function MessagesPage() {
     </div>
   );
 }
+
+    

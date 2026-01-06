@@ -1,3 +1,5 @@
+'use client';
+import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -5,16 +7,34 @@ import { Textarea } from "@/components/ui/textarea";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Heart, MessageSquare, Send } from "lucide-react";
 
-const posts = [
+const initialPosts = [
     { id: 1, userId: 'user-avatar-1', name: 'Maria', content: 'Lembrando do nosso primeiro encontro hoje! Parece que foi ontem. ❤️', time: 'há 2 horas', likes: 5, comments: 2 },
     { id: 2, userId: 'user-avatar-2', name: 'João', content: 'Ansioso para o nosso jantar de sábado! Vai ser incrível.', time: 'há 1 dia', likes: 3, comments: 1 },
     { id: 3, userId: 'user-avatar-1', name: 'Maria', content: 'Conseguimos terminar a 3ª temporada de The Bear! Que série!! 🤯', time: 'há 3 dias', likes: 8, comments: 4 },
 ];
 
 export default function WallPage() {
+    const [posts, setPosts] = useState(initialPosts);
+    const [newPostContent, setNewPostContent] = useState('');
     const userAvatar1 = PlaceHolderImages.find((p) => p.id === "user-avatar-1");
     const userAvatar2 = PlaceHolderImages.find((p) => p.id === "user-avatar-2");
     const avatars = { "user-avatar-1": userAvatar1, "user-avatar-2": userAvatar2 };
+
+    const handlePublish = () => {
+        if (newPostContent.trim()) {
+            const newPost = {
+                id: Date.now(),
+                userId: 'user-avatar-1', // Assuming the current user is Maria
+                name: 'Maria',
+                content: newPostContent,
+                time: 'agora',
+                likes: 0,
+                comments: 0
+            };
+            setPosts([newPost, ...posts]);
+            setNewPostContent('');
+        }
+    };
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-8">
@@ -31,8 +51,13 @@ export default function WallPage() {
                     <AvatarFallback>M</AvatarFallback>
                 </Avatar>
                 <div className="w-full">
-                    <Textarea placeholder="No que você está pensando?" className="mb-2"/>
-                    <Button>
+                    <Textarea 
+                        placeholder="No que você está pensando?" 
+                        className="mb-2"
+                        value={newPostContent}
+                        onChange={(e) => setNewPostContent(e.target.value)}
+                    />
+                    <Button onClick={handlePublish}>
                         <Send className="mr-2 h-4 w-4" />
                         Publicar
                     </Button>
@@ -73,3 +98,5 @@ export default function WallPage() {
     </div>
   );
 }
+
+    

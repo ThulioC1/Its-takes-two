@@ -26,6 +26,12 @@ const initialWatchlist = [
 export default function WatchlistPage() {
   const [watchlist, setWatchlist] = useState(initialWatchlist);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
+
+  const handleOpenDialog = (item: any = null) => {
+    setEditingItem(item);
+    setIsDialogOpen(true);
+  };
 
   const moveItem = (id: number, newStatus: string) => {
     setWatchlist(watchlist.map(item =>
@@ -41,23 +47,40 @@ export default function WatchlistPage() {
     setWatchlist(watchlist.filter(item => item.id !== id));
   };
   
-  const addItem = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleItemSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const newItem = {
-      id: Date.now(),
-      name: formData.get('name') as string,
-      type: formData.get('type') as 'Filme' | 'Série',
-      platform: formData.get('platform') as string,
-      status: 'to-watch',
-      image: `https://picsum.photos/seed/${Date.now()}/300/450`
-    };
-    setWatchlist([newItem, ...watchlist]);
+    const name = formData.get('name') as string;
+    const type = formData.get('type') as 'Filme' | 'Série';
+    const platform = formData.get('platform') as string;
+    const image = formData.get('image') as string;
+
+    if (editingItem) {
+      setWatchlist(watchlist.map(item => item.id === editingItem.id ? { ...item, name, type, platform, image: image || item.image } : item));
+    } else {
+      const newItem = {
+        id: Date.now(),
+        name,
+        type,
+        platform,
+        status: 'to-watch',
+        image: image || `https://picsum.photos/seed/${Date.now()}/300/450`
+      };
+      setWatchlist([newItem, ...watchlist]);
+    }
+
     setIsDialogOpen(false);
+    setEditingItem(null);
   };
 
   const renderList = (status: string) => {
-    return watchlist.filter(item => item.status === status).map(item => (
+    const filteredList = watchlist.filter(item => item.status === status);
+    
+    if (filteredList.length === 0) {
+        return <div className="col-span-full text-center text-muted-foreground py-10">Nenhum item aqui.</div>;
+    }
+
+    return filteredList.map(item => (
         <Card key={item.id} className="overflow-hidden w-full group">
             <div className="relative aspect-[2/3]">
                 <Image src={item.image} alt={item.name} fill objectFit="cover" data-ai-hint="movie poster" />
@@ -70,6 +93,7 @@ export default function WatchlistPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                         <DropdownMenuItem onClick={() => handleOpenDialog(item)}>Editar</DropdownMenuItem>
                          <DropdownMenuSub>
                             <DropdownMenuSubTrigger>Mover para</DropdownMenuSubTrigger>
                             <DropdownMenuPortal>
@@ -110,23 +134,23 @@ export default function WatchlistPage() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto">
+            <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Adicionar Item
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-                <DialogTitle>Adicionar à Lista</DialogTitle>
+                <DialogTitle>{editingItem ? 'Editar Item' : 'Adicionar à Lista'}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={addItem} className="grid gap-4 py-4">
+            <form onSubmit={handleItemSubmit} className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="name" className="text-right">Título</Label>
-                    <Input id="name" name="name" className="col-span-3" required />
+                    <Input id="name" name="name" className="col-span-3" defaultValue={editingItem?.name} required />
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="type" className="text-right">Tipo</Label>
-                    <Select name="type" required>
+                    <Select name="type" defaultValue={editingItem?.type} required>
                         <SelectTrigger className="col-span-3">
                             <SelectValue placeholder="Selecione o tipo" />
                         </SelectTrigger>
@@ -138,10 +162,14 @@ export default function WatchlistPage() {
                 </div>
                  <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="platform" className="text-right">Onde Assistir</Label>
-                    <Input id="platform" name="platform" placeholder="Netflix, cinema, etc." className="col-span-3" required />
+                    <Input id="platform" name="platform" placeholder="Netflix, cinema, etc." className="col-span-3" defaultValue={editingItem?.platform} required />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="image" className="text-right">URL da Imagem</Label>
+                    <Input id="image" name="image" placeholder="https://exemplo.com/poster.jpg" className="col-span-3" defaultValue={editingItem?.image}/>
                 </div>
                 <DialogFooter>
-                    <Button type="submit">Adicionar</Button>
+                    <Button type="submit">{editingItem ? 'Salvar Alterações' : 'Adicionar'}</Button>
                 </DialogFooter>
             </form>
           </DialogContent>
@@ -173,3 +201,4 @@ export default function WatchlistPage() {
     </div>
   );
 }
+    

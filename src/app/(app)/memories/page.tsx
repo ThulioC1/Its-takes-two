@@ -14,9 +14,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 const initialMemories = [
-  { id: 1, imageId: 'memory-1', description: 'Nosso primeiro pôr do sol na praia juntos. Inesquecível!', date: '2023-01-15', location: 'Praia do Rosa, SC' },
-  { id: 2, imageId: 'memory-2', description: 'Noite de fondue e vinho em Campos do Jordão.', date: '2023-06-28', location: 'Campos do Jordão, SP' },
-  { id: 3, imageId: 'memory-3', description: 'Explorando as ruas coloridas de Buenos Aires.', date: '2022-11-05', location: 'Buenos Aires, Argentina' },
+  { id: 1, imageId: 'memory-1', imageUrl: PlaceHolderImages.find(p => p.id === 'memory-1')?.imageUrl, description: 'Nosso primeiro pôr do sol na praia juntos. Inesquecível!', date: '2023-01-15T12:00:00.000Z', location: 'Praia do Rosa, SC' },
+  { id: 2, imageId: 'memory-2', imageUrl: PlaceHolderImages.find(p => p.id === 'memory-2')?.imageUrl, description: 'Noite de fondue e vinho em Campos do Jordão.', date: '2023-06-28T12:00:00.000Z', location: 'Campos do Jordão, SP' },
+  { id: 3, imageId: 'memory-3', imageUrl: PlaceHolderImages.find(p => p.id === 'memory-3')?.imageUrl, description: 'Explorando as ruas coloridas de Buenos Aires.', date: '2022-11-05T12:00:00.000Z', location: 'Buenos Aires, Argentina' },
 ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
 export default function MemoriesPage() {
@@ -34,25 +34,20 @@ export default function MemoriesPage() {
     const formData = new FormData(e.currentTarget);
     const description = formData.get('description') as string;
     const location = formData.get('location') as string;
-    const date = new Date().toISOString().split('T')[0];
-    
-    // In a real app, you would handle image uploads here.
-    // For this prototype, we'll reuse existing images or add a placeholder.
-    const imageId = editingMemory?.imageId || `memory-${Date.now()}`;
-     if (!PlaceHolderImages.find(p => p.id === imageId)) {
-        PlaceHolderImages.push({
-            id: imageId,
-            description: description,
-            imageUrl: `https://picsum.photos/seed/${Math.floor(Math.random()*100)}/400/300`,
-            imageHint: "couple memory"
-        });
-    }
-
+    const imageUrl = formData.get('imageUrl') as string;
+    const date = new Date().toISOString();
 
     if (editingMemory) {
-      setMemories(memories.map(m => m.id === editingMemory.id ? { ...m, description, location } : m));
+      setMemories(memories.map(m => m.id === editingMemory.id ? { ...m, description, location, imageUrl: imageUrl || m.imageUrl } : m));
     } else {
-      const newMemory = { id: Date.now(), imageId, description, date, location };
+      const newMemory = { 
+        id: Date.now(), 
+        imageId: `memory-${Date.now()}`,
+        description, 
+        date, 
+        location,
+        imageUrl: imageUrl || `https://picsum.photos/seed/${Math.floor(Math.random()*100)}/400/300`,
+      };
       setMemories([newMemory, ...memories].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     }
     setIsDialogOpen(false);
@@ -83,7 +78,10 @@ export default function MemoriesPage() {
               <DialogTitle>{editingMemory ? 'Editar Memória' : 'Nova Memória'}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-                {/* Image upload would go here */}
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="imageUrl" className="text-right">URL da Foto</Label>
+                    <Input id="imageUrl" name="imageUrl" className="col-span-3" placeholder="https://exemplo.com/foto.jpg" defaultValue={editingMemory?.imageUrl}/>
+                </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="description" className="text-right">Descrição</Label>
                     <Textarea id="description" name="description" className="col-span-3" defaultValue={editingMemory?.description} required/>
@@ -102,7 +100,6 @@ export default function MemoriesPage() {
 
       <div className="relative pl-6 after:absolute after:inset-y-0 after:left-8 after:w-px after:bg-border md:pl-0 md:after:left-1/2 md:after:-translate-x-1/2">
         {memories.map((memory, index) => {
-          const memoryImage = PlaceHolderImages.find(p => p.id === memory.imageId);
           return (
             <div key={memory.id} className="relative grid md:grid-cols-[1fr_auto_1fr] md:gap-x-12 mb-12">
               {/* Card */}
@@ -110,13 +107,13 @@ export default function MemoriesPage() {
                   <Card className="w-full">
                       <CardHeader className="p-0">
                           <div className="relative aspect-video w-full overflow-hidden rounded-t-lg">
-                              {memoryImage ? (
+                              {memory.imageUrl ? (
                                   <Image 
-                                      src={memoryImage.imageUrl} 
-                                      alt={memoryImage.description} 
+                                      src={memory.imageUrl} 
+                                      alt={memory.description} 
                                       fill 
                                       className="object-cover"
-                                      data-ai-hint={memoryImage.imageHint}
+                                      data-ai-hint="couple memory"
                                   />
                               ) : <div className="bg-muted w-full h-full flex items-center justify-center">Sem foto</div> }
                           </div>
@@ -135,7 +132,7 @@ export default function MemoriesPage() {
               </div>
               
               {/* Date & Actions */}
-              <div className={`flex items-center mt-4 md:mt-0 w-full md:max-w-md ${index % 2 === 0 ? 'md:order-1 md:justify-end' : 'md:order-3 md:justify-start'}`}>
+               <div className={`flex items-center mt-4 md:mt-0 w-full md:max-w-md ${index % 2 === 0 ? 'md:order-1 md:justify-end' : 'md:order-3 md:justify-start'}`}>
                   <div className={`p-4 w-full flex justify-between items-center ${index % 2 === 0 ? 'md:text-right' : ''}`}>
                       <div>
                         <p className="font-semibold text-lg font-headline">{format(parseISO(memory.date), "dd 'de' MMMM, yyyy", { locale: ptBR })}</p>
@@ -167,3 +164,5 @@ export default function MemoriesPage() {
     </div>
   );
 }
+
+    
