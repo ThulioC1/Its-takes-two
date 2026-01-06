@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { differenceInDays, format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
@@ -18,16 +18,9 @@ import { cn } from '@/lib/utils';
 import { Calendar as CalendarIcon } from "lucide-react";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
-import type { ImportantDate } from "@/types";
+import type { ImportantDate, UserProfile } from "@/types";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-
-interface UserProfile {
-  uid: string;
-  email: string;
-  displayName: string;
-  coupleId: string;
-}
 
 const typeIcons: { [key: string]: React.ReactNode } = {
   'Aniversário': <Gift className="h-6 w-6 text-primary" />,
