@@ -28,6 +28,11 @@ export default function MemoriesPage() {
     setEditingMemory(memory);
     setIsDialogOpen(true);
   };
+
+  const handleCloseDialog = () => {
+    setEditingMemory(null);
+    setIsDialogOpen(false);
+  }
   
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -50,8 +55,7 @@ export default function MemoriesPage() {
       };
       setMemories([newMemory, ...memories].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     }
-    setIsDialogOpen(false);
-    setEditingMemory(null);
+    handleCloseDialog();
   };
 
   const handleDelete = (id: number) => {
@@ -66,7 +70,7 @@ export default function MemoriesPage() {
           <h1 className="text-3xl font-bold font-headline">Álbum de Memórias</h1>
           <p className="text-muted-foreground">Uma linha do tempo dos seus momentos mais especiais.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if(!isOpen) handleCloseDialog() }}>
           <DialogTrigger asChild>
             <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
               <PlusCircle className="mr-2 h-4 w-4" />
@@ -135,7 +139,7 @@ export default function MemoriesPage() {
                <div className={`flex items-center mt-4 md:mt-0 w-full md:max-w-md ${index % 2 === 0 ? 'md:order-1 md:justify-end' : 'md:order-3 md:justify-start'}`}>
                   <div className={`p-4 w-full flex justify-between items-center ${index % 2 === 0 ? 'md:text-right' : ''}`}>
                       <div>
-                        <p className="font-semibold text-lg font-headline">{format(parseISO(memory.date), "dd 'de' MMMM, yyyy", { locale: ptBR })}</p>
+                        <p className="font-semibold text-lg font-headline">{format(parseISO(memory.date), "dd 'de' MMMM, yyyy", { locale: ptBR, timeZone: 'UTC' })}</p>
                         {memory.location && (
                             <div className={`flex items-center text-muted-foreground mt-1 ${index % 2 === 0 ? 'md:justify-end' : ''}`}>
                                 <MapPin className="w-4 h-4 mr-1"/>

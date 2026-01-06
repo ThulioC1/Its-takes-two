@@ -24,6 +24,16 @@ export default function TodosPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTodo, setEditingTodo] = useState<any>(null);
 
+  const handleOpenDialog = (todo: any = null) => {
+    setEditingTodo(todo);
+    setIsDialogOpen(true);
+  };
+  
+  const handleCloseDialog = () => {
+    setEditingTodo(null);
+    setIsDialogOpen(false);
+  }
+
   const handleAddOrUpdateTodo = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -42,8 +52,7 @@ export default function TodosPage() {
       };
       setTodos([newTodo, ...todos]);
     }
-    setIsDialogOpen(false);
-    setEditingTodo(null);
+    handleCloseDialog();
   };
 
   const handleDeleteTodo = (id: number) => {
@@ -71,9 +80,9 @@ export default function TodosPage() {
           <h1 className="text-3xl font-bold font-headline">Lista de Tarefas do Casal</h1>
           <p className="text-muted-foreground">Atividades e planos para fazerem juntos.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCloseDialog() }}>
           <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto" onClick={() => setEditingTodo(null)}>
+            <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Adicionar Tarefa
             </Button>
@@ -127,7 +136,7 @@ export default function TodosPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => { setEditingTodo(todo); setIsDialogOpen(true); }}>Editar</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleOpenDialog(todo)}>Editar</DropdownMenuItem>
                     {todo.status !== 'Concluído' && <DropdownMenuItem onClick={() => toggleTodoStatus(todo.id)}>Marcar como concluído</DropdownMenuItem>}
                     <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteTodo(todo.id)}>Deletar</DropdownMenuItem>
                   </DropdownMenuContent>

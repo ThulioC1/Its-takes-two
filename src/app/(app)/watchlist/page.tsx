@@ -32,6 +32,11 @@ export default function WatchlistPage() {
     setEditingItem(item);
     setIsDialogOpen(true);
   };
+  
+  const handleCloseDialog = () => {
+    setEditingItem(null);
+    setIsDialogOpen(false);
+  }
 
   const moveItem = (id: number, newStatus: string) => {
     setWatchlist(watchlist.map(item =>
@@ -69,8 +74,7 @@ export default function WatchlistPage() {
       setWatchlist([newItem, ...watchlist]);
     }
 
-    setIsDialogOpen(false);
-    setEditingItem(null);
+    handleCloseDialog();
   };
 
   const renderList = (status: string) => {
@@ -132,7 +136,7 @@ export default function WatchlistPage() {
           <h1 className="text-3xl font-bold font-headline">Filmes & Séries</h1>
           <p className="text-muted-foreground">A lista de entretenimento do casal.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if(!isOpen) handleCloseDialog()}}>
           <DialogTrigger asChild>
             <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
               <PlusCircle className="mr-2 h-4 w-4" />

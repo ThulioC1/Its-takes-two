@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { Heart, MessageSquare, Send } from "lucide-react";
+import { Heart, MessageSquare, Send, MoreHorizontal } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const initialPosts = [
     { id: 1, userId: 'user-avatar-1', name: 'Maria', content: 'Lembrando do nosso primeiro encontro hoje! Parece que foi ontem. ❤️', time: 'há 2 horas', likes: 5, comments: 2 },
@@ -16,24 +20,48 @@ const initialPosts = [
 export default function WallPage() {
     const [posts, setPosts] = useState(initialPosts);
     const [newPostContent, setNewPostContent] = useState('');
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [editingPost, setEditingPost] = useState<any>(null);
+
     const userAvatar1 = PlaceHolderImages.find((p) => p.id === "user-avatar-1");
     const userAvatar2 = PlaceHolderImages.find((p) => p.id === "user-avatar-2");
     const avatars = { "user-avatar-1": userAvatar1, "user-avatar-2": userAvatar2 };
 
-    const handlePublish = () => {
+    const handleOpenDialog = (post: any = null) => {
+        setEditingPost(post);
+        setNewPostContent(post ? post.content : '');
+        setIsDialogOpen(true);
+    };
+
+    const handleCloseDialog = () => {
+        setEditingPost(null);
+        setNewPostContent('');
+        setIsDialogOpen(false);
+    };
+
+    const handlePublish = (e?: React.FormEvent<HTMLFormElement>) => {
+        e?.preventDefault();
         if (newPostContent.trim()) {
-            const newPost = {
-                id: Date.now(),
-                userId: 'user-avatar-1', // Assuming the current user is Maria
-                name: 'Maria',
-                content: newPostContent,
-                time: 'agora',
-                likes: 0,
-                comments: 0
-            };
-            setPosts([newPost, ...posts]);
-            setNewPostContent('');
+            if (editingPost) {
+                setPosts(posts.map(p => p.id === editingPost.id ? { ...p, content: newPostContent } : p));
+            } else {
+                const newPost = {
+                    id: Date.now(),
+                    userId: 'user-avatar-1', // Assuming the current user is Maria
+                    name: 'Maria',
+                    content: newPostContent,
+                    time: 'agora',
+                    likes: 0,
+                    comments: 0
+                };
+                setPosts([newPost, ...posts]);
+            }
+            handleCloseDialog();
         }
+    };
+
+    const handleDelete = (id: number) => {
+        setPosts(posts.filter(p => p.id !== id));
     };
 
   return (
@@ -56,8 +84,9 @@ export default function WallPage() {
                         className="mb-2"
                         value={newPostContent}
                         onChange={(e) => setNewPostContent(e.target.value)}
+                        onFocus={() => !editingPost && setNewPostContent('')}
                     />
-                    <Button onClick={handlePublish}>
+                    <Button onClick={() => handlePublish()}>
                         <Send className="mr-2 h-4 w-4" />
                         Publicar
                     </Button>
@@ -65,6 +94,23 @@ export default function WallPage() {
             </div>
         </CardContent>
       </Card>
+
+        <Dialog open={isDialogOpen} onOpenChange={ (isOpen) => { if (!isOpen) handleCloseDialog() }}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Editar Publicação</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handlePublish} className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="content" className="text-right">Conteúdo</Label>
+                        <Textarea id="content" name="content" className="col-span-3" value={newPostContent} onChange={(e) => setNewPostContent(e.target.value)} required />
+                    </div>
+                    <DialogFooter>
+                        <Button type="submit">Salvar</Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
 
       <div className="flex flex-col gap-6">
         {posts.map(post => (
@@ -78,6 +124,18 @@ export default function WallPage() {
                         <p className="font-semibold">{post.name}</p>
                         <p className="text-xs text-muted-foreground">{post.time}</p>
                     </div>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0 ml-auto">
+                                <span className="sr-only">Abrir menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleOpenDialog(post)}>Editar</DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(post.id)}>Deletar</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </CardHeader>
                 <CardContent>
                     <p>{post.content}</p>
@@ -98,5 +156,3 @@ export default function WallPage() {
     </div>
   );
 }
-
-    

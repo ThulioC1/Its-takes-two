@@ -55,6 +55,11 @@ export default function FinancesPage() {
     setEditingExpense(expense);
     setIsDialogOpen(true);
   };
+
+  const handleCloseDialog = () => {
+    setEditingExpense(null);
+    setIsDialogOpen(false);
+  }
   
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -70,8 +75,7 @@ export default function FinancesPage() {
       const newExpense = { id: Date.now(), category, value, payer, date };
       setExpenses([newExpense, ...expenses]);
     }
-    setIsDialogOpen(false);
-    setEditingExpense(null);
+    handleCloseDialog();
   };
 
   const handleDelete = (id: number) => {
@@ -86,7 +90,7 @@ export default function FinancesPage() {
           <h1 className="text-3xl font-bold font-headline">Finanças do Casal</h1>
           <p className="text-muted-foreground">Controle de despesas e metas financeiras compartilhadas.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCloseDialog() }}>
           <DialogTrigger asChild>
             <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
               <PlusCircle className="mr-2 h-4 w-4" />

@@ -31,7 +31,7 @@ export default function GoalsPage() {
   const [goals, setGoals] = useState(initialGoals);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<any>(null);
-  const [progressValue, setProgressValue] = useState(editingGoal?.progress || 0);
+  const [progressValue, setProgressValue] = useState(0);
 
   const handleOpenDialog = (goal: any = null) => {
     setEditingGoal(goal);
@@ -39,13 +39,19 @@ export default function GoalsPage() {
     setIsDialogOpen(true);
   };
   
+  const handleCloseDialog = () => {
+    setEditingGoal(null);
+    setProgressValue(0);
+    setIsDialogOpen(false);
+  }
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const title = formData.get('title') as string;
     const description = formData.get('description') as string;
     const type = formData.get('type') as string;
-    const progress = parseInt(formData.get('progress') as string, 10);
+    const progress = progressValue;
     
     if (editingGoal) {
       setGoals(goals.map(g => g.id === editingGoal.id ? { ...g, title, description, type, progress, status: progress === 100 ? 'Concluído' : 'Em andamento' } : g));
@@ -60,8 +66,7 @@ export default function GoalsPage() {
       };
       setGoals([newGoal, ...goals]);
     }
-    setIsDialogOpen(false);
-    setEditingGoal(null);
+    handleCloseDialog();
   };
   
   const handleDelete = (id: number) => {
@@ -75,7 +80,7 @@ export default function GoalsPage() {
           <h1 className="text-3xl font-bold font-headline">Metas do Casal</h1>
           <p className="text-muted-foreground">Sonhos e objetivos para conquistarem juntos.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if(!isOpen) handleCloseDialog() }}>
           <DialogTrigger asChild>
             <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
               <PlusCircle className="mr-2 h-4 w-4" />

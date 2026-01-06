@@ -68,6 +68,12 @@ export default function DatesPage() {
     setIsDialogOpen(true);
   };
   
+  const handleCloseDialog = () => {
+    setEditingDate(null);
+    setSelectedDate(undefined);
+    setIsDialogOpen(false);
+  }
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -82,8 +88,7 @@ export default function DatesPage() {
       const newDate = { id: Date.now(), title, type, observation, date };
       setImportantDates([...importantDates, newDate].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
     }
-    setIsDialogOpen(false);
-    setEditingDate(null);
+    handleCloseDialog();
   };
 
   const handleDelete = (id: number) => {
@@ -98,7 +103,7 @@ export default function DatesPage() {
           <h1 className="text-3xl font-bold font-headline">Datas Importantes</h1>
           <p className="text-muted-foreground">Nunca mais esqueçam uma data especial.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if(!isOpen) handleCloseDialog() }}>
           <DialogTrigger asChild>
             <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
               <PlusCircle className="mr-2 h-4 w-4" />
