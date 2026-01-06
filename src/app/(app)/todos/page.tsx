@@ -14,6 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, DocumentData } from "firebase/firestore";
 import type { ToDoItem } from "@/types";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface UserProfile {
   uid: string;
@@ -85,7 +87,7 @@ export default function TodosPage() {
   }
 
   const handleSaveTodo = async (data: Partial<ToDoItem>) => {
-    if (!todosRef) return;
+    if (!todosRef || !user || !userProfile) return;
     if (editingTodo) {
       const todoDoc = doc(todosRef, editingTodo.id);
       await updateDoc(todoDoc, data);
@@ -94,6 +96,10 @@ export default function TodosPage() {
         ...data,
         status: 'Pendente',
         creationDate: serverTimestamp(),
+        author: {
+          uid: user.uid,
+          displayName: userProfile.displayName,
+        }
       });
     }
     handleCloseDialog();
@@ -155,40 +161,54 @@ export default function TodosPage() {
           <div className="divide-y divide-border">
             {isLoading && <p className="p-4 text-center text-muted-foreground">Carregando tarefas...</p>}
             {!isLoading && sortedTodos?.length === 0 && <p className="p-4 text-center text-muted-foreground">Nenhuma tarefa encontrada. Adicione uma!</p>}
-            {sortedTodos?.map(todo => (
-              <div key={todo.id} className="flex items-center p-4 gap-4 hover:bg-accent">
-                <Checkbox id={`todo-${todo.id}`} checked={todo.status === 'Concluído'} onCheckedChange={() => toggleTodoStatus(todo)}/>
-                <div className="flex-1 grid gap-1">
-                  <label htmlFor={`todo-${todo.id}`} className={`font-medium ${todo.status === 'Concluído' ? 'line-through text-muted-foreground' : ''}`}>
-                    {todo.title}
-                  </label>
-                  {todo.description && <p className="text-sm text-muted-foreground">{todo.description}</p>}
-                  {todo.creationDate && (
-                    <p className="text-xs text-muted-foreground">
-                      Criado em: {todo.creationDate.toDate().toLocaleDateString('pt-BR')}
-                      {todo.completionDate && ` | Concluído em: ${todo.completionDate.toDate().toLocaleDateString('pt-BR')}`}
-                    </p>
+            <TooltipProvider>
+              {sortedTodos?.map(todo => (
+                <div key={todo.id} className="flex items-center p-4 gap-4 hover:bg-accent">
+                  <Checkbox id={`todo-${todo.id}`} checked={todo.status === 'Concluído'} onCheckedChange={() => toggleTodoStatus(todo)}/>
+                  <div className="flex-1 grid gap-1">
+                    <label htmlFor={`todo-${todo.id}`} className={`font-medium ${todo.status === 'Concluído' ? 'line-through text-muted-foreground' : ''}`}>
+                      {todo.title}
+                    </label>
+                    {todo.description && <p className="text-sm text-muted-foreground">{todo.description}</p>}
+                    {todo.creationDate && (
+                      <p className="text-xs text-muted-foreground">
+                        Criado em: {todo.creationDate.toDate().toLocaleDateString('pt-BR')}
+                        {todo.completionDate && ` | Concluído em: ${todo.completionDate.toDate().toLocaleDateString('pt-BR')}`}
+                      </p>
+                    )}
+                  </div>
+                  {todo.author && (
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Avatar className="h-6 w-6">
+                            <AvatarFallback className="text-xs">{todo.author.displayName.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Adicionado por: {todo.author.displayName}</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
+                  <Badge variant={todo.status === 'Concluído' ? 'secondary' : (todo.status === 'Em andamento' ? 'outline' : 'default')}
+                      className={todo.status === 'Concluído' ? '' : 'bg-primary/20 text-primary-foreground border-primary/20'}>
+                      {todo.status}
+                  </Badge>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0">
+                        <span className="sr-only">Abrir menu</span>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleOpenDialog(todo)}>Editar</DropdownMenuItem>
+                      {todo.status !== 'Concluído' && <DropdownMenuItem onClick={() => toggleTodoStatus(todo)}>Marcar como concluído</DropdownMenuItem>}
+                      <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteTodo(todo.id)}>Deletar</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <Badge variant={todo.status === 'Concluído' ? 'secondary' : (todo.status === 'Em andamento' ? 'outline' : 'default')}
-                    className={todo.status === 'Concluído' ? '' : 'bg-primary/20 text-primary-foreground border-primary/20'}>
-                    {todo.status}
-                </Badge>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
-                      <span className="sr-only">Abrir menu</span>
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleOpenDialog(todo)}>Editar</DropdownMenuItem>
-                    {todo.status !== 'Concluído' && <DropdownMenuItem onClick={() => toggleTodoStatus(todo)}>Marcar como concluído</DropdownMenuItem>}
-                    <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteTodo(todo.id)}>Deletar</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            ))}
+              ))}
+            </TooltipProvider>
           </div>
         </CardContent>
       </Card>

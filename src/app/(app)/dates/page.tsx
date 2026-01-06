@@ -19,6 +19,8 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import type { ImportantDate } from "@/types";
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface UserProfile {
   uid: string;
@@ -170,12 +172,18 @@ export default function DatesPage() {
   }
 
   const handleSaveDate = async (data: Partial<ImportantDate>) => {
-    if (!datesRef) return;
+    if (!datesRef || !user || !userProfile) return;
     if (editingDate) {
       const dateDoc = doc(datesRef, editingDate.id);
       await updateDoc(dateDoc, data);
     } else {
-      await addDoc(datesRef, data);
+      await addDoc(datesRef, {
+        ...data,
+        author: {
+          uid: user.uid,
+          displayName: userProfile.displayName
+        }
+      });
     }
     handleCloseDialog();
   };
@@ -215,44 +223,58 @@ export default function DatesPage() {
       
       {isLoading && <p className="text-center text-muted-foreground">Carregando datas...</p>}
       {!isLoading && sortedDates?.length === 0 && <p className="text-center text-muted-foreground">Nenhuma data adicionada ainda.</p>}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {sortedDates?.map(d => (
-          <Card key={d.id} className="flex flex-col">
-            <CardHeader>
-             <div className="flex flex-row items-center justify-between">
-                <div className="flex items-center gap-4">
-                    {typeIcons[d.type] || <Gift className="h-6 w-6 text-primary" />}
-                    <div>
-                        <CardTitle className="font-headline">{d.title}</CardTitle>
-                        <p className="text-muted-foreground text-sm">{format(parseISO(d.date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
-                    </div>
+      <TooltipProvider>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {sortedDates?.map(d => (
+            <Card key={d.id} className="flex flex-col">
+              <CardHeader>
+              <div className="flex flex-row items-center justify-between">
+                  <div className="flex items-center gap-4">
+                      {typeIcons[d.type] || <Gift className="h-6 w-6 text-primary" />}
+                      <div>
+                          <CardTitle className="font-headline">{d.title}</CardTitle>
+                          <p className="text-muted-foreground text-sm">{format(parseISO(d.date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
+                      </div>
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0">
+                        <span className="sr-only">Abrir menu</span>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleOpenDialog(d)}>Editar</DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(d.id)}>Deletar</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0">
-                      <span className="sr-only">Abrir menu</span>
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleOpenDialog(d)}>Editar</DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(d.id)}>Deletar</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-grow">
-              <Countdown date={d.date} />
-              {d.observation && (
-                 <p className="text-sm text-foreground mt-2 pt-2 border-t">{d.observation}</p>
-              )}
-            </CardContent>
-            <CardFooter>
-              <Badge variant="outline">{d.type}</Badge>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+              </CardHeader>
+              <CardContent className="flex-grow">
+                <Countdown date={d.date} />
+                {d.observation && (
+                  <p className="text-sm text-foreground mt-2 pt-2 border-t">{d.observation}</p>
+                )}
+              </CardContent>
+              <CardFooter className="flex justify-between items-center">
+                <Badge variant="outline">{d.type}</Badge>
+                {d.author && (
+                    <Tooltip>
+                        <TooltipTrigger>
+                            <Avatar className="h-6 w-6">
+                                <AvatarFallback className="text-xs">{d.author.displayName.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Adicionado por: {d.author.displayName}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                )}
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      </TooltipProvider>
     </div>
   );
 }

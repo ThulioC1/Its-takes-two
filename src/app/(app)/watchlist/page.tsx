@@ -15,6 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import type { MovieSeries } from "@/types";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 interface UserProfile {
   uid: string;
@@ -119,7 +122,7 @@ export default function WatchlistPage() {
   };
   
   const handleSaveItem = async (data: Partial<MovieSeries>) => {
-    if(!watchlistRef) return;
+    if(!watchlistRef || !user || !userProfile) return;
     const fullData = {
         ...data,
         link: data.link || `https://picsum.photos/seed/${Date.now()}/300/450`
@@ -131,6 +134,10 @@ export default function WatchlistPage() {
       await addDoc(watchlistRef, {
         ...fullData,
         status: 'To Watch',
+        author: {
+            uid: user.uid,
+            displayName: userProfile.displayName
+        }
       });
     }
 
@@ -182,11 +189,24 @@ export default function WatchlistPage() {
                     <span>{item.type}</span>
                 </div>
             </CardContent>
-            {item.status === 'Watched' && item.dateWatched && (
-                <CardFooter className="p-3 pt-0 text-xs text-muted-foreground">
-                    Assistido em {item.dateWatched.toDate().toLocaleDateString('pt-BR')}
-                </CardFooter>
-            )}
+            
+            <CardFooter className="p-3 pt-0 text-xs text-muted-foreground flex justify-between items-center">
+                {item.status === 'Watched' && item.dateWatched ? (
+                    <span>Assistido em {item.dateWatched.toDate().toLocaleDateString('pt-BR')}</span>
+                ) : <span />}
+                 {item.author && (
+                    <Tooltip>
+                        <TooltipTrigger>
+                            <Avatar className="h-5 w-5">
+                                <AvatarFallback className="text-[10px]">{item.author.displayName.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Adicionado por: {item.author.displayName}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                )}
+            </CardFooter>
         </Card>
     ));
 }
@@ -216,7 +236,7 @@ export default function WatchlistPage() {
             />
           </DialogContent>
         </Dialog>
-
+    <TooltipProvider>
       <Tabs defaultValue="To Watch">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="To Watch">Para Assistir</TabsTrigger>
@@ -239,6 +259,7 @@ export default function WatchlistPage() {
           </div>
         </TabsContent>
       </Tabs>
+    </TooltipProvider>
     </div>
   );
 }

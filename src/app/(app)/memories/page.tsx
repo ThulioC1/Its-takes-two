@@ -94,7 +94,7 @@ export default function MemoriesPage() {
   }
   
   const handleSaveMemory = async (data: Partial<Memory>) => {
-    if(!memoriesRef) return;
+    if(!memoriesRef || !user || !userProfile) return;
     if (editingMemory) {
         const memoryDoc = doc(memoriesRef, editingMemory.id);
         await updateDoc(memoryDoc, data);
@@ -103,6 +103,10 @@ export default function MemoriesPage() {
         ...data,
         date: serverTimestamp(), 
         image: data.image || `https://picsum.photos/seed/${Math.floor(Math.random()*100)}/400/300`,
+        author: {
+          uid: user.uid,
+          displayName: userProfile.displayName
+        }
       };
       await addDoc(memoriesRef, newMemory);
     }
@@ -147,6 +151,7 @@ export default function MemoriesPage() {
 
       <div className="relative pl-6 after:absolute after:inset-y-0 after:left-8 after:w-px after:bg-border md:pl-0 md:after:left-1/2 md:after:-translate-x-1/2">
         {sortedMemories?.map((memory, index) => {
+          const authorInitial = memory.author?.displayName?.charAt(0) || '?';
           return (
             <div key={memory.id} className="relative grid md:grid-cols-[1fr_auto_1fr] md:gap-x-12 mb-12">
               {/* Card */}

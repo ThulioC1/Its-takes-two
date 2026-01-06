@@ -15,6 +15,8 @@ import { Slider } from '@/components/ui/slider';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import type { CoupleGoal } from "@/types";
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface UserProfile {
   uid: string;
@@ -120,11 +122,18 @@ export default function GoalsPage() {
   }
 
   const handleSaveGoal = async (data: Partial<CoupleGoal>) => {
-    if (!goalsRef) return;
-    const fullData = { ...data, status: (data.progress || 0) === 100 ? 'Concluído' : 'Em andamento' }
+    if (!goalsRef || !user || !userProfile) return;
+    const fullData = { 
+        ...data, 
+        status: (data.progress || 0) === 100 ? 'Concluído' : 'Em andamento',
+        author: {
+            uid: user.uid,
+            displayName: userProfile.displayName
+        }
+    }
     if (editingGoal) {
       const goalDoc = doc(goalsRef, editingGoal.id);
-      await updateDoc(goalDoc, fullData);
+      await updateDoc(goalDoc, data); // only pass partial data on update
     } else {
       await addDoc(goalsRef, fullData);
     }
@@ -165,43 +174,57 @@ export default function GoalsPage() {
 
       {isLoading && <p className="text-center text-muted-foreground">Carregando metas...</p>}
       {!isLoading && sortedGoals?.length === 0 && <p className="text-center text-muted-foreground">Nenhuma meta adicionada.</p>}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {sortedGoals?.map(goal => (
-          <Card key={goal.id} className="flex flex-col">
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                  <CardTitle className="font-headline text-lg pr-4">{goal.title}</CardTitle>
-                  <div className="flex items-center gap-2">
-                    <span className={typeInfo[goal.type]?.color}>{typeInfo[goal.type]?.icon}</span>
-                     <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <span className="sr-only">Abrir menu</span>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleOpenDialog(goal)}>Editar</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(goal.id)}>Deletar</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-              </div>
-              {goal.description && <CardDescription>{goal.description}</CardDescription>}
-            </CardHeader>
-            <CardContent className="flex-grow">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-muted-foreground">Progresso</span>
-                <span className="text-sm font-semibold">{goal.progress}%</span>
-              </div>
-              <Progress value={goal.progress} />
-            </CardContent>
-            <CardFooter className="flex justify-between">
-              <Badge variant={goal.status === 'Concluído' ? 'secondary' : 'outline'}>{goal.status}</Badge>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+      <TooltipProvider>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {sortedGoals?.map(goal => (
+            <Card key={goal.id} className="flex flex-col">
+              <CardHeader>
+                <div className="flex justify-between items-start">
+                    <CardTitle className="font-headline text-lg pr-4">{goal.title}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      <span className={typeInfo[goal.type]?.color}>{typeInfo[goal.type]?.icon}</span>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Abrir menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleOpenDialog(goal)}>Editar</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(goal.id)}>Deletar</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                </div>
+                {goal.description && <CardDescription>{goal.description}</CardDescription>}
+              </CardHeader>
+              <CardContent className="flex-grow">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-muted-foreground">Progresso</span>
+                  <span className="text-sm font-semibold">{goal.progress}%</span>
+                </div>
+                <Progress value={goal.progress} />
+              </CardContent>
+              <CardFooter className="flex justify-between items-center">
+                <Badge variant={goal.status === 'Concluído' ? 'secondary' : 'outline'}>{goal.status}</Badge>
+                {goal.author && (
+                    <Tooltip>
+                        <TooltipTrigger>
+                            <Avatar className="h-6 w-6">
+                                <AvatarFallback className="text-xs">{goal.author.displayName.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>Adicionado por: {goal.author.displayName}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                )}
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      </TooltipProvider>
     </div>
   );
 }

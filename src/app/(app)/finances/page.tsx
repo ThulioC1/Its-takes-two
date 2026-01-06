@@ -13,8 +13,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, query, where } from "firebase/firestore";
+import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, getDoc, query, where } from "firebase/firestore";
 import type { Expense, UserProfile } from "@/types";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 const categories = ['Alimentação', 'Lazer', 'Moradia', 'Transporte', 'Outros'];
 
@@ -98,39 +101,34 @@ export default function FinancesPage() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
 
+  useEffect(() => {
+    const fetchCoupleMembers = async () => {
+        if (!firestore || !coupleId || !user) return;
+
+        const coupleDocRef = doc(firestore, 'couples', coupleId);
+        const coupleDocSnap = await getDoc(coupleDocRef);
+
+        if (coupleDocSnap.exists()) {
+            const memberIds = coupleDocSnap.data().memberIds || [];
+            const memberPromises = memberIds.map((id: string) => getDoc(doc(firestore, 'users', id)));
+            const memberDocs = await Promise.all(memberPromises);
+            const members = memberDocs.map(snap => snap.data() as UserProfile).filter(Boolean);
+            setCoupleMembers(members);
+        } else if (userProfile) {
+            // Fallback for single user before linking
+            setCoupleMembers([userProfile]);
+        }
+    };
+
+    fetchCoupleMembers();
+  }, [firestore, coupleId, user, userProfile]);
+
   const expensesRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return collection(firestore, 'couples', coupleId, 'expenses');
   }, [firestore, coupleId]);
 
   const { data: expenses, isLoading } = useCollection<Expense>(expensesRef as any);
-
-  useEffect(() => {
-    const fetchCoupleMembers = async () => {
-      if (!firestore || !coupleId || !user) return;
-
-      const usersRef = collection(firestore, 'users');
-      // This query is now safe as it's more specific than listing all users.
-      // However, it still requires a composite index on (coupleId, uid).
-      // A more scalable approach is to get member UIDs from a 'couples' document.
-      const q = query(usersRef, where("coupleId", "==", coupleId));
-      
-      try {
-        const querySnapshot = await getDocs(q);
-        const members = querySnapshot.docs.map(doc => doc.data() as UserProfile);
-        setCoupleMembers(members);
-      } catch (error) {
-        console.error("Error fetching couple members:", error);
-        // If the query fails due to permissions, fetch at least the current user
-        if (userProfile) {
-          setCoupleMembers([userProfile]);
-        }
-      }
-    };
-
-    fetchCoupleMembers();
-  }, [firestore, coupleId, user, userProfile]);
-
 
   const coupleMembersMap = useMemo(() => {
     if (!coupleMembers) return {};
@@ -192,12 +190,19 @@ export default function FinancesPage() {
   }
   
   const handleSaveExpense = async (data: Partial<Expense>) => {
-    if (!expensesRef) return;
+    if (!expensesRef || !user || !userProfile) return;
     if (editingExpense) {
       const expenseDoc = doc(expensesRef, editingExpense.id);
       await updateDoc(expenseDoc, data);
     } else {
-      await addDoc(expensesRef, { ...data, date: serverTimestamp() });
+      await addDoc(expensesRef, { 
+        ...data, 
+        date: serverTimestamp(),
+        author: {
+          uid: user.uid,
+          displayName: userProfile.displayName
+        }
+      });
     }
     handleCloseDialog();
   };
@@ -278,43 +283,60 @@ export default function FinancesPage() {
             {isLoading && <p className="text-center text-muted-foreground py-4">Carregando despesas...</p>}
             {!isLoading && sortedExpenses?.length === 0 && <p className="text-center text-muted-foreground py-4">Nenhuma despesa adicionada.</p>}
             {sortedExpenses.length > 0 && (
+                <TooltipProvider>
                 <Table>
-                <TableHeader>
-                    <TableRow>
-                    <TableHead>Categoria</TableHead>
-                    <TableHead>Valor</TableHead>
-                    <TableHead className="hidden sm:table-cell">Pago por</TableHead>
-                    <TableHead className="hidden md:table-cell">Data</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {sortedExpenses.map(expense => (
-                    <TableRow key={expense.id}>
-                        <TableCell className="font-medium">{expense.category}</TableCell>
-                        <TableCell>R$ {expense.value.toFixed(2).replace('.', ',')}</TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                            <Badge variant="outline">{coupleMembersMap[expense.payer] || 'Desconhecido'}</Badge>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">{expense.date.toDate().toLocaleDateString('pt-BR')}</TableCell>
-                        <TableCell className="text-right">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
-                                <span className="sr-only">Abrir menu</span>
-                                <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleOpenDialog(expense)}>Editar</DropdownMenuItem>
-                                <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(expense.id)}>Deletar</DropdownMenuItem>
-                            </DropdownMenuContent>
-                            </DropdownMenu>
-                        </TableCell>
-                    </TableRow>
-                    ))}
-                </TableBody>
+                  <TableHeader>
+                      <TableRow>
+                      <TableHead>Categoria</TableHead>
+                      <TableHead>Valor</TableHead>
+                      <TableHead className="hidden sm:table-cell">Pago por</TableHead>
+                      <TableHead className="hidden md:table-cell">Data</TableHead>
+                      <TableHead>Autor</TableHead>
+                      <TableHead className="text-right">Ações</TableHead>
+                      </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                      {sortedExpenses.map(expense => (
+                      <TableRow key={expense.id}>
+                          <TableCell className="font-medium">{expense.category}</TableCell>
+                          <TableCell>R$ {expense.value.toFixed(2).replace('.', ',')}</TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                              <Badge variant="outline">{coupleMembersMap[expense.payer] || 'Desconhecido'}</Badge>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">{expense.date.toDate().toLocaleDateString('pt-BR')}</TableCell>
+                          <TableCell>
+                            {expense.author && (
+                                <Tooltip>
+                                    <TooltipTrigger>
+                                        <Avatar className="h-6 w-6">
+                                            <AvatarFallback className="text-xs">{expense.author.displayName.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Adicionado por: {expense.author.displayName}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                          <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <span className="sr-only">Abrir menu</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => handleOpenDialog(expense)}>Editar</DropdownMenuItem>
+                                  <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(expense.id)}>Deletar</DropdownMenuItem>
+                              </DropdownMenuContent>
+                              </DropdownMenu>
+                          </TableCell>
+                      </TableRow>
+                      ))}
+                  </TableBody>
                 </Table>
+                </TooltipProvider>
             )}
           </CardContent>
         </Card>
@@ -347,5 +369,3 @@ export default function FinancesPage() {
     </div>
   );
 }
-
-    

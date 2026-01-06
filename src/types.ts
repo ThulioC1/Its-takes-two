@@ -1,5 +1,10 @@
 import type { Timestamp } from 'firebase/firestore';
 
+export interface Author {
+    uid: string;
+    displayName: string;
+}
+
 export interface UserProfile {
     uid: string;
     email: string;
@@ -14,6 +19,7 @@ export interface ToDoItem {
     status: 'Pendente' | 'Em andamento' | 'Concluído';
     creationDate: Timestamp;
     completionDate?: Timestamp | null;
+    author: Author;
 }
 
 export interface Expense {
@@ -23,6 +29,7 @@ export interface Expense {
     payer: string; // This is the UID of the user who paid
     date: Timestamp;
     observation?: string;
+    author: Author;
 }
 
 export interface ImportantDate {
@@ -31,6 +38,7 @@ export interface ImportantDate {
     date: string; // Storing as 'YYYY-MM-DD' string
     type: string;
     observation?: string;
+    author: Author;
 }
 
 export interface CoupleGoal {
@@ -40,6 +48,7 @@ export interface CoupleGoal {
     progress: number;
     status: 'Em andamento' | 'Concluído';
     type: string;
+    author: Author;
 }
 
 export interface Memory {
@@ -48,6 +57,7 @@ export interface Memory {
     description: string;
     date: Timestamp;
     location?: string;
+    author: Author;
 }
 
 export interface LoveLetter {
@@ -58,6 +68,7 @@ export interface LoveLetter {
     scheduledDate: Timestamp;
     isVisible: boolean;
     timestamp: Timestamp; // Redundant? scheduledDate could be used
+    author: Author;
 }
 
 export interface Post {
@@ -68,6 +79,7 @@ export interface Post {
     dateTime: Timestamp;
     likes: string[]; // Array of UIDs
     comments: number; // For simplicity, we'll just count them
+    author: Author;
 }
 
 export interface MovieSeries {
@@ -78,4 +90,5 @@ export interface MovieSeries {
     link?: string;
     status: 'To Watch' | 'Watching' | 'Watched';
     dateWatched?: Timestamp | null;
+    author: Author;
 }
