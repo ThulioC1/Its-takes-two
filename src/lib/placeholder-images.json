@@ -38,9 +38,9 @@
     },
     {
       "id": "couple-banner",
-      "description": "A banner image for the dashboard, showing two people's hands intertwined.",
-      "imageUrl": "https://images.unsplash.com/photo-15150228383-29419c434927?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxjb3VwbGUlMjBoYW5kc3xlbnwwfHx8fDE3NzE1NDg5MTB8MA&ixlib=rb-4.1.0&q=80&w=1080",
-      "imageHint": "couple hands"
+      "description": "Abstract intertwined lines representing a couple's journey.",
+      "imageUrl": "https://images.unsplash.com/photo-1758443391143-ad65d76891df?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxhYnN0cmFjdCUyMHBhdGh8ZW58MHx8fHwxNzY3NjQ2MTczfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "abstract path"
     }
   ]
 }

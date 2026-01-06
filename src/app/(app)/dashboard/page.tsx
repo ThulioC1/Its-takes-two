@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -59,8 +58,14 @@ const initialPosts = [
     { id: 1, userId: 'user-avatar-1', name: 'Maria', content: 'Lembrando do nosso primeiro encontro hoje! Parece que foi ontem. ❤️', time: 'há 2 horas', likes: 5, comments: 2 },
 ];
 
+interface DashboardProps {
+  dates?: any[];
+  todos?: any[];
+  posts?: any[];
+  expenses?: any[];
+}
 
-export default function DashboardPage() {
+export default function DashboardPage({ dates = initialDates, todos = initialTodos, posts = initialPosts, expenses = initialExpenses }: DashboardProps) {
   const [isClient, setIsClient] = useState(false);
   
   useEffect(() => {
@@ -70,17 +75,17 @@ export default function DashboardPage() {
   const userAvatar1 = PlaceHolderImages.find((p) => p.id === 'user-avatar-1');
   const bannerImage = PlaceHolderImages.find((p) => p.id === 'couple-banner');
 
-  const upcomingDates = initialDates
+  const upcomingDates = dates
     .map(d => ({...d, daysLeft: differenceInDays(parseISO(d.date), new Date())}))
     .filter(d => d.daysLeft >= 0)
     .sort((a, b) => a.daysLeft - b.daysLeft)
     .slice(0, 2);
 
-  const pendingTodos = initialTodos.filter(t => t.status !== 'Concluído');
+  const pendingTodos = todos.filter(t => t.status !== 'Concluído');
 
-  const latestPost = initialPosts[0];
+  const latestPost = posts[0];
   
-  const monthlyExpenses = initialExpenses.reduce((acc, expense) => {
+  const monthlyExpenses = expenses.reduce((acc, expense) => {
     const month = format(parseISO(expense.date), 'MMM');
     acc[month] = (acc[month] || 0) + expense.value;
     return acc;
@@ -178,7 +183,7 @@ export default function DashboardPage() {
                     {userAvatar1 && <AvatarImage src={userAvatar1.imageUrl} />}
                     <AvatarFallback>{latestPost.name.charAt(0)}</AvatarFallback>
                   </Avatar>
-                  <div className="space-y-2 flex-1">
+                  <div className="space-y-2 flex-1 min-w-0">
                     <p className="text-sm font-medium">{latestPost.name}</p>
                     <p className="text-sm text-muted-foreground bg-accent p-3 rounded-lg truncate">
                       {latestPost.content}
@@ -205,9 +210,6 @@ export default function DashboardPage() {
             <CardTitle className="text-lg font-medium font-headline">
               Balanço Financeiro
             </CardTitle>
-            <CardDescription>
-              Resumo de despesas compartilhadas.
-            </CardDescription>
           </CardHeader>
           <CardContent className="pl-2">
             <ChartContainer config={chartConfig} className="h-[250px] w-full">
@@ -238,5 +240,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
