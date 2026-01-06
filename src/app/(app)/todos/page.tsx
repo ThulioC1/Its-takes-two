@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -11,19 +11,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useCollection, useFirestore, useUser, useMemoFirebase } from "@/firebase";
+import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import type { ToDoItem } from "@/types";
 
-const initialTodos = [
-  { id: 1, title: 'Assistir ao novo filme da Marvel', description: 'Comprar pipoca e refri!', status: 'Pendente', created: '2024-07-10' },
-  { id: 2, title: 'Jantar romântico no sábado', description: 'Reservar mesa no restaurante italiano.', status: 'Pendente', created: '2024-07-09' },
-  { id: 3, title: 'Planejar viagem de férias', description: 'Pesquisar destinos na Europa.', status: 'Em andamento', created: '2024-07-05' },
-  { id: 4, title: 'Passeio no parque', description: 'Levar a cesta de piquenique.', status: 'Concluído', created: '2024-07-01', completed: '2024-07-03' },
-];
-
-function TodoForm({ todo, onSave, onCancel }: { todo?: any; onSave: (data: any) => void; onCancel: () => void; }) {
+function TodoForm({ todo, onSave, onCancel }: { todo?: ToDoItem; onSave: (data: Partial<ToDoItem>) => void; onCancel: () => void; }) {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const data = {
+    const data: Partial<ToDoItem> = {
       title: formData.get('title') as string,
       description: formData.get('description') as string,
     };
@@ -49,16 +45,21 @@ function TodoForm({ todo, onSave, onCancel }: { todo?: any; onSave: (data: any) 
 }
 
 export default function TodosPage() {
-  const [todos, setTodos] = useState(initialTodos);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingTodo, setEditingTodo] = useState<any>(null);
-  const [isClient, setIsClient] = useState(false);
+  const [editingTodo, setEditingTodo] = useState<ToDoItem | null>(null);
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const coupleId = user?.uid; // Placeholder for couple ID logic
 
-  const handleOpenDialog = (todo: any = null) => {
+  const todosRef = useMemoFirebase(() => {
+    if (!firestore || !coupleId) return null;
+    return collection(firestore, 'couples', coupleId, 'todos');
+  }, [firestore, coupleId]);
+
+  const { data: todos, isLoading } = useCollection<ToDoItem>(todosRef);
+
+  const handleOpenDialog = (todo: ToDoItem | null = null) => {
     setEditingTodo(todo);
     setIsDialogOpen(true);
   };
@@ -68,37 +69,35 @@ export default function TodosPage() {
     setIsDialogOpen(false);
   }
 
-  const handleSaveTodo = (data: any) => {
+  const handleSaveTodo = async (data: Partial<ToDoItem>) => {
+    if (!todosRef) return;
     if (editingTodo) {
-      setTodos(todos.map(t => t.id === editingTodo.id ? { ...t, ...data } : t));
+      const todoDoc = doc(todosRef, editingTodo.id);
+      await updateDoc(todoDoc, data);
     } else {
-      const newTodo = {
-        id: Date.now(),
+      await addDoc(todosRef, {
         ...data,
         status: 'Pendente',
-        created: new Date().toISOString().split('T')[0],
-      };
-      setTodos([newTodo, ...todos]);
+        creationDate: serverTimestamp(),
+      });
     }
     handleCloseDialog();
   };
 
-  const handleDeleteTodo = (id: number) => {
-    setTodos(todos.filter(t => t.id !== id));
+  const handleDeleteTodo = async (id: string) => {
+    if (!todosRef) return;
+    const todoDoc = doc(todosRef, id);
+    await deleteDoc(todoDoc);
   };
   
-  const toggleTodoStatus = (id: number) => {
-    setTodos(todos.map(todo => {
-        if (todo.id === id) {
-            const isCompleted = todo.status === 'Concluído';
-            return {
-                ...todo,
-                status: isCompleted ? 'Pendente' : 'Concluído',
-                completed: isCompleted ? undefined : new Date().toISOString().split('T')[0]
-            };
-        }
-        return todo;
-    }));
+  const toggleTodoStatus = async (todo: ToDoItem) => {
+    if (!todosRef) return;
+    const todoDoc = doc(todosRef, todo.id);
+    const isCompleted = todo.status === 'Concluído';
+    await updateDoc(todoDoc, {
+        status: isCompleted ? 'Pendente' : 'Concluído',
+        completionDate: isCompleted ? null : serverTimestamp()
+    });
 };
 
   return (
@@ -120,7 +119,7 @@ export default function TodosPage() {
               <DialogTitle>{editingTodo ? 'Editar Tarefa' : 'Nova Tarefa'}</DialogTitle>
             </DialogHeader>
             <TodoForm 
-              todo={editingTodo} 
+              todo={editingTodo ?? undefined}
               onSave={handleSaveTodo}
               onCancel={handleCloseDialog}
             />
@@ -130,18 +129,22 @@ export default function TodosPage() {
       <Card>
         <CardContent className="p-0">
           <div className="divide-y divide-border">
-            {isClient && todos.map(todo => (
+            {isLoading && <p className="p-4 text-center text-muted-foreground">Carregando tarefas...</p>}
+            {!isLoading && todos?.length === 0 && <p className="p-4 text-center text-muted-foreground">Nenhuma tarefa encontrada. Adicione uma!</p>}
+            {todos?.map(todo => (
               <div key={todo.id} className="flex items-center p-4 gap-4 hover:bg-accent">
-                <Checkbox id={`todo-${todo.id}`} checked={todo.status === 'Concluído'} onCheckedChange={() => toggleTodoStatus(todo.id)}/>
+                <Checkbox id={`todo-${todo.id}`} checked={todo.status === 'Concluído'} onCheckedChange={() => toggleTodoStatus(todo)}/>
                 <div className="flex-1 grid gap-1">
                   <label htmlFor={`todo-${todo.id}`} className={`font-medium ${todo.status === 'Concluído' ? 'line-through text-muted-foreground' : ''}`}>
                     {todo.title}
                   </label>
                   <p className="text-sm text-muted-foreground">{todo.description}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Criado em: {new Date(todo.created).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
-                    {todo.completed && ` | Concluído em: ${new Date(todo.completed).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`}
-                  </p>
+                  {todo.creationDate && (
+                    <p className="text-xs text-muted-foreground">
+                      Criado em: {new Date(todo.creationDate.toDate()).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                      {todo.completionDate && ` | Concluído em: ${new Date(todo.completionDate.toDate()).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}`}
+                    </p>
+                  )}
                 </div>
                 <Badge variant={todo.status === 'Concluído' ? 'secondary' : (todo.status === 'Em andamento' ? 'outline' : 'default')}
                     className={todo.status === 'Concluído' ? '' : 'bg-primary/20 text-primary-foreground border-primary/20'}>
@@ -156,7 +159,7 @@ export default function TodosPage() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => handleOpenDialog(todo)}>Editar</DropdownMenuItem>
-                    {todo.status !== 'Concluído' && <DropdownMenuItem onClick={() => toggleTodoStatus(todo.id)}>Marcar como concluído</DropdownMenuItem>}
+                    {todo.status !== 'Concluído' && <DropdownMenuItem onClick={() => toggleTodoStatus(todo)}>Marcar como concluído</DropdownMenuItem>}
                     <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteTodo(todo.id)}>Deletar</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
