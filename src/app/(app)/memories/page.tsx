@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { Camera, MapPin, PlusCircle, MoreHorizontal } from "lucide-react";
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -94,7 +94,7 @@ export default function MemoriesPage() {
   }
   
   const handleSaveMemory = async (data: Partial<Memory>) => {
-    if(!memoriesRef || !user || !userProfile) return;
+    if(!memoriesRef || !user || !user.displayName) return;
     if (editingMemory) {
         const memoryDoc = doc(memoriesRef, editingMemory.id);
         await updateDoc(memoryDoc, data);
@@ -105,7 +105,7 @@ export default function MemoriesPage() {
         image: data.image || `https://picsum.photos/seed/${Math.floor(Math.random()*100)}/400/300`,
         author: {
           uid: user.uid,
-          displayName: userProfile.displayName
+          displayName: user.displayName
         }
       };
       await addDoc(memoriesRef, newMemory);

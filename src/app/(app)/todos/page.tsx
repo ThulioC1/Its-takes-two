@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -87,7 +87,7 @@ export default function TodosPage() {
   }
 
   const handleSaveTodo = async (data: Partial<ToDoItem>) => {
-    if (!todosRef || !user || !userProfile) return;
+    if (!todosRef || !user || !user.displayName) return;
     if (editingTodo) {
       const todoDoc = doc(todosRef, editingTodo.id);
       await updateDoc(todoDoc, data);
@@ -98,7 +98,7 @@ export default function TodosPage() {
         creationDate: serverTimestamp(),
         author: {
           uid: user.uid,
-          displayName: userProfile.displayName,
+          displayName: user.displayName,
         }
       });
     }
@@ -121,12 +121,14 @@ export default function TodosPage() {
     });
 };
 
-  const sortedTodos = useMemoFirebase(() => {
+  const sortedTodos = useMemo(() => {
     if (!todos) return [];
     return [...todos].sort((a, b) => {
       if (a.status === 'Concluído' && b.status !== 'Concluído') return 1;
       if (a.status !== 'Concluído' && b.status === 'Concluído') return -1;
-      return (b.creationDate?.toDate()?.getTime() || 0) - (a.creationDate?.toDate()?.getTime() || 0);
+      const timeA = a.creationDate?.toDate?.()?.getTime() || 0;
+      const timeB = b.creationDate?.toDate?.()?.getTime() || 0;
+      return timeB - timeA;
     });
   }, [todos]);
 

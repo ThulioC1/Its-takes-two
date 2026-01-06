@@ -177,7 +177,7 @@ export default function WatchlistPage() {
   };
   
   const handleSaveItem = async (data: Partial<MovieSeries>) => {
-    if(!watchlistRef || !user || !userProfile) return;
+    if(!watchlistRef || !user || !user.displayName) return;
 
     // Dynamically build the data object to avoid sending undefined fields
     const dataToSave: any = {
@@ -205,7 +205,7 @@ export default function WatchlistPage() {
         status: 'To Watch',
         author: {
             uid: user.uid,
-            displayName: userProfile.displayName
+            displayName: user.displayName
         }
       });
     }

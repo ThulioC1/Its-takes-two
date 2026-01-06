@@ -110,10 +110,15 @@ export default function FinancesPage() {
 
         if (coupleDocSnap.exists()) {
             const memberIds = coupleDocSnap.data().memberIds || [];
-            const memberPromises = memberIds.map((id: string) => getDoc(doc(firestore, 'users', id)));
-            const memberDocs = await Promise.all(memberPromises);
-            const members = memberDocs.map(snap => snap.data() as UserProfile).filter(Boolean);
-            setCoupleMembers(members);
+            if (memberIds.length > 0) {
+              const memberPromises = memberIds.map((id: string) => getDoc(doc(firestore, 'users', id)));
+              const memberDocs = await Promise.all(memberPromises);
+              const members = memberDocs.map(snap => snap.data() as UserProfile).filter(Boolean);
+              setCoupleMembers(members);
+            } else if (userProfile) {
+               // Fallback for single user or if memberIds is empty
+               setCoupleMembers([userProfile]);
+            }
         } else if (userProfile) {
             // Fallback for single user before linking
             setCoupleMembers([userProfile]);
@@ -131,7 +136,6 @@ export default function FinancesPage() {
   const { data: expenses, isLoading } = useCollection<Expense>(expensesRef as any);
 
   const coupleMembersMap = useMemo(() => {
-    if (!coupleMembers) return {};
     return coupleMembers.reduce((acc, member) => {
       acc[member.uid] = member.displayName;
       return acc;
@@ -147,13 +151,12 @@ export default function FinancesPage() {
   const totalExpenses = useMemo(() => sortedExpenses.reduce((acc, expense) => acc + expense.value, 0), [sortedExpenses]);
 
   const expensesByPayer = useMemo(() => {
-    if (!expenses || !coupleMembers) return {};
-    return expenses.reduce((acc, expense) => {
+    return sortedExpenses.reduce((acc, expense) => {
       const payerId = expense.payer;
       acc[payerId] = (acc[payerId] || 0) + expense.value;
       return acc;
     }, {} as Record<string, number>);
-  }, [expenses, coupleMembers]);
+  }, [sortedExpenses]);
 
   const topPayer = useMemo(() => {
     if (Object.keys(expensesByPayer).length === 0) return { name: 'N/A', amount: 0 };
@@ -190,7 +193,7 @@ export default function FinancesPage() {
   }
   
   const handleSaveExpense = async (data: Partial<Expense>) => {
-    if (!expensesRef || !user || !userProfile) return;
+    if (!expensesRef || !user || !user.displayName) return;
     if (editingExpense) {
       const expenseDoc = doc(expensesRef, editingExpense.id);
       await updateDoc(expenseDoc, data);
@@ -200,7 +203,7 @@ export default function FinancesPage() {
         date: serverTimestamp(),
         author: {
           uid: user.uid,
-          displayName: userProfile.displayName
+          displayName: user.displayName
         }
       });
     }

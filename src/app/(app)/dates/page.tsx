@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { differenceInDays, format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
@@ -40,13 +40,20 @@ const typeIcons: { [key: string]: React.ReactNode } = {
 function Countdown({ date }: { date: string }) {
   const [countdown, setCountdown] = useState('');
 
-  useEffect(() => {
-    if (!date) return;
+  // Using useMemo to avoid re-calculation on every render, depends only on `date`
+  const daysLeft = useMemo(() => {
+    if (!date) return null;
     const targetDate = parseISO(date);
     const today = new Date();
     today.setHours(0,0,0,0);
-    const daysLeft = differenceInDays(targetDate, today);
+    return differenceInDays(targetDate, today);
+  }, [date]);
 
+  useEffect(() => {
+    if (daysLeft === null) {
+      setCountdown('');
+      return;
+    }
     if (daysLeft < 0) {
       setCountdown('Já passou');
     } else if (daysLeft === 0) {
@@ -56,7 +63,7 @@ function Countdown({ date }: { date: string }) {
     } else {
       setCountdown(`Faltam ${daysLeft} dias`);
     }
-  }, [date]);
+  }, [daysLeft]);
 
   return <p className="text-sm text-muted-foreground">{countdown}</p>;
 }
@@ -71,7 +78,7 @@ function DateForm({ date, onSave, onCancel }: { date?: ImportantDate; onSave: (d
       title: formData.get('title') as string,
       type: formData.get('type') as string,
       observation: formData.get('observation') as string,
-      date: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0],
+      date: selectedDate ? selectedDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     };
     onSave(data);
   };
@@ -172,7 +179,7 @@ export default function DatesPage() {
   }
 
   const handleSaveDate = async (data: Partial<ImportantDate>) => {
-    if (!datesRef || !user || !userProfile) return;
+    if (!datesRef || !user || !user.displayName) return;
     if (editingDate) {
       const dateDoc = doc(datesRef, editingDate.id);
       await updateDoc(dateDoc, data);
@@ -181,7 +188,7 @@ export default function DatesPage() {
         ...data,
         author: {
           uid: user.uid,
-          displayName: userProfile.displayName
+          displayName: user.displayName
         }
       });
     }

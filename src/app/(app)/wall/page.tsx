@@ -92,7 +92,7 @@ export default function WallPage() {
     };
     
     const handlePublish = async () => {
-        if (newPostContent.trim() && postsRef && user && userProfile) {
+        if (newPostContent.trim() && postsRef && user && user.displayName) {
             await addDoc(postsRef, {
                 text: newPostContent,
                 dateTime: serverTimestamp(),
@@ -100,7 +100,7 @@ export default function WallPage() {
                 comments: 0,
                 author: {
                   uid: user.uid,
-                  displayName: userProfile.displayName,
+                  displayName: user.displayName,
                 }
             });
             setNewPostContent('');

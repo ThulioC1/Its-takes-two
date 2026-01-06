@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Calendar, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, doc, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import type { LoveLetter } from "@/types";
 
 // NOTE: This is a placeholder for a real user profile fetching logic
@@ -45,11 +45,16 @@ export default function MessagesPage() {
 
   const sortedMessages = useMemo(() => {
     if (!messages) return [];
-    return [...messages].sort((a, b) => a.timestamp.toDate().getTime() - b.timestamp.toDate().getTime());
+    // Firestore Timestamps need to be converted for sorting, especially if they can be null
+    return [...messages].sort((a, b) => {
+        const timeA = a.scheduledDate?.toDate?.()?.getTime() || 0;
+        const timeB = b.scheduledDate?.toDate?.()?.getTime() || 0;
+        return timeA - timeB;
+    });
   }, [messages]);
 
   const handleSendMessage = async () => {
-    if (newMessage.trim() === "" || !messagesRef || !user) return;
+    if (newMessage.trim() === "" || !messagesRef || !user || !user.displayName) return;
 
     await addDoc(messagesRef, {
       senderId: user.uid,
@@ -57,12 +62,10 @@ export default function MessagesPage() {
       message: newMessage,
       scheduledDate: serverTimestamp(),
       isVisible: true,
-      // The fields below are from the old structure and should be reviewed
-      // userId: user.uid,
-      text: newMessage,
-      timestamp: serverTimestamp(),
-      sent: true,
-      scheduled: false,
+      author: {
+        uid: user.uid,
+        displayName: user.displayName,
+      }
     });
     setNewMessage("");
   };
@@ -70,19 +73,18 @@ export default function MessagesPage() {
   // NOTE: A real scheduling feature would require a backend (Cloud Functions).
   // This is a placeholder to show the UI.
   const handleScheduleMessage = async () => {
-    if (newMessage.trim() === "" || !messagesRef || !user) return;
+    if (newMessage.trim() === "" || !messagesRef || !user || !user.displayName) return;
 
      await addDoc(messagesRef, {
       senderId: user.uid,
       recipientId: '', // This needs logic to determine partner's ID
       message: newMessage,
-      scheduledDate: serverTimestamp(),
+      scheduledDate: serverTimestamp(), // Placeholder, real scheduling needs a future date.
       isVisible: false, // Will become visible on scheduled date
-      // The fields below are from the old structure and should be reviewed
-      text: newMessage,
-      timestamp: serverTimestamp(),
-      sent: true,
-      scheduled: true,
+      author: {
+        uid: user.uid,
+        displayName: user.displayName,
+      }
     });
     setNewMessage("");
   }
@@ -105,7 +107,7 @@ export default function MessagesPage() {
                 <Avatar className="h-8 w-8">
                   {/* Placeholder for partner's avatar */}
                   <AvatarImage src={userAvatars['user-1']} /> 
-                  <AvatarFallback>{'P'}</AvatarFallback>
+                  <AvatarFallback>{message.author?.displayName?.charAt(0) || 'P'}</AvatarFallback>
                 </Avatar>
               )}
               <div className={cn(

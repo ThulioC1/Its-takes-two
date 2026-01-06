@@ -122,20 +122,23 @@ export default function GoalsPage() {
   }
 
   const handleSaveGoal = async (data: Partial<CoupleGoal>) => {
-    if (!goalsRef || !user || !userProfile) return;
-    const fullData = { 
-        ...data, 
+    if (!goalsRef || !user || !user.displayName) return;
+
+    if (editingGoal) {
+      const goalDoc = doc(goalsRef, editingGoal.id);
+      await updateDoc(goalDoc, {
+        ...data,
+        status: (data.progress || 0) === 100 ? 'Concluído' : 'Em andamento',
+      });
+    } else {
+      await addDoc(goalsRef, {
+        ...data,
         status: (data.progress || 0) === 100 ? 'Concluído' : 'Em andamento',
         author: {
             uid: user.uid,
-            displayName: userProfile.displayName
+            displayName: user.displayName
         }
-    }
-    if (editingGoal) {
-      const goalDoc = doc(goalsRef, editingGoal.id);
-      await updateDoc(goalDoc, data); // only pass partial data on update
-    } else {
-      await addDoc(goalsRef, fullData);
+      });
     }
     handleCloseDialog();
   };
