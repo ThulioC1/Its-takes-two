@@ -19,6 +19,35 @@ const initialTodos = [
   { id: 4, title: 'Passeio no parque', description: 'Levar a cesta de piquenique.', status: 'Concluído', created: '2024-07-01', completed: '2024-07-03' },
 ];
 
+function TodoForm({ todo, onSave, onCancel }: { todo?: any; onSave: (data: any) => void; onCancel: () => void; }) {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      title: formData.get('title') as string,
+      description: formData.get('description') as string,
+    };
+    onSave(data);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="title" className="text-right">Título</Label>
+        <Input id="title" name="title" placeholder="O que vocês vão fazer?" className="col-span-3" defaultValue={todo?.title} required />
+      </div>
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="description" className="text-right">Descrição</Label>
+        <Textarea id="description" name="description" placeholder="Detalhes extras..." className="col-span-3" defaultValue={todo?.description} />
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
+        <Button type="submit">Salvar Tarefa</Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
 export default function TodosPage() {
   const [todos, setTodos] = useState(initialTodos);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -34,19 +63,13 @@ export default function TodosPage() {
     setIsDialogOpen(false);
   }
 
-  const handleAddOrUpdateTodo = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const title = formData.get('title') as string;
-    const description = formData.get('description') as string;
-
+  const handleSaveTodo = (data: any) => {
     if (editingTodo) {
-      setTodos(todos.map(t => t.id === editingTodo.id ? { ...t, title, description } : t));
+      setTodos(todos.map(t => t.id === editingTodo.id ? { ...t, ...data } : t));
     } else {
       const newTodo = {
         id: Date.now(),
-        title,
-        description,
+        ...data,
         status: 'Pendente',
         created: new Date().toISOString().split('T')[0],
       };
@@ -80,33 +103,24 @@ export default function TodosPage() {
           <h1 className="text-3xl font-bold font-headline">Lista de Tarefas do Casal</h1>
           <p className="text-muted-foreground">Atividades e planos para fazerem juntos.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCloseDialog() }}>
-          <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Adicionar Tarefa
-            </Button>
-          </DialogTrigger>
+        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Adicionar Tarefa
+        </Button>
+      </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingTodo ? 'Editar Tarefa' : 'Nova Tarefa'}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleAddOrUpdateTodo} className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="title" className="text-right">Título</Label>
-                <Input id="title" name="title" placeholder="O que vocês vão fazer?" className="col-span-3" defaultValue={editingTodo?.title} />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">Descrição</Label>
-                <Textarea id="description" name="description" placeholder="Detalhes extras..." className="col-span-3" defaultValue={editingTodo?.description} />
-              </div>
-              <DialogFooter>
-                <Button type="submit">Salvar Tarefa</Button>
-              </DialogFooter>
-            </form>
+            <TodoForm 
+              todo={editingTodo} 
+              onSave={handleSaveTodo}
+              onCancel={handleCloseDialog}
+            />
           </DialogContent>
         </Dialog>
-      </div>
 
       <Card>
         <CardContent className="p-0">

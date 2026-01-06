@@ -17,6 +17,31 @@ const initialPosts = [
     { id: 3, userId: 'user-avatar-1', name: 'Maria', content: 'Conseguimos terminar a 3ª temporada de The Bear! Que série!! 🤯', time: 'há 3 dias', likes: 8, comments: 4 },
 ];
 
+function PostForm({ post, onSave, onCancel }: { post?: any; onSave: (content: string) => void; onCancel: () => void; }) {
+  const [content, setContent] = useState(post ? post.content : '');
+
+  const handlePublish = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (content.trim()) {
+      onSave(content);
+    }
+  };
+
+  return (
+    <form onSubmit={handlePublish} className="grid gap-4 py-4">
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="content" className="text-right">Conteúdo</Label>
+        <Textarea id="content" name="content" className="col-span-3" value={content} onChange={(e) => setContent(e.target.value)} required />
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
+        <Button type="submit">Salvar</Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+
 export default function WallPage() {
     const [posts, setPosts] = useState(initialPosts);
     const [newPostContent, setNewPostContent] = useState('');
@@ -27,36 +52,34 @@ export default function WallPage() {
     const userAvatar2 = PlaceHolderImages.find((p) => p.id === "user-avatar-2");
     const avatars = { "user-avatar-1": userAvatar1, "user-avatar-2": userAvatar2 };
 
-    const handleOpenDialog = (post: any = null) => {
+    const handleOpenDialog = (post: any) => {
         setEditingPost(post);
-        setNewPostContent(post ? post.content : '');
         setIsDialogOpen(true);
     };
 
     const handleCloseDialog = () => {
         setEditingPost(null);
-        setNewPostContent('');
         setIsDialogOpen(false);
     };
 
-    const handlePublish = (e?: React.FormEvent<HTMLFormElement>) => {
-        e?.preventDefault();
+    const handleSavePost = (content: string) => {
+        setPosts(posts.map(p => p.id === editingPost.id ? { ...p, content } : p));
+        handleCloseDialog();
+    };
+    
+    const handlePublish = () => {
         if (newPostContent.trim()) {
-            if (editingPost) {
-                setPosts(posts.map(p => p.id === editingPost.id ? { ...p, content: newPostContent } : p));
-            } else {
-                const newPost = {
-                    id: Date.now(),
-                    userId: 'user-avatar-1', // Assuming the current user is Maria
-                    name: 'Maria',
-                    content: newPostContent,
-                    time: 'agora',
-                    likes: 0,
-                    comments: 0
-                };
-                setPosts([newPost, ...posts]);
-            }
-            handleCloseDialog();
+            const newPost = {
+                id: Date.now(),
+                userId: 'user-avatar-1', // Assuming the current user is Maria
+                name: 'Maria',
+                content: newPostContent,
+                time: 'agora',
+                likes: 0,
+                comments: 0
+            };
+            setPosts([newPost, ...posts]);
+            setNewPostContent('');
         }
     };
 
@@ -84,9 +107,8 @@ export default function WallPage() {
                         className="mb-2"
                         value={newPostContent}
                         onChange={(e) => setNewPostContent(e.target.value)}
-                        onFocus={() => !editingPost && setNewPostContent('')}
                     />
-                    <Button onClick={() => handlePublish()}>
+                    <Button onClick={handlePublish}>
                         <Send className="mr-2 h-4 w-4" />
                         Publicar
                     </Button>
@@ -95,20 +117,16 @@ export default function WallPage() {
         </CardContent>
       </Card>
 
-        <Dialog open={isDialogOpen} onOpenChange={ (isOpen) => { if (!isOpen) handleCloseDialog() }}>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Editar Publicação</DialogTitle>
                 </DialogHeader>
-                <form onSubmit={handlePublish} className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="content" className="text-right">Conteúdo</Label>
-                        <Textarea id="content" name="content" className="col-span-3" value={newPostContent} onChange={(e) => setNewPostContent(e.target.value)} required />
-                    </div>
-                    <DialogFooter>
-                        <Button type="submit">Salvar</Button>
-                    </DialogFooter>
-                </form>
+                <PostForm 
+                  post={editingPost}
+                  onSave={handleSavePost}
+                  onCancel={handleCloseDialog}
+                />
             </DialogContent>
         </Dialog>
 

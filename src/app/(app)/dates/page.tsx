@@ -31,6 +31,7 @@ const typeIcons: { [key: string]: React.ReactNode } = {
   'Viagem': <Plane className="h-6 w-6 text-blue-500" />,
   'Evento': <PartyPopper className="h-6 w-6 text-amber-500" />,
   'Casamento': <Gift className="h-6 w-6 text-pink-500" />,
+  'Outro': <Gift className="h-6 w-6 text-slate-500" />,
 };
 
 function Countdown({ date }: { date: string }) {
@@ -56,36 +57,98 @@ function Countdown({ date }: { date: string }) {
   return <p className="text-sm text-muted-foreground">{countdown}</p>;
 }
 
+function DateForm({ date, onSave, onCancel }: { date?: any; onSave: (data: any) => void; onCancel: () => void; }) {
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(date ? parseISO(date.date) : new Date());
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      title: formData.get('title') as string,
+      type: formData.get('type') as string,
+      observation: formData.get('observation') as string,
+      date: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0],
+    };
+    onSave(data);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="title" className="text-right">Título</Label>
+        <Input id="title" name="title" className="col-span-3" defaultValue={date?.title} required />
+      </div>
+
+       <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="date" className="text-right">Data</Label>
+         <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "col-span-3 justify-start text-left font-normal",
+                  !selectedDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {selectedDate ? format(selectedDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={setSelectedDate}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+      </div>
+
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="type" className="text-right">Tipo</Label>
+         <Select name="type" defaultValue={date?.type} required>
+          <SelectTrigger className="col-span-3">
+            <SelectValue placeholder="Selecione o tipo" />
+          </SelectTrigger>
+          <SelectContent>
+             {Object.keys(typeIcons).map(key => <SelectItem key={key} value={key}>{key}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="observation" className="text-right">Observação</Label>
+        <Textarea id="observation" name="observation" className="col-span-3" defaultValue={date?.observation} />
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
+        <Button type="submit">Salvar</Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+
 export default function DatesPage() {
   const [importantDates, setImportantDates] = useState(initialDates);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDate, setEditingDate] = useState<any>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
   const handleOpenDialog = (date: any = null) => {
     setEditingDate(date);
-    setSelectedDate(date ? parseISO(date.date) : new Date());
     setIsDialogOpen(true);
   };
   
   const handleCloseDialog = () => {
     setEditingDate(null);
-    setSelectedDate(undefined);
     setIsDialogOpen(false);
   }
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const title = formData.get('title') as string;
-    const type = formData.get('type') as string;
-    const observation = formData.get('observation') as string;
-    const date = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0];
-
+  const handleSaveDate = (data: any) => {
     if (editingDate) {
-      setImportantDates(importantDates.map(d => d.id === editingDate.id ? { ...d, title, type, observation, date } : d).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+      setImportantDates(importantDates.map(d => d.id === editingDate.id ? { ...d, ...data } : d).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
     } else {
-      const newDate = { id: Date.now(), title, type, observation, date };
+      const newDate = { id: Date.now(), ...data };
       setImportantDates([...importantDates, newDate].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
     }
     handleCloseDialog();
@@ -103,72 +166,24 @@ export default function DatesPage() {
           <h1 className="text-3xl font-bold font-headline">Datas Importantes</h1>
           <p className="text-muted-foreground">Nunca mais esqueçam uma data especial.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if(!isOpen) handleCloseDialog() }}>
-          <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Adicionar Data
-            </Button>
-          </DialogTrigger>
+        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Adicionar Data
+        </Button>
+      </div>
+      
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingDate ? 'Editar Data' : 'Nova Data'}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="title" className="text-right">Título</Label>
-                <Input id="title" name="title" className="col-span-3" defaultValue={editingDate?.title} required />
-              </div>
-
-               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="date" className="text-right">Data</Label>
-                 <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant={"outline"}
-                        className={cn(
-                          "col-span-3 justify-start text-left font-normal",
-                          !selectedDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {selectedDate ? format(selectedDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={setSelectedDate}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-              </div>
-
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="type" className="text-right">Tipo</Label>
-                 <Select name="type" defaultValue={editingDate?.type} required>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Selecione o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                     {Object.keys(typeIcons).map(key => <SelectItem key={key} value={key}>{key}</SelectItem>)}
-                     <SelectItem value="Outro">Outro</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="observation" className="text-right">Observação</Label>
-                <Textarea id="observation" name="observation" className="col-span-3" defaultValue={editingDate?.observation} />
-              </div>
-              <DialogFooter>
-                <Button type="submit">Salvar</Button>
-              </DialogFooter>
-            </form>
+            <DateForm 
+              date={editingDate}
+              onSave={handleSaveDate}
+              onCancel={handleCloseDialog}
+            />
           </DialogContent>
         </Dialog>
-      </div>
       
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {importantDates.map(d => (
@@ -179,7 +194,7 @@ export default function DatesPage() {
                     {typeIcons[d.type] || <Gift className="h-6 w-6 text-primary" />}
                     <div>
                         <CardTitle className="font-headline">{d.title}</CardTitle>
-                        <p className="text-muted-foreground text-sm">{format(parseISO(d.date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
+                        <p className="text-muted-foreground text-sm">{format(parseISO(d.date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR, timeZone: 'UTC' })}</p>
                     </div>
                 </div>
                 <DropdownMenu>

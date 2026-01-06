@@ -32,6 +32,55 @@ const chartConfig = {
   'Outros': { label: "Outros", color: "hsl(var(--chart-5))" },
 } satisfies ChartConfig;
 
+function ExpenseForm({ expense, onSave, onCancel }: { expense?: any; onSave: (data: any) => void; onCancel: () => void; }) {
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      category: formData.get('category') as string,
+      value: parseFloat(formData.get('value') as string),
+      payer: formData.get('payer') as string,
+    };
+    onSave(data);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="category" className="text-right">Categoria</Label>
+         <Select name="category" defaultValue={expense?.category} required>
+          <SelectTrigger className="col-span-3">
+            <SelectValue placeholder="Selecione a categoria" />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+       <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="value" className="text-right">Valor (R$)</Label>
+        <Input id="value" name="value" type="number" step="0.01" placeholder="99,99" className="col-span-3" defaultValue={expense?.value} required />
+      </div>
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="payer" className="text-right">Pago por</Label>
+         <Select name="payer" defaultValue={expense?.payer} required>
+          <SelectTrigger className="col-span-3">
+            <SelectValue placeholder="Selecione quem pagou" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Usuário 1">Usuário 1</SelectItem>
+            <SelectItem value="Usuário 2">Usuário 2</SelectItem>
+            <SelectItem value="Ambos">Ambos</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
+        <Button type="submit">Salvar</Button>
+      </DialogFooter>
+    </form>
+  );
+}
 
 export default function FinancesPage() {
   const [expenses, setExpenses] = useState(initialExpenses);
@@ -61,18 +110,11 @@ export default function FinancesPage() {
     setIsDialogOpen(false);
   }
   
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const category = formData.get('category') as string;
-    const value = parseFloat(formData.get('value') as string);
-    const payer = formData.get('payer') as string;
-    const date = new Date().toISOString().split('T')[0];
-
+  const handleSaveExpense = (data: any) => {
     if (editingExpense) {
-      setExpenses(expenses.map(ex => ex.id === editingExpense.id ? { ...ex, category, value, payer } : ex));
+      setExpenses(expenses.map(ex => ex.id === editingExpense.id ? { ...ex, ...data } : ex));
     } else {
-      const newExpense = { id: Date.now(), category, value, payer, date };
+      const newExpense = { id: Date.now(), ...data, date: new Date().toISOString().split('T')[0] };
       setExpenses([newExpense, ...expenses]);
     }
     handleCloseDialog();
@@ -90,53 +132,24 @@ export default function FinancesPage() {
           <h1 className="text-3xl font-bold font-headline">Finanças do Casal</h1>
           <p className="text-muted-foreground">Controle de despesas e metas financeiras compartilhadas.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if (!isOpen) handleCloseDialog() }}>
-          <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Adicionar Despesa
-            </Button>
-          </DialogTrigger>
+        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Adicionar Despesa
+        </Button>
+      </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingExpense ? 'Editar Despesa' : 'Nova Despesa'}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="category" className="text-right">Categoria</Label>
-                 <Select name="category" defaultValue={editingExpense?.category} required>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Selecione a categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="value" className="text-right">Valor (R$)</Label>
-                <Input id="value" name="value" type="number" step="0.01" placeholder="99,99" className="col-span-3" defaultValue={editingExpense?.value} required />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="payer" className="text-right">Pago por</Label>
-                 <Select name="payer" defaultValue={editingExpense?.payer} required>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Selecione quem pagou" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Usuário 1">Usuário 1</SelectItem>
-                    <SelectItem value="Usuário 2">Usuário 2</SelectItem>
-                    <SelectItem value="Ambos">Ambos</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <DialogFooter>
-                <Button type="submit">Salvar</Button>
-              </DialogFooter>
-            </form>
+            <ExpenseForm 
+              expense={editingExpense} 
+              onSave={handleSaveExpense}
+              onCancel={handleCloseDialog}
+            />
           </DialogContent>
         </Dialog>
-      </div>
       
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card>

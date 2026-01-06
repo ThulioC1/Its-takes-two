@@ -27,42 +27,81 @@ const typeInfo: { [key: string]: { icon: React.ReactNode, color: string } } = {
   'Relacionamento': { icon: <HeartHandshake />, color: 'text-pink-500' },
 };
 
+function GoalForm({ goal, onSave, onCancel }: { goal?: any; onSave: (data: any) => void; onCancel: () => void; }) {
+  const [progressValue, setProgressValue] = useState(goal ? goal.progress : 0);
+
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      title: formData.get('title') as string,
+      description: formData.get('description') as string,
+      type: formData.get('type') as string,
+      progress: progressValue,
+    };
+    onSave(data);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="title" className="text-right">Título</Label>
+        <Input id="title" name="title" placeholder="Qual a meta?" className="col-span-3" defaultValue={goal?.title} required />
+      </div>
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="description" className="text-right">Descrição</Label>
+        <Textarea id="description" name="description" placeholder="Detalhes da meta..." className="col-span-3" defaultValue={goal?.description} />
+      </div>
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="type" className="text-right">Tipo</Label>
+        <Select name="type" defaultValue={goal?.type} required>
+          <SelectTrigger className="col-span-3">
+            <SelectValue placeholder="Selecione o tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.keys(typeInfo).map(key => <SelectItem key={key} value={key}>{key}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="progress" className="text-right">Progresso</Label>
+        <div className="col-span-3 flex items-center gap-4">
+            <Slider id="progress" name="progress" min={0} max={100} step={5} value={[progressValue]} onValueChange={(val) => setProgressValue(val[0])} className="flex-1"/>
+            <span className="text-sm font-semibold w-12 text-right">{progressValue}%</span>
+        </div>
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
+        <Button type="submit">Salvar Meta</Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+
 export default function GoalsPage() {
   const [goals, setGoals] = useState(initialGoals);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<any>(null);
-  const [progressValue, setProgressValue] = useState(0);
 
   const handleOpenDialog = (goal: any = null) => {
     setEditingGoal(goal);
-    setProgressValue(goal ? goal.progress : 0);
     setIsDialogOpen(true);
   };
   
   const handleCloseDialog = () => {
     setEditingGoal(null);
-    setProgressValue(0);
     setIsDialogOpen(false);
   }
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const title = formData.get('title') as string;
-    const description = formData.get('description') as string;
-    const type = formData.get('type') as string;
-    const progress = progressValue;
-    
+  const handleSaveGoal = (data: any) => {
     if (editingGoal) {
-      setGoals(goals.map(g => g.id === editingGoal.id ? { ...g, title, description, type, progress, status: progress === 100 ? 'Concluído' : 'Em andamento' } : g));
+      setGoals(goals.map(g => g.id === editingGoal.id ? { ...g, ...data, status: data.progress === 100 ? 'Concluído' : 'Em andamento' } : g));
     } else {
       const newGoal = {
         id: Date.now(),
-        title,
-        description,
-        progress,
-        status: progress === 100 ? 'Concluído' : 'Em andamento',
-        type,
+        ...data,
+        status: data.progress === 100 ? 'Concluído' : 'Em andamento',
       };
       setGoals([newGoal, ...goals]);
     }
@@ -80,51 +119,24 @@ export default function GoalsPage() {
           <h1 className="text-3xl font-bold font-headline">Metas do Casal</h1>
           <p className="text-muted-foreground">Sonhos e objetivos para conquistarem juntos.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if(!isOpen) handleCloseDialog() }}>
-          <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Adicionar Meta
-            </Button>
-          </DialogTrigger>
+        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Adicionar Meta
+        </Button>
+      </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingGoal ? 'Editar Meta' : 'Nova Meta'}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="title" className="text-right">Título</Label>
-                <Input id="title" name="title" placeholder="Qual a meta?" className="col-span-3" defaultValue={editingGoal?.title} required />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="description" className="text-right">Descrição</Label>
-                <Textarea id="description" name="description" placeholder="Detalhes da meta..." className="col-span-3" defaultValue={editingGoal?.description} />
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="type" className="text-right">Tipo</Label>
-                <Select name="type" defaultValue={editingGoal?.type} required>
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Selecione o tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.keys(typeInfo).map(key => <SelectItem key={key} value={key}>{key}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="progress" className="text-right">Progresso</Label>
-                <div className="col-span-3 flex items-center gap-4">
-                    <Slider id="progress" name="progress" min={0} max={100} step={5} value={[progressValue]} onValueChange={(val) => setProgressValue(val[0])} className="flex-1"/>
-                    <span className="text-sm font-semibold w-12 text-right">{progressValue}%</span>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit">Salvar Meta</Button>
-              </DialogFooter>
-            </form>
+            <GoalForm 
+              goal={editingGoal}
+              onSave={handleSaveGoal}
+              onCancel={handleCloseDialog}
+            />
           </DialogContent>
         </Dialog>
-      </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {goals.map(goal => (

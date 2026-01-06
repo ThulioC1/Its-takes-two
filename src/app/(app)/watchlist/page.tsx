@@ -23,6 +23,54 @@ const initialWatchlist = [
     { id: 6, name: 'Guerra Civil', type: 'Filme', platform: 'Cinema', status: 'to-watch', image: 'https://picsum.photos/seed/26/300/450' },
 ];
 
+function WatchlistForm({ item, onSave, onCancel }: { item?: any; onSave: (data: any) => void; onCancel: () => void; }) {
+  const handleItemSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      name: formData.get('name') as string,
+      type: formData.get('type') as 'Filme' | 'Série',
+      platform: formData.get('platform') as string,
+      image: formData.get('image') as string,
+    };
+    onSave(data);
+  };
+
+  return (
+    <form onSubmit={handleItemSubmit} className="grid gap-4 py-4">
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="name" className="text-right">Título</Label>
+        <Input id="name" name="name" className="col-span-3" defaultValue={item?.name} required />
+      </div>
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="type" className="text-right">Tipo</Label>
+        <Select name="type" defaultValue={item?.type} required>
+          <SelectTrigger className="col-span-3">
+            <SelectValue placeholder="Selecione o tipo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Filme">Filme</SelectItem>
+            <SelectItem value="Série">Série</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="platform" className="text-right">Onde Assistir</Label>
+        <Input id="platform" name="platform" placeholder="Netflix, cinema, etc." className="col-span-3" defaultValue={item?.platform} required />
+      </div>
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="image" className="text-right">URL da Imagem</Label>
+        <Input id="image" name="image" placeholder="https://exemplo.com/poster.jpg" className="col-span-3" defaultValue={item?.image} />
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
+        <Button type="submit">{item ? 'Salvar Alterações' : 'Adicionar'}</Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+
 export default function WatchlistPage() {
   const [watchlist, setWatchlist] = useState(initialWatchlist);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -52,24 +100,15 @@ export default function WatchlistPage() {
     setWatchlist(watchlist.filter(item => item.id !== id));
   };
   
-  const handleItemSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const name = formData.get('name') as string;
-    const type = formData.get('type') as 'Filme' | 'Série';
-    const platform = formData.get('platform') as string;
-    const image = formData.get('image') as string;
-
+  const handleSaveItem = (data: any) => {
     if (editingItem) {
-      setWatchlist(watchlist.map(item => item.id === editingItem.id ? { ...item, name, type, platform, image: image || item.image } : item));
+      setWatchlist(watchlist.map(item => item.id === editingItem.id ? { ...item, ...data, image: data.image || item.image } : item));
     } else {
       const newItem = {
         id: Date.now(),
-        name,
-        type,
-        platform,
+        ...data,
         status: 'to-watch',
-        image: image || `https://picsum.photos/seed/${Date.now()}/300/450`
+        image: data.image || `https://picsum.photos/seed/${Date.now()}/300/450`
       };
       setWatchlist([newItem, ...watchlist]);
     }
@@ -136,49 +175,24 @@ export default function WatchlistPage() {
           <h1 className="text-3xl font-bold font-headline">Filmes & Séries</h1>
           <p className="text-muted-foreground">A lista de entretenimento do casal.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if(!isOpen) handleCloseDialog()}}>
-          <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Adicionar Item
-            </Button>
-          </DialogTrigger>
+        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Adicionar Item
+        </Button>
+      </div>
+
+       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent>
             <DialogHeader>
                 <DialogTitle>{editingItem ? 'Editar Item' : 'Adicionar à Lista'}</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleItemSubmit} className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="name" className="text-right">Título</Label>
-                    <Input id="name" name="name" className="col-span-3" defaultValue={editingItem?.name} required />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="type" className="text-right">Tipo</Label>
-                    <Select name="type" defaultValue={editingItem?.type} required>
-                        <SelectTrigger className="col-span-3">
-                            <SelectValue placeholder="Selecione o tipo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Filme">Filme</SelectItem>
-                            <SelectItem value="Série">Série</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-                 <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="platform" className="text-right">Onde Assistir</Label>
-                    <Input id="platform" name="platform" placeholder="Netflix, cinema, etc." className="col-span-3" defaultValue={editingItem?.platform} required />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="image" className="text-right">URL da Imagem</Label>
-                    <Input id="image" name="image" placeholder="https://exemplo.com/poster.jpg" className="col-span-3" defaultValue={editingItem?.image}/>
-                </div>
-                <DialogFooter>
-                    <Button type="submit">{editingItem ? 'Salvar Alterações' : 'Adicionar'}</Button>
-                </DialogFooter>
-            </form>
+            <WatchlistForm 
+              item={editingItem}
+              onSave={handleSaveItem}
+              onCancel={handleCloseDialog}
+            />
           </DialogContent>
         </Dialog>
-      </div>
 
       <Tabs defaultValue="to-watch">
         <TabsList className="grid w-full grid-cols-3">
@@ -205,4 +219,3 @@ export default function WatchlistPage() {
     </div>
   );
 }
-    
