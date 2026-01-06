@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Camera, MapPin, PlusCircle, MoreHorizontal } from "lucide-react";
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -100,14 +100,14 @@ export default function MemoriesPage() {
         </Dialog>
       </div>
 
-      <div className="relative pl-6 after:absolute after:inset-y-0 after:left-8 after:w-px after:bg-border md:after:left-1/2 md:after:-translate-x-1/2">
+      <div className="relative pl-6 after:absolute after:inset-y-0 after:left-8 after:w-px after:bg-border md:pl-0 md:after:left-1/2 md:after:-translate-x-1/2">
         {memories.map((memory, index) => {
           const memoryImage = PlaceHolderImages.find(p => p.id === memory.imageId);
           return (
             <div key={memory.id} className="relative grid md:grid-cols-[1fr_auto_1fr] md:gap-x-12 mb-12">
               {/* Card */}
-              <div className={`flex items-center md:justify-end ${index % 2 === 0 ? 'md:order-3' : 'md:order-1'}`}>
-                  <Card className="w-full max-w-md">
+              <div className={`flex items-center w-full md:max-w-md ${index % 2 === 0 ? 'md:order-3 md:justify-start' : 'md:order-1 md:justify-end'}`}>
+                  <Card className="w-full">
                       <CardHeader className="p-0">
                           <div className="relative aspect-video w-full overflow-hidden rounded-t-lg">
                               {memoryImage ? (
@@ -135,12 +135,12 @@ export default function MemoriesPage() {
               </div>
               
               {/* Date & Actions */}
-              <div className={`flex items-center mt-4 md:mt-0 ${index % 2 === 0 ? 'md:order-1' : 'md:order-3 md:justify-end'}`}>
-                  <div className="p-4 md:text-right w-full max-w-md flex justify-between items-center">
+              <div className={`flex items-center mt-4 md:mt-0 w-full md:max-w-md ${index % 2 === 0 ? 'md:order-1 md:justify-end' : 'md:order-3 md:justify-start'}`}>
+                  <div className={`p-4 w-full flex justify-between items-center ${index % 2 === 0 ? 'md:text-right' : ''}`}>
                       <div>
-                        <p className="font-semibold text-lg font-headline">{format(new Date(memory.date), "dd 'de' MMMM, yyyy", { locale: ptBR })}</p>
+                        <p className="font-semibold text-lg font-headline">{format(parseISO(memory.date), "dd 'de' MMMM, yyyy", { locale: ptBR })}</p>
                         {memory.location && (
-                            <div className={`flex items-center text-muted-foreground mt-1 ${index % 2 !== 0 ? 'md:justify-end' : ''}`}>
+                            <div className={`flex items-center text-muted-foreground mt-1 ${index % 2 === 0 ? 'md:justify-end' : ''}`}>
                                 <MapPin className="w-4 h-4 mr-1"/>
                                 <span>{memory.location}</span>
                             </div>
