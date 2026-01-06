@@ -1,0 +1,19 @@
+import type { SVGProps } from 'react';
+
+export const Icons = {
+  logo: (props: SVGProps<SVGSVGElement>) => (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M12.2 20.5-2.5 9.2C-4.4 7-3.6 3.6.2 2.3c2-0.7 4.2-0.2 5.8 1.4L12 9.4l6-5.7c1.6-1.6 3.8-2.1 5.8-1.4 3.8 1.3 4.6 4.7 2.7 6.9L12.2 20.5Z" />
+      <path d="m12.2 20.5 5.7-4.4c2.5-2 1.6-5.8-1.4-6.8-2-.7-4.2-0.2-5.8 1.4L5 16.5" />
+    </svg>
+  ),
+};

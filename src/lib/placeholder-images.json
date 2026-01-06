@@ -1,3 +1,46 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "couple-login",
+      "description": "A stylish couple in a warm, inviting setting, representing partnership.",
+      "imageUrl": "https://images.unsplash.com/photo-1591969851586-adbbd4accf81?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxjb3VwbGUlMjBsb3ZlfGVufDB8fHx8MTc2NzY5OTA5OXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "couple love"
+    },
+    {
+      "id": "user-avatar-1",
+      "description": "Avatar for the first user.",
+      "imageUrl": "https://images.unsplash.com/photo-1615538785945-6625ccdb4b25?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxwb3J0cmFpdCUyMHdvbWFufGVufDB8fHx8MTc2NzY5OTA5OXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "portrait woman"
+    },
+    {
+      "id": "user-avatar-2",
+      "description": "Avatar for the second user.",
+      "imageUrl": "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxwb3J0cmFpdCUyMG1hbnxlbnwwfHx8fDE3Njc1OTUwOTN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "portrait man"
+    },
+    {
+      "id": "memory-1",
+      "description": "A beautiful photo from a shared vacation.",
+      "imageUrl": "https://images.unsplash.com/photo-1559494007-9f5847c49d94?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxiZWFjaCUyMHN1bnNldHxlbnwwfHx8fDE3Njc2ODgzMzd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "beach sunset"
+    },
+    {
+      "id": "memory-2",
+      "description": "A cozy photo from a winter evening.",
+      "imageUrl": "https://images.unsplash.com/photo-1414124488080-0188dcbb8834?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxjb3p5JTIwZmlyZXBsYWNlfGVufDB8fHx8MTc2NzY0ODc4MXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "cozy fireplace"
+    },
+    {
+      "id": "memory-3",
+      "description": "A fun picture from a city adventure.",
+      "imageUrl": "https://images.unsplash.com/photo-1651459797200-704455001305?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxjaXR5JTIwZXhwbG9yYXRpb258ZW58MHx8fHwxNzY3Njk5MDk5fDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "city exploration"
+    },
+    {
+      "id": "couple-banner",
+      "description": "A banner image for the dashboard.",
+      "imageUrl": "https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxob2xkaW5nJTIwaGFuZHN8ZW58MHx8fHwxNzY3NjgxMzkyfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "holding hands"
+    }
+  ]
 }
