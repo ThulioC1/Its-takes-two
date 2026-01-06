@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -52,6 +52,11 @@ export default function TodosPage() {
   const [todos, setTodos] = useState(initialTodos);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTodo, setEditingTodo] = useState<any>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleOpenDialog = (todo: any = null) => {
     setEditingTodo(todo);
@@ -125,7 +130,7 @@ export default function TodosPage() {
       <Card>
         <CardContent className="p-0">
           <div className="divide-y divide-border">
-            {todos.map(todo => (
+            {isClient && todos.map(todo => (
               <div key={todo.id} className="flex items-center p-4 gap-4 hover:bg-accent">
                 <Checkbox id={`todo-${todo.id}`} checked={todo.status === 'Concluído'} onCheckedChange={() => toggleTodoStatus(todo.id)}/>
                 <div className="flex-1 grid gap-1">

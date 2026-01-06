@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -46,6 +46,11 @@ export default function WallPage() {
     const [newPostContent, setNewPostContent] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingPost, setEditingPost] = useState<any>(null);
+    const [isClient, setIsClient] = useState(false);
+
+    useEffect(() => {
+      setIsClient(true);
+    }, []);
 
     const userAvatar1 = PlaceHolderImages.find((p) => p.id === "user-avatar-1");
     const userAvatar2 = PlaceHolderImages.find((p) => p.id === "user-avatar-2");
@@ -130,7 +135,7 @@ export default function WallPage() {
         </Dialog>
 
       <div className="flex flex-col gap-6">
-        {posts.map(post => (
+        {isClient && posts.map(post => (
             <Card key={post.id}>
                 <CardHeader className="flex-row gap-4 items-center">
                     <Avatar>

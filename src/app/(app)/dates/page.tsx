@@ -133,6 +133,11 @@ export default function DatesPage() {
   const [importantDates, setImportantDates] = useState(initialDates);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDate, setEditingDate] = useState<any>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleOpenDialog = (date: any = null) => {
     setEditingDate(date);
@@ -186,7 +191,7 @@ export default function DatesPage() {
         </Dialog>
       
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {importantDates.map(d => (
+        {isClient && importantDates.map(d => (
           <Card key={d.id} className="flex flex-col">
             <CardHeader>
              <div className="flex flex-row items-center justify-between">

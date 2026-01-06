@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -83,6 +83,11 @@ export default function GoalsPage() {
   const [goals, setGoals] = useState(initialGoals);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<any>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleOpenDialog = (goal: any = null) => {
     setEditingGoal(goal);
@@ -139,7 +144,7 @@ export default function GoalsPage() {
         </Dialog>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {goals.map(goal => (
+        {isClient && goals.map(goal => (
           <Card key={goal.id} className="flex flex-col">
             <CardHeader>
               <div className="flex justify-between items-start">

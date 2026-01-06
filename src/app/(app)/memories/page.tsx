@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
@@ -57,6 +57,11 @@ export default function MemoriesPage() {
   const [memories, setMemories] = useState(initialMemories);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingMemory, setEditingMemory] = useState<any>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleOpenDialog = (memory: any = null) => {
     setEditingMemory(memory);
@@ -116,7 +121,7 @@ export default function MemoriesPage() {
       </Dialog>
 
       <div className="relative pl-6 after:absolute after:inset-y-0 after:left-8 after:w-px after:bg-border md:pl-0 md:after:left-1/2 md:after:-translate-x-1/2">
-        {memories.map((memory, index) => {
+        {isClient && memories.map((memory, index) => {
           return (
             <div key={memory.id} className="relative grid md:grid-cols-[1fr_auto_1fr] md:gap-x-12 mb-12">
               {/* Card */}

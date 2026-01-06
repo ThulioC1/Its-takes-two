@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, MoreHorizontal, TrendingUp, TrendingDown, CircleDollarSign } from "lucide-react";
@@ -86,6 +86,11 @@ export default function FinancesPage() {
   const [expenses, setExpenses] = useState(initialExpenses);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<any>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
   
   const totalExpenses = expenses.reduce((acc, expense) => acc + expense.value, 0);
 
@@ -201,7 +206,7 @@ export default function FinancesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {expenses.map(expense => (
+                {isClient && expenses.map(expense => (
                   <TableRow key={expense.id}>
                     <TableCell className="font-medium">{expense.category}</TableCell>
                     <TableCell>R$ {expense.value.toFixed(2).replace('.', ',')}</TableCell>

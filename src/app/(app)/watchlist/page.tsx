@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { PlusCircle, Clapperboard, Film, Tv, MoreHorizontal } from "lucide-react";
@@ -75,6 +75,11 @@ export default function WatchlistPage() {
   const [watchlist, setWatchlist] = useState(initialWatchlist);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const handleOpenDialog = (item: any = null) => {
     setEditingItem(item);
@@ -202,17 +207,17 @@ export default function WatchlistPage() {
         </TabsList>
         <TabsContent value="to-watch" className="mt-6">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-            {renderList('to-watch')}
+            {isClient && renderList('to-watch')}
           </div>
         </TabsContent>
         <TabsContent value="watching" className="mt-6">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-             {renderList('watching')}
+             {isClient && renderList('watching')}
           </div>
         </TabsContent>
         <TabsContent value="watched" className="mt-6">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-            {renderList('watched')}
+            {isClient && renderList('watched')}
           </div>
         </TabsContent>
       </Tabs>
