@@ -28,7 +28,7 @@ import {
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { differenceInDays, format, parseISO } from 'date-fns';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { doc, collection, updateDoc, writeBatch, query, where, getDocs } from 'firebase/firestore';
+import { doc, collection, setDoc, query, where } from 'firebase/firestore';
 import type { ToDoItem, ImportantDate, Post, Expense, UserProfile } from "@/types";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,8 +58,7 @@ function CoupleLinker() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
 
   const partnerQuery = useMemoFirebase(() => {
-    if (!firestore || !userProfile || userProfile.coupleId === user?.uid) return null;
-    // Query for the other user in the couple
+    if (!firestore || !userProfile || !userProfile.coupleId || userProfile.coupleId === user?.uid) return null;
     return query(
       collection(firestore, 'users'),
       where('coupleId', '==', userProfile.coupleId),
@@ -81,14 +80,14 @@ function CoupleLinker() {
     if (!partnerCode.trim() || !user || !firestore) return;
     setIsLinking(true);
     try {
-      const partnerProfileRef = doc(firestore, 'users', partnerCode.trim());
       const userProfileRef = doc(firestore, 'users', user.uid);
 
-      // In a transaction, update the current user's coupleId to the partner's ID.
-      // The partner's ID now becomes the official coupleId.
-      await updateDoc(userProfileRef, {
+      // Use setDoc with merge:true. This will create the document if it doesn't exist,
+      // or update it if it does. This fixes the "No document to update" error for
+      // users who signed up before the profile creation logic was added.
+      await setDoc(userProfileRef, {
         coupleId: partnerCode.trim(),
-      });
+      }, { merge: true });
       
       toast({
         title: 'Casal vinculado com sucesso!',
@@ -111,7 +110,10 @@ function CoupleLinker() {
 
   const copyToClipboard = () => {
     if (user?.uid) {
-      navigator.clipboard.writeText(user.uid);
+      // If the user is already part of a couple, they should share the coupleId
+      // Otherwise, they share their own UID as the initial coupleId.
+      const codeToCopy = userProfile?.coupleId || user.uid;
+      navigator.clipboard.writeText(codeToCopy);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -140,7 +142,7 @@ function CoupleLinker() {
           <h3 className="font-semibold">1. Compartilhe seu código</h3>
           <p className="text-sm text-muted-foreground">Envie o código abaixo para seu parceiro(a).</p>
           <div className="flex gap-2">
-            <Input readOnly value={user?.uid || ''} className="bg-muted" />
+            <Input readOnly value={userProfile?.coupleId || user?.uid || ''} className="bg-muted" />
             <Button variant="outline" size="icon" onClick={copyToClipboard}>
               {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
             </Button>
