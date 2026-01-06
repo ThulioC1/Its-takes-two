@@ -28,12 +28,22 @@ import {
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { differenceInDays, format, parseISO } from 'date-fns';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { doc, collection, setDoc, query, where } from 'firebase/firestore';
-import type { ToDoItem, ImportantDate, Post, Expense, UserProfile } from "@/types";
+import { doc, collection, setDoc, query, where, writeBatch, getDoc } from 'firebase/firestore';
+import type { ToDoItem, ImportantDate, Post, Expense } from "@/types";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { errorEmitter } from '@/firebase/error-emitter';
+
+// This must be compatible with the User schema in backend.json
+interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  coupleId: string;
+}
 
 const chartConfig = {
   expenses: {
@@ -58,7 +68,10 @@ function CoupleLinker() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
 
   const partnerQuery = useMemoFirebase(() => {
-    if (!firestore || !userProfile || !userProfile.coupleId || userProfile.coupleId === user?.uid) return null;
+    if (!firestore || !userProfile?.coupleId || !user) return null;
+    // Don't query if the user is not yet linked to a partner
+    if (userProfile.coupleId === user.uid) return null;
+    
     return query(
       collection(firestore, 'users'),
       where('coupleId', '==', userProfile.coupleId),
@@ -66,42 +79,66 @@ function CoupleLinker() {
     );
   }, [firestore, user, userProfile]);
 
-  const { data: partners } = useCollection<UserProfile>(partnerQuery);
+  const { data: partnersData } = useCollection<UserProfile>(partnerQuery);
 
   useEffect(() => {
-    if (partners && partners.length > 0) {
-      setPartner(partners[0]);
+    if (partnersData && partnersData.length > 0) {
+      setPartner(partnersData[0]);
     } else {
       setPartner(null);
     }
-  }, [partners]);
+  }, [partnersData]);
 
   const handleLinkCouple = async () => {
-    if (!partnerCode.trim() || !user || !firestore) return;
+    if (!partnerCode.trim() || !user || !firestore || !userProfile) return;
+    
     setIsLinking(true);
+    
+    const currentUserProfileRef = doc(firestore, 'users', user.uid);
+    const partnerUserProfileRef = doc(firestore, 'users', partnerCode.trim());
+  
     try {
-      const userProfileRef = doc(firestore, 'users', user.uid);
-
-      // Use setDoc with merge:true. This will create the document if it doesn't exist,
-      // or update it if it does. This fixes the "No document to update" error for
-      // users who signed up before the profile creation logic was added.
-      await setDoc(userProfileRef, {
-        coupleId: partnerCode.trim(),
-      }, { merge: true });
+      const partnerDoc = await getDoc(partnerUserProfileRef);
+      if (!partnerDoc.exists()) {
+        throw new Error("Código do parceiro(a) não encontrado.");
+      }
+  
+      // Use a batch to ensure atomicity
+      const batch = writeBatch(firestore);
+  
+      // Update current user's coupleId to the partner's one
+      batch.set(currentUserProfileRef, { coupleId: partnerDoc.data().coupleId }, { merge: true });
+  
+      // Optionally, create the couple document if it's the first link
+      const coupleDocRef = doc(firestore, "couples", partnerDoc.data().coupleId);
+      batch.set(coupleDocRef, { memberIds: [user.uid, partnerCode.trim()] }, { merge: true });
+  
+      await batch.commit();
       
       toast({
         title: 'Casal vinculado com sucesso!',
         description: 'Agora vocês estão conectados. A página será recarregada.',
       });
-
+  
       setTimeout(() => window.location.reload(), 2000);
-
-    } catch (error) {
+  
+    } catch (error: any) {
       console.error("Error linking couple:", error);
+  
+      // Check if it's a permission error
+      if (error.code === 'permission-denied') {
+        const permissionError = new FirestorePermissionError({
+            path: `users/${user.uid} and others`,
+            operation: 'write',
+            requestResourceData: { coupleId: partnerCode.trim() },
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      }
+      
       toast({
         variant: 'destructive',
         title: 'Erro ao vincular',
-        description: 'Não foi possível encontrar o código do parceiro(a). Verifique o código e tente novamente.',
+        description: error.message || 'Não foi possível vincular as contas. Verifique o código e as permissões de segurança.',
       });
     } finally {
       setIsLinking(false);
@@ -110,8 +147,6 @@ function CoupleLinker() {
 
   const copyToClipboard = () => {
     if (user?.uid) {
-      // If the user is already part of a couple, they should share the coupleId
-      // Otherwise, they share their own UID as the initial coupleId.
       const codeToCopy = userProfile?.coupleId || user.uid;
       navigator.clipboard.writeText(codeToCopy);
       setCopied(true);
@@ -119,6 +154,7 @@ function CoupleLinker() {
     }
   };
   
+  // If user is already linked, show the partner's name.
   if (partner) {
     return (
       <Alert>
@@ -131,6 +167,7 @@ function CoupleLinker() {
     );
   }
 
+  // If user is not linked, show the linking interface.
   return (
     <Card>
       <CardHeader>
@@ -220,13 +257,21 @@ export default function DashboardPage() {
 
   const latestPost = useMemo(() => {
     if (!posts || posts.length === 0) return null;
-    return [...posts].sort((a, b) => (b.dateTime?.toDate()?.getTime() || 0) - (a.dateTime?.toDate()?.getTime() || 0))[0];
+    // Firestore Timestamps need to be converted for sorting
+    const sorted = [...posts].sort((a, b) => {
+        const timeA = a.dateTime?.toDate?.()?.getTime() || 0;
+        const timeB = b.dateTime?.toDate?.()?.getTime() || 0;
+        return timeB - timeA;
+    });
+    return sorted[0];
   }, [posts]);
   
   const chartData = useMemo(() => {
     if (!expenses) return [];
     const monthlyExpenses = expenses.reduce((acc, expense) => {
-        const month = format(expense.date.toDate(), 'MMM');
+        // Ensure date is a Timestamp and convert it
+        const date = expense.date?.toDate ? expense.date.toDate() : new Date();
+        const month = format(date, 'MMM');
         acc[month] = (acc[month] || 0) + expense.value;
         return acc;
     }, {} as Record<string, number>);
@@ -387,3 +432,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
