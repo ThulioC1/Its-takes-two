@@ -8,11 +8,12 @@ import { Heart, MessageSquare, Send, MoreHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { useCollection, useFirestore, useUser, useMemoFirebase } from "@/firebase";
+import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, arrayUnion, arrayRemove } from "firebase/firestore";
 import type { Post, UserProfile } from "@/types";
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 function PostForm({ post, onSave, onCancel }: { post?: Post; onSave: (content: string) => void; onCancel: () => void; }) {
   const [content, setContent] = useState(post ? post.text : '');
@@ -47,27 +48,19 @@ export default function WallPage() {
     const firestore = useFirestore();
     const { user } = useUser();
 
-    const coupleId = useMemoFirebase(() => {
-        if (!user) return null;
-        // This is a placeholder for getting the actual coupleId from a user profile
-        // For now, we assume a single couple for demonstration
-        return 'couple-1';
-    }, [user]);
+     const userProfileRef = useMemoFirebase(() => {
+        if (!firestore || !user) return null;
+        return doc(firestore, 'users', user.uid);
+    }, [firestore, user]);
+
+    const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
+    const coupleId = userProfile?.coupleId;
 
     const postsRef = useMemoFirebase(() => {
-        if (!firestore || !user) return null;
-        const userDocRef = doc(firestore, 'users', user.uid);
-        // This logic is not ideal, it should get coupleId from user profile.
-        // For now, we will assume a static coupleId or get it from a user profile doc.
-        // This part needs to be robust. Let's assume we get coupleId from a future `useProfile` hook.
-        // const { profile } = useProfile(user.uid);
-        // return collection(firestore, 'couples', profile.coupleId, 'posts');
-        
-        // Placeholder implementation
-        // In a real app, you'd fetch the user's profile to get their coupleId
-        return collection(firestore, 'couples', 'wmaTgYvdB8SQiLsJ5DyHQSbUWwZ2', 'posts');
+        if (!firestore || !coupleId) return null;
+        return collection(firestore, 'couples', coupleId, 'posts');
 
-    }, [firestore, user]);
+    }, [firestore, coupleId]);
 
     const { data: posts, isLoading } = useCollection<Post>(postsRef);
 
@@ -148,9 +141,9 @@ export default function WallPage() {
                         className="mb-2"
                         value={newPostContent}
                         onChange={(e) => setNewPostContent(e.target.value)}
-                        disabled={!user}
+                        disabled={!user || !coupleId}
                     />
-                    <Button onClick={handlePublish} disabled={!user || !newPostContent.trim()}>
+                    <Button onClick={handlePublish} disabled={!user || !coupleId || !newPostContent.trim()}>
                         <Send className="mr-2 h-4 w-4" />
                         Publicar
                     </Button>
