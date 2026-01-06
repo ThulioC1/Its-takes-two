@@ -411,6 +411,16 @@
         "coupleId": {
           "type": "string",
           "description": "Identifier for the couple this user belongs to."
+        },
+        "photoURL": {
+            "type": "string",
+            "description": "URL of the user's profile picture.",
+            "format": "uri"
+        },
+        "gender": {
+            "type": "string",
+            "description": "The user's selected gender.",
+            "enum": ["Masculino", "Feminino", "Prefiro não informar"]
         }
       },
       "required": [
@@ -432,6 +442,16 @@
         "displayName": {
           "type": "string",
           "description": "The user's display name."
+        },
+        "photoURL": {
+            "type": "string",
+            "description": "URL of the author's profile picture.",
+            "format": "uri"
+        },
+        "gender": {
+            "type": "string",
+            "description": "The author's selected gender.",
+            "enum": ["Masculino", "Feminino", "Prefiro não informar"]
         }
       },
       "required": [
@@ -665,6 +685,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to ensure data isolation and efficient querying for the \"Its take two\" application. All data is scoped under a `couples` collection, where each document represents a couple and is identified by a unique ID. This top-level segregation facilitates managing data access and ensures that data belonging to different couples is kept separate. The use of subcollections for each feature (to-do items, expenses, movies/series, etc.) allows for specific security rules and efficient data retrieval.\n\n**Authorization Independence and Security:**\nTo achieve Authorization Independence, the design leverages path-based ownership. Each couple's data is stored under `/couples/{coupleId}`, eliminating the need for `get()` calls in security rules. This ensures that authorization can be determined solely based on the path and the user's authentication state, without relying on parent document data. This approach enhances the robustness of transactions and batch operations.\n\n**QAPs (Rules are not Filters):**\nThe structure supports secure `list` operations (QAPs) by adhering to Structural Segregation. Each collection houses documents with similar access requirements. For example, only members of a couple should have access to their shared to-do list or financial data. This homogeneity simplifies security rules and prevents the need to filter data based on access rights within the rules themselves.\n\nThe membership of users in a 'couple' is implicitly derived from the `coupleId` path. To allow a user to access the data associated with a given `coupleId`, their `uid` must be associated with that `coupleId` via a separate mechanism (e.g., a user profile document that contains the `coupleId` or custom claims). The security rules will then enforce that `request.auth.uid` is authorized for the `coupleId` specified in the path.\n\nThis design minimizes complexity in security rules, enhances data integrity, and ensures scalability."
+    "reasoning": "The Firestore structure is designed to ensure data isolation and efficient querying for the \"Its take two\" application. All data is scoped under a `couples` collection, where each document represents a couple and is identified by a unique ID. This top-level segregation facilitates managing data access and ensures that data belonging to different couples is kept separate. The use of subcollections for each feature (to-do items, expenses, movies/series, etc.) allows for specific security rules and efficient data retrieval.\\n\\n**Authorization Independence and Security:**\\nTo achieve Authorization Independence, the design leverages path-based ownership. Each couple's data is stored under `/couples/{coupleId}`, eliminating the need for `get()` calls in security rules. This ensures that authorization can be determined solely based on the path and the user's authentication state, without relying on parent document data. This approach enhances the robustness of transactions and batch operations.\\n\\n**QAPs (Rules are not Filters):**\\nThe structure supports secure `list` operations (QAPs) by adhering to Structural Segregation. Each collection houses documents with similar access requirements. For example, only members of a couple should have access to their shared to-do list or financial data. This homogeneity simplifies security rules and prevents the need to filter data based on access rights within the rules themselves.\\n\\nThe membership of users in a 'couple' is implicitly derived from the `coupleId` path. To allow a user to access the data associated with a given `coupleId`, their `uid` must be associated with that `coupleId` via a separate mechanism (e.g., a user profile document that contains the `coupleId` or custom claims). The security rules will then enforce that `request.auth.uid` is authorized for the `coupleId` specified in the path.\\n\\nThis design minimizes complexity in security rules, enhances data integrity, and ensures scalability."
   }
 }

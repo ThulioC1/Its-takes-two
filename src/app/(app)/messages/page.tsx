@@ -58,6 +58,8 @@ export default function MessagesPage() {
       author: {
         uid: user.uid,
         displayName: user.displayName,
+        photoURL: user.photoURL,
+        gender: userProfile?.gender,
       }
     });
     setNewMessage("");
@@ -77,6 +79,8 @@ export default function MessagesPage() {
       author: {
         uid: user.uid,
         displayName: user.displayName,
+        photoURL: user.photoURL,
+        gender: userProfile?.gender,
       }
     });
     setNewMessage("");
@@ -98,8 +102,7 @@ export default function MessagesPage() {
             <div key={message.id} className={cn("flex items-end gap-3", message.senderId === user?.uid ? "justify-end" : "justify-start")}>
               {message.senderId !== user?.uid && (
                 <Avatar className="h-8 w-8">
-                  {/* Placeholder for partner's avatar */}
-                  <AvatarImage src={userAvatars['user-1']} /> 
+                  <AvatarImage src={message.author?.photoURL || ''} /> 
                   <AvatarFallback>{message.author?.displayName?.charAt(0) || 'P'}</AvatarFallback>
                 </Avatar>
               )}
@@ -110,12 +113,12 @@ export default function MessagesPage() {
                   )}>
                 <p className="text-sm">{message.message}</p>
                 <p className={cn("text-xs mt-1 opacity-70", message.senderId === user?.uid ? "text-right" : "text-left")}>
-                    {!message.isVisible ? `Agendada (em breve)` : (message.scheduledDate ? message.scheduledDate.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '')}
+                    {!message.isVisible ? `Agendada (em breve)` : (message.scheduledDate && message.scheduledDate.toDate ? message.scheduledDate.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '')}
                 </p>
               </div>
               {message.senderId === user?.uid && (
                 <Avatar className="h-8 w-8">
-                   <AvatarImage src={user?.photoURL || userAvatars['user-2']} />
+                   <AvatarImage src={user?.photoURL || ''} />
                    <AvatarFallback>{user?.displayName?.charAt(0) || 'V'}</AvatarFallback>
                 </Avatar>
               )}

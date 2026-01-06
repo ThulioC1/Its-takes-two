@@ -100,6 +100,8 @@ export default function WallPage() {
                 author: {
                   uid: user.uid,
                   displayName: user.displayName,
+                  photoURL: user.photoURL,
+                  gender: userProfile?.gender
                 }
             });
             setNewPostContent('');
@@ -132,7 +134,7 @@ export default function WallPage() {
         <CardContent className="p-4">
             <div className="flex gap-4">
                 <Avatar>
-                    {user?.photoURL && <AvatarImage src={user.photoURL} />}
+                    <AvatarImage src={user?.photoURL || ''} />
                     <AvatarFallback>{user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
                 </Avatar>
                 <div className="w-full">
@@ -168,11 +170,13 @@ export default function WallPage() {
       <div className="flex flex-col gap-6">
         {isLoading && <p className="text-center text-muted-foreground">Carregando mural...</p>}
         {!isLoading && sortedPosts.length === 0 && <p className="text-center text-muted-foreground">Nenhuma publicação ainda.</p>}
-        {sortedPosts.map(post => (
-            <Card key={post.id}>
+        {sortedPosts.map(post => {
+          const isMasculino = post.author?.gender === 'Masculino';
+          return (
+            <Card key={post.id} className={cn(isMasculino ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-pink-50 dark:bg-pink-900/20')}>
                 <CardHeader className="flex-row gap-4 items-center">
                     <Avatar>
-                        {/* Placeholder for author avatar */}
+                        <AvatarImage src={post.author?.photoURL || ''} />
                         <AvatarFallback>{post.author?.displayName?.charAt(0) || 'U'}</AvatarFallback>
                     </Avatar>
                     <div>
@@ -210,7 +214,7 @@ export default function WallPage() {
                     </Button>
                 </CardFooter>
             </Card>
-        ))}
+        )})}
       </div>
     </div>
   );

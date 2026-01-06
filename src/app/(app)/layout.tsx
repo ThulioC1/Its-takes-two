@@ -12,6 +12,7 @@ import {
   LogOut,
   Mail,
   Users,
+  User,
 } from "lucide-react"
 
 import {
@@ -45,12 +46,12 @@ const navItems = [
   { href: "/memories", icon: ImageIcon, label: "Álbum de Memórias" },
   { href: "/messages", icon: Mail, label: "Cartas de Amor" },
   { href: "/goals", icon: Goal, label: "Metas do Casal" },
+  { href: "/profile", icon: User, label: "Perfil" },
 ]
 
 function UserProfile() {
     const { user, isUserLoading } = useUser();
     const auth = useAuth();
-    const userAvatar1 = PlaceHolderImages.find((p) => p.id === "user-avatar-1")
 
     const handleLogout = () => {
         if (auth) {
@@ -67,7 +68,7 @@ function UserProfile() {
             <Separator className="my-2" />
             <div className="flex items-center gap-3 p-2">
                 <Avatar>
-                    <AvatarImage src={user?.photoURL || userAvatar1?.imageUrl} alt="User Avatar" />
+                    <AvatarImage src={user?.photoURL || ''} alt="User Avatar" />
                     <AvatarFallback>{user?.email?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col overflow-hidden">

@@ -69,6 +69,8 @@ export function SignupForm() {
           email: user.email,
           displayName: values.name,
           coupleId: user.uid, // Initially, the user is in a "couple" by themselves
+          photoURL: '',
+          gender: 'Prefiro não informar',
         });
       }
 

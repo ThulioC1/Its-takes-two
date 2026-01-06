@@ -3,6 +3,8 @@ import type { Timestamp } from 'firebase/firestore';
 export interface Author {
     uid: string;
     displayName: string;
+    photoURL?: string;
+    gender?: 'Masculino' | 'Feminino' | 'Prefiro não informar';
 }
 
 export interface UserProfile {
@@ -10,6 +12,8 @@ export interface UserProfile {
     email: string;
     displayName: string;
     coupleId: string;
+    photoURL?: string;
+    gender?: 'Masculino' | 'Feminino' | 'Prefiro não informar';
 }
 
 export interface ToDoItem {
@@ -67,7 +71,6 @@ export interface LoveLetter {
     message: string;
     scheduledDate: Timestamp;
     isVisible: boolean;
-    timestamp: Timestamp; // Redundant? scheduledDate could be used
     author: Author;
 }
 
