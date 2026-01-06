@@ -8,7 +8,7 @@ import { Camera, MapPin, PlusCircle, MoreHorizontal } from "lucide-react";
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -18,6 +18,40 @@ const initialMemories = [
   { id: 2, imageId: 'memory-2', imageUrl: PlaceHolderImages.find(p => p.id === 'memory-2')?.imageUrl, description: 'Noite de fondue e vinho em Campos do Jordão.', date: '2023-06-28T12:00:00.000Z', location: 'Campos do Jordão, SP' },
   { id: 3, imageId: 'memory-3', imageUrl: PlaceHolderImages.find(p => p.id === 'memory-3')?.imageUrl, description: 'Explorando as ruas coloridas de Buenos Aires.', date: '2022-11-05T12:00:00.000Z', location: 'Buenos Aires, Argentina' },
 ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+function MemoryForm({ memory, onSave, onCancel }: { memory?: any; onSave: (data: any) => void; onCancel: () => void; }) {
+    const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        const data = {
+            description: formData.get('description') as string,
+            location: formData.get('location') as string,
+            imageUrl: formData.get('imageUrl') as string,
+        };
+        onSave(data);
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="imageUrl" className="text-right">URL da Foto</Label>
+                <Input id="imageUrl" name="imageUrl" className="col-span-3" placeholder="https://exemplo.com/foto.jpg" defaultValue={memory?.imageUrl} />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="description" className="text-right">Descrição</Label>
+                <Textarea id="description" name="description" className="col-span-3" defaultValue={memory?.description} required />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="location" className="text-right">Local</Label>
+                <Input id="location" name="location" className="col-span-3" defaultValue={memory?.location} />
+            </div>
+            <DialogFooter>
+                <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
+                <Button type="submit">Salvar</Button>
+            </DialogFooter>
+        </form>
+    );
+}
 
 export default function MemoriesPage() {
   const [memories, setMemories] = useState(initialMemories);
@@ -34,24 +68,16 @@ export default function MemoriesPage() {
     setIsDialogOpen(false);
   }
   
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const description = formData.get('description') as string;
-    const location = formData.get('location') as string;
-    const imageUrl = formData.get('imageUrl') as string;
-    const date = new Date().toISOString();
-
+  const handleSaveMemory = (data: any) => {
     if (editingMemory) {
-      setMemories(memories.map(m => m.id === editingMemory.id ? { ...m, description, location, imageUrl: imageUrl || m.imageUrl } : m));
+      setMemories(memories.map(m => m.id === editingMemory.id ? { ...m, ...data, imageUrl: data.imageUrl || m.imageUrl } : m));
     } else {
       const newMemory = { 
         id: Date.now(), 
         imageId: `memory-${Date.now()}`,
-        description, 
-        date, 
-        location,
-        imageUrl: imageUrl || `https://picsum.photos/seed/${Math.floor(Math.random()*100)}/400/300`,
+        ...data,
+        date: new Date().toISOString(), 
+        imageUrl: data.imageUrl || `https://picsum.photos/seed/${Math.floor(Math.random()*100)}/400/300`,
       };
       setMemories([newMemory, ...memories].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
     }
@@ -70,37 +96,24 @@ export default function MemoriesPage() {
           <h1 className="text-3xl font-bold font-headline">Álbum de Memórias</h1>
           <p className="text-muted-foreground">Uma linha do tempo dos seus momentos mais especiais.</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if(!isOpen) handleCloseDialog() }}>
-          <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Adicionar Memória
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingMemory ? 'Editar Memória' : 'Nova Memória'}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="imageUrl" className="text-right">URL da Foto</Label>
-                    <Input id="imageUrl" name="imageUrl" className="col-span-3" placeholder="https://exemplo.com/foto.jpg" defaultValue={editingMemory?.imageUrl}/>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="description" className="text-right">Descrição</Label>
-                    <Textarea id="description" name="description" className="col-span-3" defaultValue={editingMemory?.description} required/>
-                </div>
-                 <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="location" className="text-right">Local</Label>
-                    <Input id="location" name="location" className="col-span-3" defaultValue={editingMemory?.location}/>
-                </div>
-              <DialogFooter>
-                <Button type="submit">Salvar</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Adicionar Memória
+        </Button>
       </div>
+      
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingMemory ? 'Editar Memória' : 'Nova Memória'}</DialogTitle>
+          </DialogHeader>
+          <MemoryForm 
+            memory={editingMemory}
+            onSave={handleSaveMemory}
+            onCancel={handleCloseDialog}
+          />
+        </DialogContent>
+      </Dialog>
 
       <div className="relative pl-6 after:absolute after:inset-y-0 after:left-8 after:w-px after:bg-border md:pl-0 md:after:left-1/2 md:after:-translate-x-1/2">
         {memories.map((memory, index) => {
@@ -168,5 +181,3 @@ export default function MemoriesPage() {
     </div>
   );
 }
-
-    
