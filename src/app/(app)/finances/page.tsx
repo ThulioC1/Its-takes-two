@@ -104,7 +104,7 @@ export default function FinancesPage() {
                     <TableCell>
                         <Badge variant="outline">{expense.payer}</Badge>
                     </TableCell>
-                    <TableCell>{new Date(expense.date).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell>{new Date(expense.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
