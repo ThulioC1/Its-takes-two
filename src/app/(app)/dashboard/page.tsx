@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Card,
@@ -25,6 +25,15 @@ import {
 } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { differenceInDays, format, parseISO } from 'date-fns';
+import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
+import type { ToDoItem, ImportantDate, Post, Expense } from "@/types";
+
+interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  coupleId: string;
+}
 
 const chartConfig = {
   expenses: {
@@ -34,48 +43,75 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 
-interface DashboardProps {
-  dates?: any[];
-  todos?: any[];
-  posts?: any[];
-  expenses?: any[];
-}
+export default function DashboardPage() {
+  const firestore = useFirestore();
+  const { user } = useUser();
 
-export default function DashboardPage({ dates: initialDates = [], todos: initialTodos = [], posts: initialPosts = [], expenses: initialExpenses = [] }: DashboardProps) {
-  const [isClient, setIsClient] = useState(false);
-  const [dates, setDates] = useState(initialDates);
-  const [todos, setTodos] = useState(initialTodos);
-  const [posts, setPosts] = useState(initialPosts);
-  const [expenses, setExpenses] = useState(initialExpenses);
-  
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const userProfileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
+  const coupleId = userProfile?.coupleId;
+
+  const datesRef = useMemoFirebase(() => {
+    if (!firestore || !coupleId) return null;
+    return collection(firestore, 'couples', coupleId, 'dates');
+  }, [firestore, coupleId]);
+  const { data: dates } = useCollection<ImportantDate>(datesRef as any);
+
+  const todosRef = useMemoFirebase(() => {
+    if (!firestore || !coupleId) return null;
+    return collection(firestore, 'couples', coupleId, 'todos');
+  }, [firestore, coupleId]);
+  const { data: todos } = useCollection<ToDoItem>(todosRef as any);
+
+  const postsRef = useMemoFirebase(() => {
+    if (!firestore || !coupleId) return null;
+    return collection(firestore, 'couples', coupleId, 'posts');
+  }, [firestore, coupleId]);
+  const { data: posts } = useCollection<Post>(postsRef as any);
+
+  const expensesRef = useMemoFirebase(() => {
+    if (!firestore || !coupleId) return null;
+    return collection(firestore, 'couples', coupleId, 'expenses');
+  }, [firestore, coupleId]);
+  const { data: expenses } = useCollection<Expense>(expensesRef as any);
+
 
   const userAvatar1 = PlaceHolderImages.find((p) => p.id === 'user-avatar-1');
   const bannerImage = PlaceHolderImages.find((p) => p.id === 'couple-banner');
 
-  const upcomingDates = dates
-    .map(d => ({...d, daysLeft: differenceInDays(parseISO(d.date), new Date())}))
-    .filter(d => d.daysLeft >= 0)
-    .sort((a, b) => a.daysLeft - b.daysLeft)
-    .slice(0, 2);
+  const upcomingDates = useMemo(() => {
+    if (!dates) return [];
+    return dates
+      .map(d => ({...d, daysLeft: differenceInDays(parseISO(d.date), new Date())}))
+      .filter(d => d.daysLeft >= 0)
+      .sort((a, b) => a.daysLeft - b.daysLeft)
+      .slice(0, 2);
+  }, [dates]);
 
-  const pendingTodos = todos.filter(t => t.status !== 'Concluído');
+  const pendingTodos = useMemo(() => {
+    if (!todos) return [];
+    return todos.filter(t => t.status !== 'Concluído');
+  }, [todos]);
 
-  const latestPost = posts[0];
+  const latestPost = useMemo(() => {
+    if (!posts) return null;
+    return [...posts].sort((a, b) => b.time.toDate().getTime() - a.time.toDate().getTime())[0];
+  }, [posts]);
   
-  const monthlyExpenses = expenses.reduce((acc, expense) => {
-    const month = format(parseISO(expense.date), 'MMM');
-    acc[month] = (acc[month] || 0) + expense.value;
-    return acc;
-  }, {} as Record<string, number>);
+  const chartData = useMemo(() => {
+    if (!expenses) return [];
+    const monthlyExpenses = expenses.reduce((acc, expense) => {
+        const month = format(expense.date.toDate(), 'MMM');
+        acc[month] = (acc[month] || 0) + expense.value;
+        return acc;
+    }, {} as Record<string, number>);
+    return Object.entries(monthlyExpenses).map(([month, expenses]) => ({ month, expenses }));
+  }, [expenses]);
 
-  const chartData = Object.entries(monthlyExpenses).map(([month, expenses]) => ({ month, expenses }));
-
-  if (!isClient) {
-    return null; // Or a loading skeleton
-  }
 
   return (
     <div className="flex flex-col gap-8">
@@ -165,7 +201,7 @@ export default function DashboardPage({ dates: initialDates = [], todos: initial
                 {latestPost ? (
                     <div className="flex items-start space-x-4">
                     <Avatar>
-                        {userAvatar1 && <AvatarImage src={userAvatar1.imageUrl} />}
+                        {/* Placeholder for user avatar */}
                         <AvatarFallback>{latestPost.name.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div className="space-y-2 flex-1 min-w-0">
@@ -175,12 +211,12 @@ export default function DashboardPage({ dates: initialDates = [], todos: initial
                         </p>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
                         <span className="flex items-center gap-1">
-                            <Heart className="w-3 h-3" /> {latestPost.likes}
+                            <Heart className="w-3 h-3" /> {latestPost.likes.length}
                         </span>
                         <span className="flex items-center gap-1">
                             <MessageSquare className="w-3 h-3" /> {latestPost.comments}
                         </span>
-                        <span>{latestPost.time}</span>
+                        <span>{format(latestPost.time.toDate(), 'dd/MM/yy')}</span>
                         </div>
                     </div>
                     </div>

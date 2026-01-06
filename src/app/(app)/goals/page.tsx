@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -12,14 +12,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from '@/components/ui/slider';
+import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
+import { collection, doc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import type { CoupleGoal } from "@/types";
 
-
-const initialGoals = [
-  { id: 1, title: 'Comprar nosso apartamento', description: 'Juntar R$ 50.000 para a entrada.', progress: 75, status: 'Em andamento', type: 'Financeiro' },
-  { id: 2, title: 'Viagem para o Japão', description: 'Planejar e economizar para uma viagem de 15 dias.', progress: 30, status: 'Em andamento', type: 'Financeiro' },
-  { id: 3, title: 'Correr uma meia maratona juntos', description: 'Seguir o plano de treinos e completar a prova.', progress: 100, status: 'Concluído', type: 'Pessoal' },
-  { id: 4, title: 'Ter um "date night" por semana', description: 'Reservar uma noite só para nós, sem distrações.', progress: 90, status: 'Em andamento', type: 'Relacionamento' },
-];
+interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  coupleId: string;
+}
 
 const typeInfo: { [key: string]: { icon: React.ReactNode, color: string } } = {
   'Financeiro': { icon: <PiggyBank />, color: 'text-emerald-500' },
@@ -27,13 +29,13 @@ const typeInfo: { [key: string]: { icon: React.ReactNode, color: string } } = {
   'Relacionamento': { icon: <HeartHandshake />, color: 'text-pink-500' },
 };
 
-function GoalForm({ goal, onSave, onCancel }: { goal?: any; onSave: (data: any) => void; onCancel: () => void; }) {
+function GoalForm({ goal, onSave, onCancel }: { goal?: CoupleGoal; onSave: (data: Partial<CoupleGoal>) => void; onCancel: () => void; }) {
   const [progressValue, setProgressValue] = useState(goal ? goal.progress : 0);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const data = {
+    const data: Partial<CoupleGoal> = {
       title: formData.get('title') as string,
       description: formData.get('description') as string,
       type: formData.get('type') as string,
@@ -80,16 +82,34 @@ function GoalForm({ goal, onSave, onCancel }: { goal?: any; onSave: (data: any) 
 
 
 export default function GoalsPage() {
-  const [goals, setGoals] = useState(initialGoals);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingGoal, setEditingGoal] = useState<any>(null);
-  const [isClient, setIsClient] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<CoupleGoal | null>(null);
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const firestore = useFirestore();
+  const { user } = useUser();
 
-  const handleOpenDialog = (goal: any = null) => {
+  const userProfileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
+  const coupleId = userProfile?.coupleId;
+
+  const goalsRef = useMemoFirebase(() => {
+    if (!firestore || !coupleId) return null;
+    return collection(firestore, 'couples', coupleId, 'goals');
+  }, [firestore, coupleId]);
+
+  const { data: goals, isLoading } = useCollection<CoupleGoal>(goalsRef as any);
+
+  const sortedGoals = useMemo(() => {
+    if (!goals) return [];
+    return [...goals].sort((a, b) => a.progress - b.progress);
+  }, [goals]);
+
+
+  const handleOpenDialog = (goal: CoupleGoal | null = null) => {
     setEditingGoal(goal);
     setIsDialogOpen(true);
   };
@@ -99,22 +119,22 @@ export default function GoalsPage() {
     setIsDialogOpen(false);
   }
 
-  const handleSaveGoal = (data: any) => {
+  const handleSaveGoal = async (data: Partial<CoupleGoal>) => {
+    if (!goalsRef) return;
+    const fullData = { ...data, status: (data.progress || 0) === 100 ? 'Concluído' : 'Em andamento' }
     if (editingGoal) {
-      setGoals(goals.map(g => g.id === editingGoal.id ? { ...g, ...data, status: data.progress === 100 ? 'Concluído' : 'Em andamento' } : g));
+      const goalDoc = doc(goalsRef, editingGoal.id);
+      await updateDoc(goalDoc, fullData);
     } else {
-      const newGoal = {
-        id: Date.now(),
-        ...data,
-        status: data.progress === 100 ? 'Concluído' : 'Em andamento',
-      };
-      setGoals([newGoal, ...goals]);
+      await addDoc(goalsRef, fullData);
     }
     handleCloseDialog();
   };
   
-  const handleDelete = (id: number) => {
-    setGoals(goals.filter(g => g.id !== id));
+  const handleDelete = async (id: string) => {
+    if(!goalsRef) return;
+    const goalDoc = doc(goalsRef, id);
+    await deleteDoc(goalDoc);
   };
   
   return (
@@ -124,7 +144,7 @@ export default function GoalsPage() {
           <h1 className="text-3xl font-bold font-headline">Metas do Casal</h1>
           <p className="text-muted-foreground">Sonhos e objetivos para conquistarem juntos.</p>
         </div>
-        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
+        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()} disabled={!coupleId}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Adicionar Meta
         </Button>
@@ -136,15 +156,17 @@ export default function GoalsPage() {
               <DialogTitle>{editingGoal ? 'Editar Meta' : 'Nova Meta'}</DialogTitle>
             </DialogHeader>
             <GoalForm 
-              goal={editingGoal}
+              goal={editingGoal ?? undefined}
               onSave={handleSaveGoal}
               onCancel={handleCloseDialog}
             />
           </DialogContent>
         </Dialog>
 
+      {isLoading && <p className="text-center text-muted-foreground">Carregando metas...</p>}
+      {!isLoading && sortedGoals?.length === 0 && <p className="text-center text-muted-foreground">Nenhuma meta adicionada.</p>}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {isClient && goals.map(goal => (
+        {sortedGoals?.map(goal => (
           <Card key={goal.id} className="flex flex-col">
             <CardHeader>
               <div className="flex justify-between items-start">
@@ -165,7 +187,7 @@ export default function GoalsPage() {
                     </DropdownMenu>
                   </div>
               </div>
-              <CardDescription>{goal.description}</CardDescription>
+              {goal.description && <CardDescription>{goal.description}</CardDescription>}
             </CardHeader>
             <CardContent className="flex-grow">
               <div className="flex justify-between items-center mb-2">

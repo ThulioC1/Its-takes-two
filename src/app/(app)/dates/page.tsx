@@ -16,15 +16,16 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from '@/lib/utils';
 import { Calendar as CalendarIcon } from "lucide-react";
+import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
+import { collection, doc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import type { ImportantDate } from "@/types";
 
-
-const initialDates = [
-  { id: 1, title: 'Aniversário de Namoro', date: '2024-07-25', type: 'Aniversário', observation: 'Celebrar 5 anos juntos!' },
-  { id: 2, title: 'Aniversário dele(a)', date: '2024-09-10', type: 'Aniversário' },
-  { id: 3, title: 'Viagem para a Itália', date: '2024-12-15', type: 'Viagem', observation: 'Voo às 22h' },
-  { id: 4, title: 'Show do Coldplay', date: '2024-10-22', type: 'Evento' },
-  { id: 5, title: 'Nosso casamento', date: '2025-05-18', type: 'Casamento', observation: 'No campo' },
-].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  coupleId: string;
+}
 
 const typeIcons: { [key: string]: React.ReactNode } = {
   'Aniversário': <Gift className="h-6 w-6 text-primary" />,
@@ -38,6 +39,7 @@ function Countdown({ date }: { date: string }) {
   const [countdown, setCountdown] = useState('');
 
   useEffect(() => {
+    if (!date) return;
     const targetDate = parseISO(date);
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -57,13 +59,13 @@ function Countdown({ date }: { date: string }) {
   return <p className="text-sm text-muted-foreground">{countdown}</p>;
 }
 
-function DateForm({ date, onSave, onCancel }: { date?: any; onSave: (data: any) => void; onCancel: () => void; }) {
+function DateForm({ date, onSave, onCancel }: { date?: ImportantDate; onSave: (data: Partial<ImportantDate>) => void; onCancel: () => void; }) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(date ? parseISO(date.date) : new Date());
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const data = {
+    const data: Partial<ImportantDate> = {
       title: formData.get('title') as string,
       type: formData.get('type') as string,
       observation: formData.get('observation') as string,
@@ -130,16 +132,34 @@ function DateForm({ date, onSave, onCancel }: { date?: any; onSave: (data: any) 
 
 
 export default function DatesPage() {
-  const [importantDates, setImportantDates] = useState(initialDates);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingDate, setEditingDate] = useState<any>(null);
-  const [isClient, setIsClient] = useState(false);
+  const [editingDate, setEditingDate] = useState<ImportantDate | null>(null);
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const firestore = useFirestore();
+  const { user } = useUser();
+  
+  const userProfileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
 
-  const handleOpenDialog = (date: any = null) => {
+  const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
+  const coupleId = userProfile?.coupleId;
+
+  const datesRef = useMemoFirebase(() => {
+    if (!firestore || !coupleId) return null;
+    return collection(firestore, 'couples', coupleId, 'dates');
+  }, [firestore, coupleId]);
+
+  const { data: importantDates, isLoading } = useCollection<ImportantDate>(datesRef as any);
+
+  const sortedDates = useMemoFirebase(() => {
+    if (!importantDates) return [];
+    return [...importantDates].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [importantDates]);
+
+
+  const handleOpenDialog = (date: ImportantDate | null = null) => {
     setEditingDate(date);
     setIsDialogOpen(true);
   };
@@ -149,18 +169,21 @@ export default function DatesPage() {
     setIsDialogOpen(false);
   }
 
-  const handleSaveDate = (data: any) => {
+  const handleSaveDate = async (data: Partial<ImportantDate>) => {
+    if (!datesRef) return;
     if (editingDate) {
-      setImportantDates(importantDates.map(d => d.id === editingDate.id ? { ...d, ...data } : d).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+      const dateDoc = doc(datesRef, editingDate.id);
+      await updateDoc(dateDoc, data);
     } else {
-      const newDate = { id: Date.now(), ...data };
-      setImportantDates([...importantDates, newDate].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+      await addDoc(datesRef, data);
     }
     handleCloseDialog();
   };
 
-  const handleDelete = (id: number) => {
-    setImportantDates(importantDates.filter(d => d.id !== id));
+  const handleDelete = async (id: string) => {
+    if (!datesRef) return;
+    const dateDoc = doc(datesRef, id);
+    await deleteDoc(dateDoc);
   };
 
 
@@ -171,7 +194,7 @@ export default function DatesPage() {
           <h1 className="text-3xl font-bold font-headline">Datas Importantes</h1>
           <p className="text-muted-foreground">Nunca mais esqueçam uma data especial.</p>
         </div>
-        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
+        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()} disabled={!coupleId}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Adicionar Data
         </Button>
@@ -183,15 +206,17 @@ export default function DatesPage() {
               <DialogTitle>{editingDate ? 'Editar Data' : 'Nova Data'}</DialogTitle>
             </DialogHeader>
             <DateForm 
-              date={editingDate}
+              date={editingDate ?? undefined}
               onSave={handleSaveDate}
               onCancel={handleCloseDialog}
             />
           </DialogContent>
         </Dialog>
       
+      {isLoading && <p className="text-center text-muted-foreground">Carregando datas...</p>}
+      {!isLoading && sortedDates?.length === 0 && <p className="text-center text-muted-foreground">Nenhuma data adicionada ainda.</p>}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {isClient && importantDates.map(d => (
+        {sortedDates?.map(d => (
           <Card key={d.id} className="flex flex-col">
             <CardHeader>
              <div className="flex flex-row items-center justify-between">
@@ -199,7 +224,7 @@ export default function DatesPage() {
                     {typeIcons[d.type] || <Gift className="h-6 w-6 text-primary" />}
                     <div>
                         <CardTitle className="font-headline">{d.title}</CardTitle>
-                        <p className="text-muted-foreground text-sm">{format(parseISO(d.date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR, timeZone: 'UTC' })}</p>
+                        <p className="text-muted-foreground text-sm">{format(parseISO(d.date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
                     </div>
                 </div>
                 <DropdownMenu>

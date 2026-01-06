@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { PlusCircle, Clapperboard, Film, Tv, MoreHorizontal } from "lucide-react";
@@ -12,22 +12,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
+import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import type { WatchlistItem } from "@/types";
 
+interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  coupleId: string;
+}
 
-const initialWatchlist = [
-    { id: 1, name: 'Duna: Parte 2', type: 'Filme', platform: 'Max', status: 'to-watch', image: 'https://picsum.photos/seed/21/300/450' },
-    { id: 2, name: 'The Bear', type: 'Série', platform: 'Star+', status: 'watching', image: 'https://picsum.photos/seed/22/300/450' },
-    { id: 3, name: 'Succession', type: 'Série', platform: 'Max', status: 'watched', dateWatched: '2024-06-20', image: 'https://picsum.photos/seed/23/300/450' },
-    { id: 4, name: 'Pobres Criaturas', type: 'Filme', platform: 'Star+', status: 'to-watch', image: 'https://picsum.photos/seed/24/300/450' },
-    { id: 5, name: 'Fallout', type: 'Série', platform: 'Prime Video', status: 'watched', dateWatched: '2024-05-15', image: 'https://picsum.photos/seed/25/300/450' },
-    { id: 6, name: 'Guerra Civil', type: 'Filme', platform: 'Cinema', status: 'to-watch', image: 'https://picsum.photos/seed/26/300/450' },
-];
-
-function WatchlistForm({ item, onSave, onCancel }: { item?: any; onSave: (data: any) => void; onCancel: () => void; }) {
+function WatchlistForm({ item, onSave, onCancel }: { item?: WatchlistItem; onSave: (data: Partial<WatchlistItem>) => void; onCancel: () => void; }) {
   const handleItemSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const data = {
+    const data: Partial<WatchlistItem> = {
       name: formData.get('name') as string,
       type: formData.get('type') as 'Filme' | 'Série',
       platform: formData.get('platform') as string,
@@ -72,16 +72,28 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: any; onSave: (data: 
 
 
 export default function WatchlistPage() {
-  const [watchlist, setWatchlist] = useState(initialWatchlist);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<any>(null);
-  const [isClient, setIsClient] = useState(false);
+  const [editingItem, setEditingItem] = useState<WatchlistItem | null>(null);
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const firestore = useFirestore();
+  const { user } = useUser();
 
-  const handleOpenDialog = (item: any = null) => {
+  const userProfileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
+  const coupleId = userProfile?.coupleId;
+
+  const watchlistRef = useMemoFirebase(() => {
+    if (!firestore || !coupleId) return null;
+    return collection(firestore, 'couples', coupleId, 'movies');
+  }, [firestore, coupleId]);
+
+  const { data: watchlist, isLoading } = useCollection<WatchlistItem>(watchlistRef as any);
+  
+  const handleOpenDialog = (item: WatchlistItem | null = null) => {
     setEditingItem(item);
     setIsDialogOpen(true);
   };
@@ -91,38 +103,44 @@ export default function WatchlistPage() {
     setIsDialogOpen(false);
   }
 
-  const moveItem = (id: number, newStatus: string) => {
-    setWatchlist(watchlist.map(item =>
-      item.id === id ? {
-        ...item,
+  const moveItem = async (id: string, newStatus: "to-watch" | "watching" | "watched") => {
+    if(!watchlistRef) return;
+    const itemDoc = doc(watchlistRef, id);
+    await updateDoc(itemDoc, {
         status: newStatus,
-        dateWatched: newStatus === 'watched' ? new Date().toISOString().split('T')[0] : item.dateWatched
-      } : item
-    ));
+        dateWatched: newStatus === 'watched' ? serverTimestamp() : null
+    });
   };
   
-  const deleteItem = (id: number) => {
-    setWatchlist(watchlist.filter(item => item.id !== id));
+  const deleteItem = async (id: string) => {
+    if(!watchlistRef) return;
+    const itemDoc = doc(watchlistRef, id);
+    await deleteDoc(itemDoc);
   };
   
-  const handleSaveItem = (data: any) => {
-    if (editingItem) {
-      setWatchlist(watchlist.map(item => item.id === editingItem.id ? { ...item, ...data, image: data.image || item.image } : item));
-    } else {
-      const newItem = {
-        id: Date.now(),
+  const handleSaveItem = async (data: Partial<WatchlistItem>) => {
+    if(!watchlistRef) return;
+    const fullData = {
         ...data,
-        status: 'to-watch',
         image: data.image || `https://picsum.photos/seed/${Date.now()}/300/450`
-      };
-      setWatchlist([newItem, ...watchlist]);
+    }
+    if (editingItem) {
+      const itemDoc = doc(watchlistRef, editingItem.id);
+      await updateDoc(itemDoc, fullData);
+    } else {
+      await addDoc(watchlistRef, {
+        ...fullData,
+        status: 'to-watch',
+      });
     }
 
     handleCloseDialog();
   };
 
-  const renderList = (status: string) => {
-    const filteredList = watchlist.filter(item => item.status === status);
+  const renderList = (status: "to-watch" | "watching" | "watched") => {
+    if (isLoading) return <div className="col-span-full text-center text-muted-foreground py-10">Carregando...</div>;
+    
+    const filteredList = watchlist?.filter(item => item.status === status) || [];
     
     if (filteredList.length === 0) {
         return <div className="col-span-full text-center text-muted-foreground py-10">Nenhum item aqui.</div>;
@@ -131,7 +149,7 @@ export default function WatchlistPage() {
     return filteredList.map(item => (
         <Card key={item.id} className="overflow-hidden w-full group">
             <div className="relative aspect-[2/3]">
-                <Image src={item.image} alt={item.name} fill objectFit="cover" data-ai-hint="movie poster" />
+                <Image src={item.image || `https://picsum.photos/seed/${item.id}/300/450`} alt={item.name} fill objectFit="cover" data-ai-hint="movie poster" />
                  <Badge variant="secondary" className="absolute top-2 left-2">{item.platform}</Badge>
                  <div className="absolute top-1 right-1">
                     <DropdownMenu>
@@ -166,7 +184,7 @@ export default function WatchlistPage() {
             </CardContent>
             {item.status === 'watched' && item.dateWatched && (
                 <CardFooter className="p-3 pt-0 text-xs text-muted-foreground">
-                    Assistido em {new Date(item.dateWatched).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                    Assistido em {item.dateWatched.toDate().toLocaleDateString('pt-BR')}
                 </CardFooter>
             )}
         </Card>
@@ -180,7 +198,7 @@ export default function WatchlistPage() {
           <h1 className="text-3xl font-bold font-headline">Filmes & Séries</h1>
           <p className="text-muted-foreground">A lista de entretenimento do casal.</p>
         </div>
-        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
+        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()} disabled={!coupleId}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Adicionar Item
         </Button>
@@ -192,7 +210,7 @@ export default function WatchlistPage() {
                 <DialogTitle>{editingItem ? 'Editar Item' : 'Adicionar à Lista'}</DialogTitle>
             </DialogHeader>
             <WatchlistForm 
-              item={editingItem}
+              item={editingItem ?? undefined}
               onSave={handleSaveItem}
               onCancel={handleCloseDialog}
             />
@@ -207,17 +225,17 @@ export default function WatchlistPage() {
         </TabsList>
         <TabsContent value="to-watch" className="mt-6">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-            {isClient && renderList('to-watch')}
+            {renderList('to-watch')}
           </div>
         </TabsContent>
         <TabsContent value="watching" className="mt-6">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-             {isClient && renderList('watching')}
+             {renderList('watching')}
           </div>
         </TabsContent>
         <TabsContent value="watched" className="mt-6">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-            {isClient && renderList('watched')}
+            {renderList('watched')}
           </div>
         </TabsContent>
       </Tabs>

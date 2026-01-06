@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, MoreHorizontal, TrendingUp, TrendingDown, CircleDollarSign } from "lucide-react";
@@ -12,14 +12,16 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
+import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import type { Expense } from "@/types";
 
-
-const initialExpenses = [
-  { id: 1, category: 'Alimentação', value: 350.75, payer: 'Usuário 1', date: '2024-07-12' },
-  { id: 2, category: 'Lazer', value: 120.00, payer: 'Usuário 2', date: '2024-07-10' },
-  { id: 3, category: 'Moradia', value: 1800.00, payer: 'Ambos', date: '2024-07-05' },
-  { id: 4, category: 'Transporte', value: 85.50, payer: 'Usuário 1', date: '2024-07-02' },
-];
+interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  coupleId: string;
+}
 
 const categories = ['Alimentação', 'Lazer', 'Moradia', 'Transporte', 'Outros'];
 
@@ -32,11 +34,11 @@ const chartConfig = {
   'Outros': { label: "Outros", color: "hsl(var(--chart-5))" },
 } satisfies ChartConfig;
 
-function ExpenseForm({ expense, onSave, onCancel }: { expense?: any; onSave: (data: any) => void; onCancel: () => void; }) {
+function ExpenseForm({ expense, onSave, onCancel }: { expense?: Expense; onSave: (data: Partial<Expense>) => void; onCancel: () => void; }) {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const data = {
+    const data: Partial<Expense> = {
       category: formData.get('category') as string,
       value: parseFloat(formData.get('value') as string),
       payer: formData.get('payer') as string,
@@ -68,6 +70,7 @@ function ExpenseForm({ expense, onSave, onCancel }: { expense?: any; onSave: (da
             <SelectValue placeholder="Selecione quem pagou" />
           </SelectTrigger>
           <SelectContent>
+            {/* TODO: Make this dynamic based on couple members */}
             <SelectItem value="Usuário 1">Usuário 1</SelectItem>
             <SelectItem value="Usuário 2">Usuário 2</SelectItem>
             <SelectItem value="Ambos">Ambos</SelectItem>
@@ -83,29 +86,49 @@ function ExpenseForm({ expense, onSave, onCancel }: { expense?: any; onSave: (da
 }
 
 export default function FinancesPage() {
-  const [expenses, setExpenses] = useState(initialExpenses);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingExpense, setEditingExpense] = useState<any>(null);
-  const [isClient, setIsClient] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-  
-  const totalExpenses = expenses.reduce((acc, expense) => acc + expense.value, 0);
+  const firestore = useFirestore();
+  const { user } = useUser();
 
-  const chartData = Object.entries(
-    expenses.reduce((acc, { category, value }) => {
-      acc[category] = (acc[category] || 0) + value;
-      return acc;
-    }, {} as {[key: string]: number})
-  ).map(([name, value]) => ({
-    name,
-    value,
-    fill: `var(--color-${name.toLowerCase()})`
-  }));
+  const userProfileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
+  const coupleId = userProfile?.coupleId;
+
+  const expensesRef = useMemoFirebase(() => {
+    if (!firestore || !coupleId) return null;
+    return collection(firestore, 'couples', coupleId, 'expenses');
+  }, [firestore, coupleId]);
+
+  const { data: expenses, isLoading } = useCollection<Expense>(expensesRef as any);
+
+  const sortedExpenses = useMemo(() => {
+    if (!expenses) return [];
+    return [...expenses].sort((a, b) => b.date.toDate().getTime() - a.date.toDate().getTime());
+  }, [expenses]);
+
+  const totalExpenses = useMemo(() => sortedExpenses.reduce((acc, expense) => acc + expense.value, 0), [sortedExpenses]);
+
+  const chartData = useMemo(() => {
+    if (!sortedExpenses) return [];
+    return Object.entries(
+      sortedExpenses.reduce((acc, { category, value }) => {
+        acc[category] = (acc[category] || 0) + value;
+        return acc;
+      }, {} as {[key: string]: number})
+    ).map(([name, value]) => ({
+      name,
+      value,
+      fill: `var(--color-${name.toLowerCase().replace('ã', 'a')})`
+    }));
+  }, [sortedExpenses]);
   
-  const handleOpenDialog = (expense: any = null) => {
+  const handleOpenDialog = (expense: Expense | null = null) => {
     setEditingExpense(expense);
     setIsDialogOpen(true);
   };
@@ -115,18 +138,21 @@ export default function FinancesPage() {
     setIsDialogOpen(false);
   }
   
-  const handleSaveExpense = (data: any) => {
+  const handleSaveExpense = async (data: Partial<Expense>) => {
+    if (!expensesRef) return;
     if (editingExpense) {
-      setExpenses(expenses.map(ex => ex.id === editingExpense.id ? { ...ex, ...data } : ex));
+      const expenseDoc = doc(expensesRef, editingExpense.id);
+      await updateDoc(expenseDoc, data);
     } else {
-      const newExpense = { id: Date.now(), ...data, date: new Date().toISOString().split('T')[0] };
-      setExpenses([newExpense, ...expenses]);
+      await addDoc(expensesRef, { ...data, date: serverTimestamp() });
     }
     handleCloseDialog();
   };
 
-  const handleDelete = (id: number) => {
-    setExpenses(expenses.filter(ex => ex.id !== id));
+  const handleDelete = async (id: string) => {
+    if (!expensesRef) return;
+    const expenseDoc = doc(expensesRef, id);
+    await deleteDoc(expenseDoc);
   };
 
 
@@ -137,7 +163,7 @@ export default function FinancesPage() {
           <h1 className="text-3xl font-bold font-headline">Finanças do Casal</h1>
           <p className="text-muted-foreground">Controle de despesas e metas financeiras compartilhadas.</p>
         </div>
-        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
+        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()} disabled={!coupleId}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Adicionar Despesa
         </Button>
@@ -149,7 +175,7 @@ export default function FinancesPage() {
               <DialogTitle>{editingExpense ? 'Editar Despesa' : 'Nova Despesa'}</DialogTitle>
             </DialogHeader>
             <ExpenseForm 
-              expense={editingExpense} 
+              expense={editingExpense ?? undefined} 
               onSave={handleSaveExpense}
               onCancel={handleCloseDialog}
             />
@@ -195,43 +221,47 @@ export default function FinancesPage() {
             <CardTitle>Despesas Recentes</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead className="hidden sm:table-cell">Pago por</TableHead>
-                  <TableHead className="hidden md:table-cell">Data</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isClient && expenses.map(expense => (
-                  <TableRow key={expense.id}>
-                    <TableCell className="font-medium">{expense.category}</TableCell>
-                    <TableCell>R$ {expense.value.toFixed(2).replace('.', ',')}</TableCell>
-                    <TableCell className="hidden sm:table-cell">
-                        <Badge variant="outline">{expense.payer}</Badge>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">{new Date(expense.date).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</TableCell>
-                    <TableCell className="text-right">
-                       <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <span className="sr-only">Abrir menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleOpenDialog(expense)}>Editar</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(expense.id)}>Deletar</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            {isLoading && <p className="text-center text-muted-foreground py-4">Carregando despesas...</p>}
+            {!isLoading && sortedExpenses?.length === 0 && <p className="text-center text-muted-foreground py-4">Nenhuma despesa adicionada.</p>}
+            {sortedExpenses.length > 0 && (
+                <Table>
+                <TableHeader>
+                    <TableRow>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead>Valor</TableHead>
+                    <TableHead className="hidden sm:table-cell">Pago por</TableHead>
+                    <TableHead className="hidden md:table-cell">Data</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {sortedExpenses.map(expense => (
+                    <TableRow key={expense.id}>
+                        <TableCell className="font-medium">{expense.category}</TableCell>
+                        <TableCell>R$ {expense.value.toFixed(2).replace('.', ',')}</TableCell>
+                        <TableCell className="hidden sm:table-cell">
+                            <Badge variant="outline">{expense.payer}</Badge>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">{expense.date.toDate().toLocaleDateString('pt-BR')}</TableCell>
+                        <TableCell className="text-right">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Abrir menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleOpenDialog(expense)}>Editar</DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(expense.id)}>Deletar</DropdownMenuItem>
+                            </DropdownMenuContent>
+                            </DropdownMenu>
+                        </TableCell>
+                    </TableRow>
+                    ))}
+                </TableBody>
+                </Table>
+            )}
           </CardContent>
         </Card>
 

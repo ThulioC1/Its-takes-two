@@ -1,22 +1,27 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Heart, MessageSquare, Send, MoreHorizontal } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
+import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, arrayUnion, arrayRemove } from "firebase/firestore";
+import type { Post } from "@/types";
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
-const initialPosts = [
-    { id: 1, userId: 'user-avatar-1', name: 'Maria', content: 'Lembrando do nosso primeiro encontro hoje! Parece que foi ontem. ❤️', time: 'há 2 horas', likes: 5, comments: 2 },
-    { id: 2, userId: 'user-avatar-2', name: 'João', content: 'Ansioso para o nosso jantar de sábado! Vai ser incrível.', time: 'há 1 dia', likes: 3, comments: 1 },
-    { id: 3, userId: 'user-avatar-1', name: 'Maria', content: 'Conseguimos terminar a 3ª temporada de The Bear! Que série!! 🤯', time: 'há 3 dias', likes: 8, comments: 4 },
-];
+interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  coupleId: string;
+}
 
-function PostForm({ post, onSave, onCancel }: { post?: any; onSave: (content: string) => void; onCancel: () => void; }) {
+function PostForm({ post, onSave, onCancel }: { post?: Post; onSave: (content: string) => void; onCancel: () => void; }) {
   const [content, setContent] = useState(post ? post.content : '');
 
   const handlePublish = (e: React.FormEvent<HTMLFormElement>) => {
@@ -42,21 +47,34 @@ function PostForm({ post, onSave, onCancel }: { post?: any; onSave: (content: st
 
 
 export default function WallPage() {
-    const [posts, setPosts] = useState(initialPosts);
     const [newPostContent, setNewPostContent] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [editingPost, setEditingPost] = useState<any>(null);
-    const [isClient, setIsClient] = useState(false);
+    const [editingPost, setEditingPost] = useState<Post | null>(null);
 
-    useEffect(() => {
-      setIsClient(true);
-    }, []);
+    const firestore = useFirestore();
+    const { user } = useUser();
 
-    const userAvatar1 = PlaceHolderImages.find((p) => p.id === "user-avatar-1");
-    const userAvatar2 = PlaceHolderImages.find((p) => p.id === "user-avatar-2");
-    const avatars = { "user-avatar-1": userAvatar1, "user-avatar-2": userAvatar2 };
+    const userProfileRef = useMemoFirebase(() => {
+        if (!firestore || !user) return null;
+        return doc(firestore, 'users', user.uid);
+    }, [firestore, user]);
 
-    const handleOpenDialog = (post: any) => {
+    const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
+    const coupleId = userProfile?.coupleId;
+
+    const postsRef = useMemoFirebase(() => {
+        if (!firestore || !coupleId) return null;
+        return collection(firestore, 'couples', coupleId, 'posts');
+    }, [firestore, coupleId]);
+
+    const { data: posts, isLoading } = useCollection<Post>(postsRef as any);
+
+    const sortedPosts = useMemo(() => {
+        if (!posts) return [];
+        return [...posts].sort((a, b) => b.time.toDate().getTime() - a.time.toDate().getTime());
+    }, [posts]);
+
+    const handleOpenDialog = (post: Post) => {
         setEditingPost(post);
         setIsDialogOpen(true);
     };
@@ -66,30 +84,41 @@ export default function WallPage() {
         setIsDialogOpen(false);
     };
 
-    const handleSavePost = (content: string) => {
-        setPosts(posts.map(p => p.id === editingPost.id ? { ...p, content } : p));
+    const handleSavePost = async (content: string) => {
+        if (!postsRef || !editingPost) return;
+        const postDoc = doc(postsRef, editingPost.id);
+        await updateDoc(postDoc, { content });
         handleCloseDialog();
     };
     
-    const handlePublish = () => {
-        if (newPostContent.trim()) {
-            const newPost = {
-                id: Date.now(),
-                userId: 'user-avatar-1', // Assuming the current user is Maria
-                name: 'Maria',
+    const handlePublish = async () => {
+        if (newPostContent.trim() && postsRef && user && userProfile) {
+            await addDoc(postsRef, {
+                userId: user.uid,
+                name: userProfile.displayName,
                 content: newPostContent,
-                time: 'agora',
-                likes: 0,
+                time: serverTimestamp(),
+                likes: [],
                 comments: 0
-            };
-            setPosts([newPost, ...posts]);
+            });
             setNewPostContent('');
         }
     };
 
-    const handleDelete = (id: number) => {
-        setPosts(posts.filter(p => p.id !== id));
+    const handleDelete = async (id: string) => {
+        if (!postsRef) return;
+        const postDoc = doc(postsRef, id);
+        await deleteDoc(postDoc);
     };
+
+    const handleLike = async (post: Post) => {
+        if (!postsRef || !user) return;
+        const postDoc = doc(postsRef, post.id);
+        const hasLiked = post.likes.includes(user.uid);
+        await updateDoc(postDoc, {
+            likes: hasLiked ? arrayRemove(user.uid) : arrayUnion(user.uid)
+        });
+    }
 
   return (
     <div className="max-w-2xl mx-auto flex flex-col gap-8">
@@ -102,8 +131,8 @@ export default function WallPage() {
         <CardContent className="p-4">
             <div className="flex gap-4">
                 <Avatar>
-                    {userAvatar1 && <AvatarImage src={userAvatar1.imageUrl} />}
-                    <AvatarFallback>M</AvatarFallback>
+                    {user?.photoURL && <AvatarImage src={user.photoURL} />}
+                    <AvatarFallback>{user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
                 </Avatar>
                 <div className="w-full">
                     <Textarea 
@@ -111,8 +140,9 @@ export default function WallPage() {
                         className="mb-2"
                         value={newPostContent}
                         onChange={(e) => setNewPostContent(e.target.value)}
+                        disabled={!coupleId}
                     />
-                    <Button onClick={handlePublish}>
+                    <Button onClick={handlePublish} disabled={!coupleId || !newPostContent.trim()}>
                         <Send className="mr-2 h-4 w-4" />
                         Publicar
                     </Button>
@@ -127,7 +157,7 @@ export default function WallPage() {
                     <DialogTitle>Editar Publicação</DialogTitle>
                 </DialogHeader>
                 <PostForm 
-                  post={editingPost}
+                  post={editingPost ?? undefined}
                   onSave={handleSavePost}
                   onCancel={handleCloseDialog}
                 />
@@ -135,37 +165,43 @@ export default function WallPage() {
         </Dialog>
 
       <div className="flex flex-col gap-6">
-        {isClient && posts.map(post => (
+        {isLoading && <p className="text-center text-muted-foreground">Carregando mural...</p>}
+        {!isLoading && sortedPosts.length === 0 && <p className="text-center text-muted-foreground">Nenhuma publicação ainda.</p>}
+        {sortedPosts.map(post => (
             <Card key={post.id}>
                 <CardHeader className="flex-row gap-4 items-center">
                     <Avatar>
-                        {avatars[post.userId as keyof typeof avatars] && <AvatarImage src={avatars[post.userId as keyof typeof avatars]?.imageUrl} />}
+                        {/* Placeholder for author avatar */}
                         <AvatarFallback>{post.name.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div>
                         <p className="font-semibold">{post.name}</p>
-                        <p className="text-xs text-muted-foreground">{post.time}</p>
+                        <p className="text-xs text-muted-foreground">
+                            {formatDistanceToNow(post.time.toDate(), { addSuffix: true, locale: ptBR })}
+                        </p>
                     </div>
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0 ml-auto">
-                                <span className="sr-only">Abrir menu</span>
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleOpenDialog(post)}>Editar</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(post.id)}>Deletar</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    {post.userId === user?.uid && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0 ml-auto">
+                                    <span className="sr-only">Abrir menu</span>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleOpenDialog(post)}>Editar</DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(post.id)}>Deletar</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
                 </CardHeader>
                 <CardContent>
                     <p>{post.content}</p>
                 </CardContent>
                 <CardFooter className="gap-4">
-                    <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                        <Heart className="h-4 w-4"/>
-                        <span>{post.likes} Curtir</span>
+                    <Button variant="ghost" size="sm" className="flex items-center gap-2" onClick={() => handleLike(post)}>
+                        <Heart className={cn("h-4 w-4", post.likes.includes(user?.uid || '') && "fill-destructive text-destructive")}/>
+                        <span>{post.likes.length} Curtir</span>
                     </Button>
                      <Button variant="ghost" size="sm" className="flex items-center gap-2">
                         <MessageSquare className="h-4 w-4"/>

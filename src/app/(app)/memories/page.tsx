@@ -1,9 +1,8 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Camera, MapPin, PlusCircle, MoreHorizontal } from "lucide-react";
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -12,18 +11,22 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
+import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import type { Memory } from "@/types";
 
-const initialMemories = [
-  { id: 1, imageId: 'memory-1', imageUrl: PlaceHolderImages.find(p => p.id === 'memory-1')?.imageUrl, description: 'Nosso primeiro pôr do sol na praia juntos. Inesquecível!', date: '2023-01-15T12:00:00.000Z', location: 'Praia do Rosa, SC' },
-  { id: 2, imageId: 'memory-2', imageUrl: PlaceHolderImages.find(p => p.id === 'memory-2')?.imageUrl, description: 'Noite de fondue e vinho em Campos do Jordão.', date: '2023-06-28T12:00:00.000Z', location: 'Campos do Jordão, SP' },
-  { id: 3, imageId: 'memory-3', imageUrl: PlaceHolderImages.find(p => p.id === 'memory-3')?.imageUrl, description: 'Explorando as ruas coloridas de Buenos Aires.', date: '2022-11-05T12:00:00.000Z', location: 'Buenos Aires, Argentina' },
-].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  coupleId: string;
+}
 
-function MemoryForm({ memory, onSave, onCancel }: { memory?: any; onSave: (data: any) => void; onCancel: () => void; }) {
+function MemoryForm({ memory, onSave, onCancel }: { memory?: Memory; onSave: (data: Partial<Memory>) => void; onCancel: () => void; }) {
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
-        const data = {
+        const data: Partial<Memory> = {
             description: formData.get('description') as string,
             location: formData.get('location') as string,
             imageUrl: formData.get('imageUrl') as string,
@@ -35,7 +38,7 @@ function MemoryForm({ memory, onSave, onCancel }: { memory?: any; onSave: (data:
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="imageUrl" className="text-right">URL da Foto</Label>
-                <Input id="imageUrl" name="imageUrl" className="col-span-3" placeholder="https://exemplo.com/foto.jpg" defaultValue={memory?.imageUrl} />
+                <Input id="imageUrl" name="imageUrl" className="col-span-3" placeholder="https://exemplo.com/foto.jpg" defaultValue={memory?.imageUrl} required />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="description" className="text-right">Descrição</Label>
@@ -54,16 +57,33 @@ function MemoryForm({ memory, onSave, onCancel }: { memory?: any; onSave: (data:
 }
 
 export default function MemoriesPage() {
-  const [memories, setMemories] = useState(initialMemories);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingMemory, setEditingMemory] = useState<any>(null);
-  const [isClient, setIsClient] = useState(false);
+  const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+  const firestore = useFirestore();
+  const { user } = useUser();
 
-  const handleOpenDialog = (memory: any = null) => {
+  const userProfileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+
+  const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
+  const coupleId = userProfile?.coupleId;
+
+  const memoriesRef = useMemoFirebase(() => {
+    if (!firestore || !coupleId) return null;
+    return collection(firestore, 'couples', coupleId, 'memories');
+  }, [firestore, coupleId]);
+
+  const { data: memories, isLoading } = useCollection<Memory>(memoriesRef as any);
+
+  const sortedMemories = useMemo(() => {
+    if (!memories) return [];
+    return [...memories].sort((a, b) => b.date.toDate().getTime() - a.date.toDate().getTime());
+  }, [memories]);
+
+  const handleOpenDialog = (memory: Memory | null = null) => {
     setEditingMemory(memory);
     setIsDialogOpen(true);
   };
@@ -73,24 +93,26 @@ export default function MemoriesPage() {
     setIsDialogOpen(false);
   }
   
-  const handleSaveMemory = (data: any) => {
+  const handleSaveMemory = async (data: Partial<Memory>) => {
+    if(!memoriesRef) return;
     if (editingMemory) {
-      setMemories(memories.map(m => m.id === editingMemory.id ? { ...m, ...data, imageUrl: data.imageUrl || m.imageUrl } : m));
+        const memoryDoc = doc(memoriesRef, editingMemory.id);
+        await updateDoc(memoryDoc, data);
     } else {
       const newMemory = { 
-        id: Date.now(), 
-        imageId: `memory-${Date.now()}`,
         ...data,
-        date: new Date().toISOString(), 
+        date: serverTimestamp(), 
         imageUrl: data.imageUrl || `https://picsum.photos/seed/${Math.floor(Math.random()*100)}/400/300`,
       };
-      setMemories([newMemory, ...memories].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      await addDoc(memoriesRef, newMemory);
     }
     handleCloseDialog();
   };
 
-  const handleDelete = (id: number) => {
-    setMemories(memories.filter(m => m.id !== id));
+  const handleDelete = async (id: string) => {
+    if(!memoriesRef) return;
+    const memoryDoc = doc(memoriesRef, id);
+    await deleteDoc(memoryDoc);
   };
 
 
@@ -101,7 +123,7 @@ export default function MemoriesPage() {
           <h1 className="text-3xl font-bold font-headline">Álbum de Memórias</h1>
           <p className="text-muted-foreground">Uma linha do tempo dos seus momentos mais especiais.</p>
         </div>
-        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()}>
+        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()} disabled={!coupleId}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Adicionar Memória
         </Button>
@@ -113,15 +135,18 @@ export default function MemoriesPage() {
             <DialogTitle>{editingMemory ? 'Editar Memória' : 'Nova Memória'}</DialogTitle>
           </DialogHeader>
           <MemoryForm 
-            memory={editingMemory}
+            memory={editingMemory ?? undefined}
             onSave={handleSaveMemory}
             onCancel={handleCloseDialog}
           />
         </DialogContent>
       </Dialog>
+      
+      {isLoading && <p className="text-center text-muted-foreground">Carregando memórias...</p>}
+      {!isLoading && sortedMemories?.length === 0 && <p className="text-center text-muted-foreground pt-10">Nenhuma memória adicionada.</p>}
 
       <div className="relative pl-6 after:absolute after:inset-y-0 after:left-8 after:w-px after:bg-border md:pl-0 md:after:left-1/2 md:after:-translate-x-1/2">
-        {isClient && memories.map((memory, index) => {
+        {sortedMemories?.map((memory, index) => {
           return (
             <div key={memory.id} className="relative grid md:grid-cols-[1fr_auto_1fr] md:gap-x-12 mb-12">
               {/* Card */}
@@ -157,7 +182,7 @@ export default function MemoriesPage() {
                <div className={`flex items-center mt-4 md:mt-0 w-full md:max-w-md ${index % 2 === 0 ? 'md:order-1 md:justify-end' : 'md:order-3 md:justify-start'}`}>
                   <div className={`p-4 w-full flex justify-between items-center ${index % 2 === 0 ? 'md:text-right' : ''}`}>
                       <div>
-                        <p className="font-semibold text-lg font-headline">{format(parseISO(memory.date), "dd 'de' MMMM, yyyy", { locale: ptBR, timeZone: 'UTC' })}</p>
+                        <p className="font-semibold text-lg font-headline">{format(memory.date.toDate(), "dd 'de' MMMM, yyyy", { locale: ptBR })}</p>
                         {memory.location && (
                             <div className={`flex items-center text-muted-foreground mt-1 ${index % 2 === 0 ? 'md:justify-end' : ''}`}>
                                 <MapPin className="w-4 h-4 mr-1"/>

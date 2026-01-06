@@ -115,6 +115,15 @@ export default function TodosPage() {
     });
 };
 
+  const sortedTodos = useMemoFirebase(() => {
+    if (!todos) return [];
+    return [...todos].sort((a, b) => {
+      if (a.status === 'Concluído' && b.status !== 'Concluído') return 1;
+      if (a.status !== 'Concluído' && b.status === 'Concluído') return -1;
+      return (b.creationDate?.toDate()?.getTime() || 0) - (a.creationDate?.toDate()?.getTime() || 0);
+    });
+  }, [todos]);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -145,15 +154,15 @@ export default function TodosPage() {
         <CardContent className="p-0">
           <div className="divide-y divide-border">
             {isLoading && <p className="p-4 text-center text-muted-foreground">Carregando tarefas...</p>}
-            {!isLoading && todos?.length === 0 && <p className="p-4 text-center text-muted-foreground">Nenhuma tarefa encontrada. Adicione uma!</p>}
-            {todos?.map(todo => (
+            {!isLoading && sortedTodos?.length === 0 && <p className="p-4 text-center text-muted-foreground">Nenhuma tarefa encontrada. Adicione uma!</p>}
+            {sortedTodos?.map(todo => (
               <div key={todo.id} className="flex items-center p-4 gap-4 hover:bg-accent">
                 <Checkbox id={`todo-${todo.id}`} checked={todo.status === 'Concluído'} onCheckedChange={() => toggleTodoStatus(todo)}/>
                 <div className="flex-1 grid gap-1">
                   <label htmlFor={`todo-${todo.id}`} className={`font-medium ${todo.status === 'Concluído' ? 'line-through text-muted-foreground' : ''}`}>
                     {todo.title}
                   </label>
-                  <p className="text-sm text-muted-foreground">{todo.description}</p>
+                  {todo.description && <p className="text-sm text-muted-foreground">{todo.description}</p>}
                   {todo.creationDate && (
                     <p className="text-xs text-muted-foreground">
                       Criado em: {todo.creationDate.toDate().toLocaleDateString('pt-BR')}
