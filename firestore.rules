@@ -1,0 +1,203 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * Core Philosophy: This ruleset implements a "Couple Membership" security model.
+     * All data is strictly segregated by a unique `coupleId`. A user can only
+     * access data under a `/couples/{coupleId}` path if their authentication token
+     * contains a custom claim matching that `coupleId`. This creates a secure,
+     * private space for each couple.
+     *
+     * Data Structure: All application data is organized into subcollections under a
+     * top-level `/couples/{coupleId}` document. This hierarchical structure ensures
+     * that all data inherently belongs to a specific couple, simplifying security logic.
+     *
+     * Key Security Decisions:
+     * - Authorization via Custom Claims: Access is primarily determined by a
+     *   `coupleId` custom claim in the user's auth token. This is highly performant
+     *   as it avoids extra database reads (`get()` calls) in rules.
+     * - No Public Data: There are no publicly readable collections. All access
+     *   requires a user to be signed in and be a member of a couple.
+     * - User/Couple Listing Disabled: It is not possible to list all users or all
+     *   couples in the database, protecting user privacy.
+     * - Prototyping Flexibility: While authorization is strict (who can access what),
+     *   the rules do not enforce specific data shapes or types, allowing for rapid
+     *   frontend development and iteration. Only fields critical for authorization
+     *   (like `senderId`) are validated.
+     */
+
+    // --------------------------------------------------------------------------
+    // Helper Functions
+    // --------------------------------------------------------------------------
+
+    /**
+     * Checks if a user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the authenticated user is a member of the couple specified by the coupleId.
+     * This relies on a custom claim `coupleId` being set on the user's auth token.
+     */
+    function isMemberOfCouple(coupleId) {
+      return isSignedIn() && request.auth.token.coupleId == coupleId;
+    }
+
+    /**
+     * Checks if the user is a member of the couple AND the resource already exists.
+     * Used for safe update and delete operations.
+     */
+    function isExistingMemberOfCouple(coupleId) {
+      return isMemberOfCouple(coupleId) && resource != null;
+    }
+
+    // --------------------------------------------------------------------------
+    // Collection Rules
+    // --------------------------------------------------------------------------
+
+    /**
+     * @description Rules for the couple's root document. This document acts as a container
+     * for all of the couple's shared data in subcollections.
+     * @path /couples/{coupleId}
+     * @allow (get) A signed-in user with a matching `coupleId` custom claim can read the document.
+     * @deny (get) A user whose `coupleId` claim does not match the document ID is denied.
+     * @principle Restricts access to a couple's own data tree.
+     */
+    match /couples/{coupleId} {
+      allow get: if isMemberOfCouple(coupleId);
+      allow list: if false; // Disallow listing all couples for privacy.
+      allow create: if isMemberOfCouple(coupleId);
+      allow update: if isExistingMemberOfCouple(coupleId);
+      allow delete: if isExistingMemberOfCouple(coupleId);
+
+      /**
+       * @description Rules for the couple's shared to-do list items.
+       * @path /couples/{coupleId}/todos/{todoId}
+       * @allow (create) A member of the couple can add a new to-do item.
+       * @deny (create) A user who is not a member of the couple cannot add a to-do item.
+       * @principle Enforces that all data within a couple's data tree is only accessible by its members.
+       */
+      match /todos/{todoId} {
+        allow get, list: if isMemberOfCouple(coupleId);
+        allow create: if isMemberOfCouple(coupleId);
+        allow update: if isExistingMemberOfCouple(coupleId);
+        allow delete: if isExistingMemberOfCouple(coupleId);
+      }
+
+      /**
+       * @description Rules for the couple's shared expenses.
+       * @path /couples/{coupleId}/expenses/{expenseId}
+       * @allow (list) A member of the couple can list all shared expenses.
+       * @deny (list) A user from a different couple cannot see these expenses.
+       * @principle Enforces that all data within a couple's data tree is only accessible by its members.
+       */
+      match /expenses/{expenseId} {
+        allow get, list: if isMemberOfCouple(coupleId);
+        allow create: if isMemberOfCouple(coupleId);
+        allow update: if isExistingMemberOfCouple(coupleId);
+        allow delete: if isExistingMemberOfCouple(coupleId);
+      }
+
+      /**
+       * @description Rules for the couple's shared list of movies and series.
+       * @path /couples/{coupleId}/movies/{movieId}
+       * @allow (update) A member of the couple can update the status of a movie.
+       * @deny (update) An anonymous user cannot modify the movie list.
+       * @principle Enforces that all data within a couple's data tree is only accessible by its members.
+       */
+      match /movies/{movieId} {
+        allow get, list: if isMemberOfCouple(coupleId);
+        allow create: if isMemberOfCouple(coupleId);
+        allow update: if isExistingMemberOfCouple(coupleId);
+        allow delete: if isExistingMemberOfCouple(coupleId);
+      }
+
+      /**
+       * @description Rules for the couple's important dates.
+       * @path /couples/{coupleId}/dates/{dateId}
+       * @allow (get) A member of the couple can retrieve an important date.
+       * @deny (get) A signed-out user cannot access any dates.
+       * @principle Enforces that all data within a couple's data tree is only accessible by its members.
+       */
+      match /dates/{dateId} {
+        allow get, list: if isMemberOfCouple(coupleId);
+        allow create: if isMemberOfCouple(coupleId);
+        allow update: if isExistingMemberOfCouple(coupleId);
+        allow delete: if isExistingMemberOfCouple(coupleId);
+      }
+
+      /**
+       * @description Rules for the couple's shared wall posts.
+       * @path /couples/{coupleId}/posts/{postId}
+       * @allow (delete) A member of the couple can delete a post from their wall.
+       * @deny (delete) A user from another couple cannot delete this post.
+       * @principle Enforces that all data within a couple's data tree is only accessible by its members.
+       */
+      match /posts/{postId} {
+        allow get, list: if isMemberOfCouple(coupleId);
+        allow create: if isMemberOfCouple(coupleId);
+        allow update: if isExistingMemberOfCouple(coupleId);
+        allow delete: if isExistingMemberOfCouple(coupleId);
+
+        /**
+         * @description Rules for comments on a post. Access is still governed by membership in the parent couple.
+         * @path /couples/{coupleId}/posts/{postId}/comments/{commentId}
+         * @allow (create) A member of the couple can create a comment, linking it to their userId and the correct postId.
+         * @deny (update) A user cannot update a comment they did not author.
+         * @principle Enforces document ownership for writes and validates relational integrity.
+         */
+        match /comments/{commentId} {
+          allow get, list: if isMemberOfCouple(coupleId);
+          allow create: if isMemberOfCouple(coupleId) && request.resource.data.userId == request.auth.uid && request.resource.data.postId == postId;
+          allow update: if isExistingMemberOfCouple(coupleId) && resource.data.userId == request.auth.uid && request.resource.data.userId == resource.data.userId && request.resource.data.postId == resource.data.postId;
+          allow delete: if isExistingMemberOfCouple(coupleId) && resource.data.userId == request.auth.uid;
+        }
+      }
+
+      /**
+       * @description Rules for the couple's shared memories (photos).
+       * @path /couples/{coupleId}/memories/{memoryId}
+       * @allow (create) A member of the couple can add a new memory.
+       * @deny (create) An unauthenticated user cannot add memories.
+       * @principle Enforces that all data within a couple's data tree is only accessible by its members.
+       */
+      match /memories/{memoryId} {
+        allow get, list: if isMemberOfCouple(coupleId);
+        allow create: if isMemberOfCouple(coupleId);
+        allow update: if isExistingMemberOfCouple(coupleId);
+        allow delete: if isExistingMemberOfCouple(coupleId);
+      }
+
+      /**
+       * @description Rules for private love letters between the couple.
+       * @path /couples/{coupleId}/loveLetters/{loveLetterId}
+       * @allow (create) A member of the couple can create a letter, setting themself as the sender.
+       * @deny (create) A user cannot create a letter on behalf of someone else (senderId must match auth uid).
+       * @principle Enforces document ownership for writes and validates relational integrity.
+       */
+      match /loveLetters/{loveLetterId} {
+        allow get, list: if isMemberOfCouple(coupleId);
+        allow create: if isMemberOfCouple(coupleId) && request.resource.data.senderId == request.auth.uid;
+        allow update: if isExistingMemberOfCouple(coupleId) && resource.data.senderId == request.auth.uid && request.resource.data.senderId == resource.data.senderId;
+        allow delete: if isExistingMemberOfCouple(coupleId) && resource.data.senderId == request.auth.uid;
+      }
+
+      /**
+       * @description Rules for the couple's shared goals.
+       * @path /couples/{coupleId}/goals/{goalId}
+       * @allow (update) A member of the couple can update the progress on a shared goal.
+       * @deny (update) A user from a different couple cannot modify the goal.
+       * @principle Enforces that all data within a couple's data tree is only accessible by its members.
+       */
+      match /goals/{goalId} {
+        allow get, list: if isMemberOfCouple(coupleId);
+        allow create: if isMemberOfCouple(coupleId);
+        allow update: if isExistingMemberOfCouple(coupleId);
+        allow delete: if isExistingMemberOfCouple(coupleId);
+      }
+    }
+  }
+}
