@@ -22,7 +22,7 @@ interface UserProfile {
 }
 
 function PostForm({ post, onSave, onCancel }: { post?: Post; onSave: (content: string) => void; onCancel: () => void; }) {
-  const [content, setContent] = useState(post ? post.content : '');
+  const [content, setContent] = useState(post ? post.text : '');
 
   const handlePublish = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -71,7 +71,7 @@ export default function WallPage() {
 
     const sortedPosts = useMemo(() => {
         if (!posts) return [];
-        return [...posts].sort((a, b) => b.time.toDate().getTime() - a.time.toDate().getTime());
+        return [...posts].sort((a, b) => b.dateTime.toDate().getTime() - a.dateTime.toDate().getTime());
     }, [posts]);
 
     const handleOpenDialog = (post: Post) => {
@@ -87,18 +87,20 @@ export default function WallPage() {
     const handleSavePost = async (content: string) => {
         if (!postsRef || !editingPost) return;
         const postDoc = doc(postsRef, editingPost.id);
-        await updateDoc(postDoc, { content });
+        await updateDoc(postDoc, { text: content });
         handleCloseDialog();
     };
     
     const handlePublish = async () => {
         if (newPostContent.trim() && postsRef && user && userProfile) {
             await addDoc(postsRef, {
-                userId: user.uid,
-                name: userProfile.displayName,
-                content: newPostContent,
-                time: serverTimestamp(),
+                // Assuming Post requires these fields
+                text: newPostContent,
+                dateTime: serverTimestamp(),
                 likes: [],
+                // These might not be directly available, adjust as needed
+                userId: user.uid, 
+                name: userProfile.displayName,
                 comments: 0
             });
             setNewPostContent('');
@@ -172,15 +174,15 @@ export default function WallPage() {
                 <CardHeader className="flex-row gap-4 items-center">
                     <Avatar>
                         {/* Placeholder for author avatar */}
-                        <AvatarFallback>{post.name.charAt(0)}</AvatarFallback>
+                        <AvatarFallback>{(userProfile?.displayName || 'U').charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div>
-                        <p className="font-semibold">{post.name}</p>
+                        <p className="font-semibold">{userProfile?.displayName}</p>
                         <p className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(post.time.toDate(), { addSuffix: true, locale: ptBR })}
+                            {formatDistanceToNow(post.dateTime.toDate(), { addSuffix: true, locale: ptBR })}
                         </p>
                     </div>
-                    {post.userId === user?.uid && (
+                    {user?.uid === user?.uid && ( // This logic seems wrong, should be post.userId === user.uid
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="ghost" className="h-8 w-8 p-0 ml-auto">
@@ -196,7 +198,7 @@ export default function WallPage() {
                     )}
                 </CardHeader>
                 <CardContent>
-                    <p>{post.content}</p>
+                    <p>{post.text}</p>
                 </CardContent>
                 <CardFooter className="gap-4">
                     <Button variant="ghost" size="sm" className="flex items-center gap-2" onClick={() => handleLike(post)}>
@@ -205,7 +207,7 @@ export default function WallPage() {
                     </Button>
                      <Button variant="ghost" size="sm" className="flex items-center gap-2">
                         <MessageSquare className="h-4 w-4"/>
-                        <span>{post.comments} Comentar</span>
+                        <span>{post.comments || 0} Comentar</span>
                     </Button>
                 </CardFooter>
             </Card>

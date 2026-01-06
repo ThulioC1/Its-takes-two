@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
-import type { WatchlistItem } from "@/types";
+import type { MovieSeries } from "@/types";
 
 interface UserProfile {
   uid: string;
@@ -23,15 +23,15 @@ interface UserProfile {
   coupleId: string;
 }
 
-function WatchlistForm({ item, onSave, onCancel }: { item?: WatchlistItem; onSave: (data: Partial<WatchlistItem>) => void; onCancel: () => void; }) {
+function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave: (data: Partial<MovieSeries>) => void; onCancel: () => void; }) {
   const handleItemSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const data: Partial<WatchlistItem> = {
+    const data: Partial<MovieSeries> = {
       name: formData.get('name') as string,
-      type: formData.get('type') as 'Filme' | 'Série',
+      type: formData.get('type') as 'Movie' | 'Series',
       platform: formData.get('platform') as string,
-      image: formData.get('image') as string,
+      link: formData.get('image') as string, // Assuming image url is used as link for now
     };
     onSave(data);
   };
@@ -49,18 +49,18 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: WatchlistItem; onSav
             <SelectValue placeholder="Selecione o tipo" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="Filme">Filme</SelectItem>
-            <SelectItem value="Série">Série</SelectItem>
+            <SelectItem value="Movie">Filme</SelectItem>
+            <SelectItem value="Series">Série</SelectItem>
           </SelectContent>
         </Select>
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="platform" className="text-right">Onde Assistir</Label>
-        <Input id="platform" name="platform" placeholder="Netflix, cinema, etc." className="col-span-3" defaultValue={item?.platform} required />
+        <Input id="platform" name="platform" placeholder="Netflix, cinema, etc." className="col-span-3" defaultValue={item?.platform} />
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="image" className="text-right">URL da Imagem</Label>
-        <Input id="image" name="image" placeholder="https://exemplo.com/poster.jpg" className="col-span-3" defaultValue={item?.image} />
+        <Input id="image" name="image" placeholder="https://exemplo.com/poster.jpg" className="col-span-3" defaultValue={item?.link} />
       </div>
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
@@ -73,7 +73,7 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: WatchlistItem; onSav
 
 export default function WatchlistPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<WatchlistItem | null>(null);
+  const [editingItem, setEditingItem] = useState<MovieSeries | null>(null);
 
   const firestore = useFirestore();
   const { user } = useUser();
@@ -91,9 +91,9 @@ export default function WatchlistPage() {
     return collection(firestore, 'couples', coupleId, 'movies');
   }, [firestore, coupleId]);
 
-  const { data: watchlist, isLoading } = useCollection<WatchlistItem>(watchlistRef as any);
+  const { data: watchlist, isLoading } = useCollection<MovieSeries>(watchlistRef as any);
   
-  const handleOpenDialog = (item: WatchlistItem | null = null) => {
+  const handleOpenDialog = (item: MovieSeries | null = null) => {
     setEditingItem(item);
     setIsDialogOpen(true);
   };
@@ -103,12 +103,12 @@ export default function WatchlistPage() {
     setIsDialogOpen(false);
   }
 
-  const moveItem = async (id: string, newStatus: "to-watch" | "watching" | "watched") => {
+  const moveItem = async (id: string, newStatus: "To Watch" | "Watching" | "Watched") => {
     if(!watchlistRef) return;
     const itemDoc = doc(watchlistRef, id);
     await updateDoc(itemDoc, {
         status: newStatus,
-        dateWatched: newStatus === 'watched' ? serverTimestamp() : null
+        dateWatched: newStatus === 'Watched' ? serverTimestamp() : null
     });
   };
   
@@ -118,11 +118,11 @@ export default function WatchlistPage() {
     await deleteDoc(itemDoc);
   };
   
-  const handleSaveItem = async (data: Partial<WatchlistItem>) => {
+  const handleSaveItem = async (data: Partial<MovieSeries>) => {
     if(!watchlistRef) return;
     const fullData = {
         ...data,
-        image: data.image || `https://picsum.photos/seed/${Date.now()}/300/450`
+        link: data.link || `https://picsum.photos/seed/${Date.now()}/300/450`
     }
     if (editingItem) {
       const itemDoc = doc(watchlistRef, editingItem.id);
@@ -130,14 +130,14 @@ export default function WatchlistPage() {
     } else {
       await addDoc(watchlistRef, {
         ...fullData,
-        status: 'to-watch',
+        status: 'To Watch',
       });
     }
 
     handleCloseDialog();
   };
 
-  const renderList = (status: "to-watch" | "watching" | "watched") => {
+  const renderList = (status: "To Watch" | "Watching" | "Watched") => {
     if (isLoading) return <div className="col-span-full text-center text-muted-foreground py-10">Carregando...</div>;
     
     const filteredList = watchlist?.filter(item => item.status === status) || [];
@@ -149,8 +149,8 @@ export default function WatchlistPage() {
     return filteredList.map(item => (
         <Card key={item.id} className="overflow-hidden w-full group">
             <div className="relative aspect-[2/3]">
-                <Image src={item.image || `https://picsum.photos/seed/${item.id}/300/450`} alt={item.name} fill objectFit="cover" data-ai-hint="movie poster" />
-                 <Badge variant="secondary" className="absolute top-2 left-2">{item.platform}</Badge>
+                <Image src={item.link || `https://picsum.photos/seed/${item.id}/300/450`} alt={item.name} fill objectFit="cover" data-ai-hint="movie poster" />
+                 {item.platform && <Badge variant="secondary" className="absolute top-2 left-2">{item.platform}</Badge>}
                  <div className="absolute top-1 right-1">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -164,9 +164,9 @@ export default function WatchlistPage() {
                             <DropdownMenuSubTrigger>Mover para</DropdownMenuSubTrigger>
                             <DropdownMenuPortal>
                                 <DropdownMenuSubContent>
-                                    {item.status !== 'to-watch' && <DropdownMenuItem onClick={() => moveItem(item.id, 'to-watch')}>Para Assistir</DropdownMenuItem>}
-                                    {item.status !== 'watching' && <DropdownMenuItem onClick={() => moveItem(item.id, 'watching')}>Assistindo</DropdownMenuItem>}
-                                    {item.status !== 'watched' && <DropdownMenuItem onClick={() => moveItem(item.id, 'watched')}>Já Vimos</DropdownMenuItem>}
+                                    {item.status !== 'To Watch' && <DropdownMenuItem onClick={() => moveItem(item.id, 'To Watch')}>Para Assistir</DropdownMenuItem>}
+                                    {item.status !== 'Watching' && <DropdownMenuItem onClick={() => moveItem(item.id, 'Watching')}>Assistindo</DropdownMenuItem>}
+                                    {item.status !== 'Watched' && <DropdownMenuItem onClick={() => moveItem(item.id, 'Watched')}>Já Vimos</DropdownMenuItem>}
                                 </DropdownMenuSubContent>
                             </DropdownMenuPortal>
                          </DropdownMenuSub>
@@ -178,11 +178,11 @@ export default function WatchlistPage() {
             <CardContent className="p-3">
                 <h3 className="font-semibold font-headline truncate text-sm">{item.name}</h3>
                 <div className="flex items-center text-xs text-muted-foreground mt-1">
-                    {item.type === 'Filme' ? <Film className="w-3 h-3 mr-1"/> : <Tv className="w-3 h-3 mr-1"/>}
+                    {item.type === 'Movie' ? <Film className="w-3 h-3 mr-1"/> : <Tv className="w-3 h-3 mr-1"/>}
                     <span>{item.type}</span>
                 </div>
             </CardContent>
-            {item.status === 'watched' && item.dateWatched && (
+            {item.status === 'Watched' && item.dateWatched && (
                 <CardFooter className="p-3 pt-0 text-xs text-muted-foreground">
                     Assistido em {item.dateWatched.toDate().toLocaleDateString('pt-BR')}
                 </CardFooter>
@@ -217,25 +217,25 @@ export default function WatchlistPage() {
           </DialogContent>
         </Dialog>
 
-      <Tabs defaultValue="to-watch">
+      <Tabs defaultValue="To Watch">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="to-watch">Para Assistir</TabsTrigger>
-          <TabsTrigger value="watching">Assistindo</TabsTrigger>
-          <TabsTrigger value="watched">Já Vimos</TabsTrigger>
+          <TabsTrigger value="To Watch">Para Assistir</TabsTrigger>
+          <TabsTrigger value="Watching">Assistindo</TabsTrigger>
+          <TabsTrigger value="Watched">Já Vimos</TabsTrigger>
         </TabsList>
-        <TabsContent value="to-watch" className="mt-6">
+        <TabsContent value="To Watch" className="mt-6">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-            {renderList('to-watch')}
+            {renderList('To Watch')}
           </div>
         </TabsContent>
-        <TabsContent value="watching" className="mt-6">
+        <TabsContent value="Watching" className="mt-6">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-             {renderList('watching')}
+             {renderList('Watching')}
           </div>
         </TabsContent>
-        <TabsContent value="watched" className="mt-6">
+        <TabsContent value="Watched" className="mt-6">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-            {renderList('watched')}
+            {renderList('Watched')}
           </div>
         </TabsContent>
       </Tabs>

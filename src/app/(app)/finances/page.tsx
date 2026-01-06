@@ -115,7 +115,7 @@ export default function FinancesPage() {
   const totalExpenses = useMemo(() => sortedExpenses.reduce((acc, expense) => acc + expense.value, 0), [sortedExpenses]);
 
   const chartData = useMemo(() => {
-    if (!sortedExpenses) return [];
+    if (!sortedExpenses || sortedExpenses.length === 0) return [];
     return Object.entries(
       sortedExpenses.reduce((acc, { category, value }) => {
         acc[category] = (acc[category] || 0) + value;

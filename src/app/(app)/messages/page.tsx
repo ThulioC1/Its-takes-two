@@ -52,7 +52,13 @@ export default function MessagesPage() {
     if (newMessage.trim() === "" || !messagesRef || !user) return;
 
     await addDoc(messagesRef, {
-      userId: user.uid,
+      senderId: user.uid,
+      recipientId: '', // This needs logic to determine partner's ID
+      message: newMessage,
+      scheduledDate: serverTimestamp(),
+      isVisible: true,
+      // The fields below are from the old structure and should be reviewed
+      // userId: user.uid,
       text: newMessage,
       timestamp: serverTimestamp(),
       sent: true,
@@ -66,13 +72,17 @@ export default function MessagesPage() {
   const handleScheduleMessage = async () => {
     if (newMessage.trim() === "" || !messagesRef || !user) return;
 
-    await addDoc(messagesRef, {
-      userId: user.uid,
+     await addDoc(messagesRef, {
+      senderId: user.uid,
+      recipientId: '', // This needs logic to determine partner's ID
+      message: newMessage,
+      scheduledDate: serverTimestamp(),
+      isVisible: false, // Will become visible on scheduled date
+      // The fields below are from the old structure and should be reviewed
       text: newMessage,
       timestamp: serverTimestamp(),
       sent: true,
       scheduled: true,
-      scheduledDate: serverTimestamp(), // Placeholder
     });
     setNewMessage("");
   }
@@ -90,8 +100,8 @@ export default function MessagesPage() {
           {isLoading && <p className="text-center text-muted-foreground">Carregando mensagens...</p>}
           {!isLoading && sortedMessages?.length === 0 && <p className="text-center text-muted-foreground">Nenhuma mensagem ainda.</p>}
           {sortedMessages?.map(message => (
-            <div key={message.id} className={cn("flex items-end gap-3", message.userId === user?.uid ? "justify-end" : "justify-start")}>
-              {message.userId !== user?.uid && (
+            <div key={message.id} className={cn("flex items-end gap-3", message.senderId === user?.uid ? "justify-end" : "justify-start")}>
+              {message.senderId !== user?.uid && (
                 <Avatar className="h-8 w-8">
                   {/* Placeholder for partner's avatar */}
                   <AvatarImage src={userAvatars['user-1']} /> 
@@ -100,15 +110,15 @@ export default function MessagesPage() {
               )}
               <div className={cn(
                   "max-w-xs md:max-w-md rounded-2xl p-3", 
-                  message.userId === user?.uid ? "bg-primary text-primary-foreground rounded-br-none" : "bg-accent rounded-bl-none",
-                  message.scheduled && "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300"
+                  message.senderId === user?.uid ? "bg-primary text-primary-foreground rounded-br-none" : "bg-accent rounded-bl-none",
+                  !message.isVisible && "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300"
                   )}>
-                <p className="text-sm">{message.text}</p>
-                <p className={cn("text-xs mt-1 opacity-70", message.userId === user?.uid ? "text-right" : "text-left")}>
-                    {message.scheduled ? `Agendada (em breve)` : message.timestamp?.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                <p className="text-sm">{message.message}</p>
+                <p className={cn("text-xs mt-1 opacity-70", message.senderId === user?.uid ? "text-right" : "text-left")}>
+                    {!message.isVisible ? `Agendada (em breve)` : message.scheduledDate?.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
-              {message.userId === user?.uid && (
+              {message.senderId === user?.uid && (
                 <Avatar className="h-8 w-8">
                    <AvatarImage src={user?.photoURL || userAvatars['user-2']} />
                    <AvatarFallback>{user?.displayName?.charAt(0) || 'V'}</AvatarFallback>

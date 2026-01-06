@@ -26,6 +26,7 @@ import {
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { differenceInDays, format, parseISO } from 'date-fns';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
+import { doc, collection } from 'firebase/firestore';
 import type { ToDoItem, ImportantDate, Post, Expense } from "@/types";
 
 interface UserProfile {
@@ -98,7 +99,7 @@ export default function DashboardPage() {
   }, [todos]);
 
   const latestPost = useMemo(() => {
-    if (!posts) return null;
+    if (!posts || posts.length === 0) return null;
     return [...posts].sort((a, b) => b.time.toDate().getTime() - a.time.toDate().getTime())[0];
   }, [posts]);
   
@@ -198,7 +199,7 @@ export default function DashboardPage() {
                 <Users className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                {latestPost ? (
+                {latestPost && latestPost.time ? (
                     <div className="flex items-start space-x-4">
                     <Avatar>
                         {/* Placeholder for user avatar */}

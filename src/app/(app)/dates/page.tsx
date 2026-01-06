@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { differenceInDays, format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
@@ -153,7 +153,7 @@ export default function DatesPage() {
 
   const { data: importantDates, isLoading } = useCollection<ImportantDate>(datesRef as any);
 
-  const sortedDates = useMemoFirebase(() => {
+  const sortedDates = useMemo(() => {
     if (!importantDates) return [];
     return [...importantDates].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [importantDates]);

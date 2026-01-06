@@ -29,7 +29,7 @@ function MemoryForm({ memory, onSave, onCancel }: { memory?: Memory; onSave: (da
         const data: Partial<Memory> = {
             description: formData.get('description') as string,
             location: formData.get('location') as string,
-            imageUrl: formData.get('imageUrl') as string,
+            image: formData.get('imageUrl') as string,
         };
         onSave(data);
     };
@@ -38,7 +38,7 @@ function MemoryForm({ memory, onSave, onCancel }: { memory?: Memory; onSave: (da
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="imageUrl" className="text-right">URL da Foto</Label>
-                <Input id="imageUrl" name="imageUrl" className="col-span-3" placeholder="https://exemplo.com/foto.jpg" defaultValue={memory?.imageUrl} required />
+                <Input id="imageUrl" name="imageUrl" className="col-span-3" placeholder="https://exemplo.com/foto.jpg" defaultValue={memory?.image} required />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="description" className="text-right">Descrição</Label>
@@ -102,7 +102,7 @@ export default function MemoriesPage() {
       const newMemory = { 
         ...data,
         date: serverTimestamp(), 
-        imageUrl: data.imageUrl || `https://picsum.photos/seed/${Math.floor(Math.random()*100)}/400/300`,
+        image: data.image || `https://picsum.photos/seed/${Math.floor(Math.random()*100)}/400/300`,
       };
       await addDoc(memoriesRef, newMemory);
     }
@@ -154,9 +154,9 @@ export default function MemoriesPage() {
                   <Card className="w-full">
                       <CardHeader className="p-0">
                           <div className="relative aspect-video w-full overflow-hidden rounded-t-lg">
-                              {memory.imageUrl ? (
+                              {memory.image ? (
                                   <Image 
-                                      src={memory.imageUrl} 
+                                      src={memory.image} 
                                       alt={memory.description} 
                                       fill 
                                       className="object-cover"
