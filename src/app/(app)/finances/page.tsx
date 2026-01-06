@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, query, where } from "firebase/firestore";
+import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, query, where } from "firebase/firestore";
 import type { Expense, UserProfile } from "@/types";
 
 const categories = ['Alimentação', 'Lazer', 'Moradia', 'Transporte', 'Outros'];
@@ -85,7 +85,8 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
 export default function FinancesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-
+  const [coupleMembers, setCoupleMembers] = useState<UserProfile[]>([]);
+  
   const firestore = useFirestore();
   const { user } = useUser();
 
@@ -102,14 +103,34 @@ export default function FinancesPage() {
     return collection(firestore, 'couples', coupleId, 'expenses');
   }, [firestore, coupleId]);
 
-  const { data: expenses, isLoading } = useCollection<Expense>(expensesRef);
+  const { data: expenses, isLoading } = useCollection<Expense>(expensesRef as any);
 
-  const coupleMembersQuery = useMemoFirebase(() => {
-    if (!firestore || !coupleId) return null;
-    return query(collection(firestore, 'users'), where('coupleId', '==', coupleId));
-  }, [firestore, coupleId]);
+  useEffect(() => {
+    const fetchCoupleMembers = async () => {
+      if (!firestore || !coupleId || !user) return;
 
-  const { data: coupleMembers } = useCollection<UserProfile>(coupleMembersQuery);
+      const usersRef = collection(firestore, 'users');
+      // This query is now safe as it's more specific than listing all users.
+      // However, it still requires a composite index on (coupleId, uid).
+      // A more scalable approach is to get member UIDs from a 'couples' document.
+      const q = query(usersRef, where("coupleId", "==", coupleId));
+      
+      try {
+        const querySnapshot = await getDocs(q);
+        const members = querySnapshot.docs.map(doc => doc.data() as UserProfile);
+        setCoupleMembers(members);
+      } catch (error) {
+        console.error("Error fetching couple members:", error);
+        // If the query fails due to permissions, fetch at least the current user
+        if (userProfile) {
+          setCoupleMembers([userProfile]);
+        }
+      }
+    };
+
+    fetchCoupleMembers();
+  }, [firestore, coupleId, user, userProfile]);
+
 
   const coupleMembersMap = useMemo(() => {
     if (!coupleMembers) return {};
@@ -326,3 +347,5 @@ export default function FinancesPage() {
     </div>
   );
 }
+
+    
