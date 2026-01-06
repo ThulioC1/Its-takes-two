@@ -1,5 +1,8 @@
+'use client';
+
 import Image from 'next/image';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 
 import { SignupForm } from '@/components/auth/signup-form';
 import { Icons } from '@/components/icons';
@@ -7,6 +10,11 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 export default function SignupPage() {
     const loginImage = PlaceHolderImages.find(p => p.id === 'couple-login');
+    const [isClient, setIsClient] = useState(false);
+
+    useEffect(() => {
+        setIsClient(true);
+    }, []);
 
   return (
     <div className="w-full h-screen lg:grid lg:grid-cols-2">
@@ -21,7 +29,7 @@ export default function SignupPage() {
               Crie sua conta para começar a construir seu espaço.
             </p>
           </div>
-          <SignupForm />
+          {isClient && <SignupForm />}
           <p className="px-8 text-center text-sm text-muted-foreground">
             Já tem uma conta?{' '}
             <Link
