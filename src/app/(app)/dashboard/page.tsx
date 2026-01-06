@@ -13,6 +13,8 @@ import {
   Users,
   Heart,
   MessageSquare,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -26,15 +28,12 @@ import {
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { differenceInDays, format, parseISO } from 'date-fns';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { doc, collection } from 'firebase/firestore';
-import type { ToDoItem, ImportantDate, Post, Expense } from "@/types";
-
-interface UserProfile {
-  uid: string;
-  email: string;
-  displayName: string;
-  coupleId: string;
-}
+import { doc, collection, updateDoc, writeBatch, query, where, getDocs } from 'firebase/firestore';
+import type { ToDoItem, ImportantDate, Post, Expense, UserProfile } from "@/types";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const chartConfig = {
   expenses: {
@@ -42,6 +41,125 @@ const chartConfig = {
     color: 'hsl(var(--primary))',
   },
 } satisfies ChartConfig;
+
+function CoupleLinker() {
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+  const [partnerCode, setPartnerCode] = useState('');
+  const [isLinking, setIsLinking] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [partner, setPartner] = useState<UserProfile | null>(null);
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+  const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
+
+  const partnerQuery = useMemoFirebase(() => {
+    if (!firestore || !userProfile || userProfile.coupleId === user?.uid) return null;
+    // Query for the other user in the couple
+    return query(
+      collection(firestore, 'users'),
+      where('coupleId', '==', userProfile.coupleId),
+      where('uid', '!=', user.uid)
+    );
+  }, [firestore, user, userProfile]);
+
+  const { data: partners } = useCollection<UserProfile>(partnerQuery);
+
+  useEffect(() => {
+    if (partners && partners.length > 0) {
+      setPartner(partners[0]);
+    } else {
+      setPartner(null);
+    }
+  }, [partners]);
+
+  const handleLinkCouple = async () => {
+    if (!partnerCode.trim() || !user || !firestore) return;
+    setIsLinking(true);
+    try {
+      const partnerProfileRef = doc(firestore, 'users', partnerCode.trim());
+      const userProfileRef = doc(firestore, 'users', user.uid);
+
+      // In a transaction, update the current user's coupleId to the partner's ID.
+      // The partner's ID now becomes the official coupleId.
+      await updateDoc(userProfileRef, {
+        coupleId: partnerCode.trim(),
+      });
+      
+      toast({
+        title: 'Casal vinculado com sucesso!',
+        description: 'Agora vocês estão conectados. A página será recarregada.',
+      });
+
+      setTimeout(() => window.location.reload(), 2000);
+
+    } catch (error) {
+      console.error("Error linking couple:", error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao vincular',
+        description: 'Não foi possível encontrar o código do parceiro(a). Verifique o código e tente novamente.',
+      });
+    } finally {
+      setIsLinking(false);
+    }
+  };
+
+  const copyToClipboard = () => {
+    if (user?.uid) {
+      navigator.clipboard.writeText(user.uid);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+  
+  if (partner) {
+    return (
+      <Alert>
+        <Users className="h-4 w-4" />
+        <AlertTitle>Vocês estão conectados!</AlertTitle>
+        <AlertDescription>
+          Você está compartilhando seus dados com <strong>{partner.displayName}</strong>.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-xl font-headline">Conecte-se com seu par</CardTitle>
+        <p className="text-muted-foreground text-sm">Para compartilhar o aplicativo, um de vocês deve compartilhar o código e o outro deve inseri-lo.</p>
+      </CardHeader>
+      <CardContent className="grid md:grid-cols-2 gap-6">
+        <div className="space-y-3">
+          <h3 className="font-semibold">1. Compartilhe seu código</h3>
+          <p className="text-sm text-muted-foreground">Envie o código abaixo para seu parceiro(a).</p>
+          <div className="flex gap-2">
+            <Input readOnly value={user?.uid || ''} className="bg-muted" />
+            <Button variant="outline" size="icon" onClick={copyToClipboard}>
+              {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+            </Button>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <h3 className="font-semibold">2. Insira o código do seu par</h3>
+          <p className="text-sm text-muted-foreground">Se você recebeu um código, insira-o aqui.</p>
+          <div className="flex gap-2">
+            <Input placeholder="Código do parceiro(a)" value={partnerCode} onChange={(e) => setPartnerCode(e.target.value)} />
+            <Button onClick={handleLinkCouple} disabled={isLinking}>
+              {isLinking ? 'Vinculando...' : 'Vincular'}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 
 export default function DashboardPage() {
@@ -60,25 +178,25 @@ export default function DashboardPage() {
     if (!firestore || !coupleId) return null;
     return collection(firestore, 'couples', coupleId, 'dates');
   }, [firestore, coupleId]);
-  const { data: dates } = useCollection<ImportantDate>(datesRef as any);
+  const { data: dates } = useCollection<ImportantDate>(datesRef);
 
   const todosRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return collection(firestore, 'couples', coupleId, 'todos');
   }, [firestore, coupleId]);
-  const { data: todos } = useCollection<ToDoItem>(todosRef as any);
+  const { data: todos } = useCollection<ToDoItem>(todosRef);
 
   const postsRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return collection(firestore, 'couples', coupleId, 'posts');
   }, [firestore, coupleId]);
-  const { data: posts } = useCollection<Post>(postsRef as any);
+  const { data: posts } = useCollection<Post>(postsRef);
 
   const expensesRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return collection(firestore, 'couples', coupleId, 'expenses');
   }, [firestore, coupleId]);
-  const { data: expenses } = useCollection<Expense>(expensesRef as any);
+  const { data: expenses } = useCollection<Expense>(expensesRef);
 
 
   const userAvatar1 = PlaceHolderImages.find((p) => p.id === 'user-avatar-1');
@@ -100,7 +218,7 @@ export default function DashboardPage() {
 
   const latestPost = useMemo(() => {
     if (!posts || posts.length === 0) return null;
-    return [...posts].sort((a, b) => b.time.toDate().getTime() - a.time.toDate().getTime())[0];
+    return [...posts].sort((a, b) => (b.dateTime?.toDate()?.getTime() || 0) - (a.dateTime?.toDate()?.getTime() || 0))[0];
   }, [posts]);
   
   const chartData = useMemo(() => {
@@ -116,6 +234,8 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-8">
+       <CoupleLinker />
+
       <div className="relative w-full h-48 md:h-64 rounded-xl overflow-hidden shadow-lg">
         {bannerImage && (
           <Image
@@ -199,25 +319,25 @@ export default function DashboardPage() {
                 <Users className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                {latestPost && latestPost.time ? (
+                {latestPost && latestPost.dateTime ? (
                     <div className="flex items-start space-x-4">
                     <Avatar>
                         {/* Placeholder for user avatar */}
-                        <AvatarFallback>{latestPost.name.charAt(0)}</AvatarFallback>
+                        <AvatarFallback>{latestPost.name?.charAt(0) || 'U'}</AvatarFallback>
                     </Avatar>
                     <div className="space-y-2 flex-1 min-w-0">
                         <p className="text-sm font-medium">{latestPost.name}</p>
                         <p className="text-sm text-muted-foreground bg-accent p-3 rounded-lg truncate">
-                        {latestPost.content}
+                        {latestPost.text}
                         </p>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
                         <span className="flex items-center gap-1">
-                            <Heart className="w-3 h-3" /> {latestPost.likes.length}
+                            <Heart className="w-3 h-3" /> {latestPost.likes?.length || 0}
                         </span>
                         <span className="flex items-center gap-1">
-                            <MessageSquare className="w-3 h-3" /> {latestPost.comments}
+                            <MessageSquare className="w-3 h-3" /> {latestPost.comments || 0}
                         </span>
-                        <span>{format(latestPost.time.toDate(), 'dd/MM/yy')}</span>
+                        <span>{format(latestPost.dateTime.toDate(), 'dd/MM/yy')}</span>
                         </div>
                     </div>
                     </div>

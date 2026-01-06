@@ -13,15 +13,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
-import type { Expense } from "@/types";
-
-interface UserProfile {
-  uid: string;
-  email: string;
-  displayName: string;
-  coupleId: string;
-}
+import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, query, where } from "firebase/firestore";
+import type { Expense, UserProfile } from "@/types";
 
 const categories = ['Alimentação', 'Lazer', 'Moradia', 'Transporte', 'Outros'];
 
@@ -34,14 +27,15 @@ const chartConfig = {
   'Outros': { label: "Outros", color: "hsl(var(--chart-5))" },
 } satisfies ChartConfig;
 
-function ExpenseForm({ expense, onSave, onCancel }: { expense?: Expense; onSave: (data: Partial<Expense>) => void; onCancel: () => void; }) {
+function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: Expense; onSave: (data: Partial<Expense>) => void; onCancel: () => void; coupleMembers: UserProfile[] }) {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const data: Partial<Expense> = {
       category: formData.get('category') as string,
       value: parseFloat(formData.get('value') as string),
-      payer: formData.get('payer') as string,
+      payer: formData.get('payer') as string, // Payer is now UID
+      observation: formData.get('observation') as string,
     };
     onSave(data);
   };
@@ -70,12 +64,15 @@ function ExpenseForm({ expense, onSave, onCancel }: { expense?: Expense; onSave:
             <SelectValue placeholder="Selecione quem pagou" />
           </SelectTrigger>
           <SelectContent>
-            {/* TODO: Make this dynamic based on couple members */}
-            <SelectItem value="Usuário 1">Usuário 1</SelectItem>
-            <SelectItem value="Usuário 2">Usuário 2</SelectItem>
-            <SelectItem value="Ambos">Ambos</SelectItem>
+            {coupleMembers.map(member => (
+              <SelectItem key={member.uid} value={member.uid}>{member.displayName}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
+      </div>
+      <div className="grid grid-cols-4 items-center gap-4">
+          <Label htmlFor="observation" className="text-right">Observação</Label>
+          <Input id="observation" name="observation" className="col-span-3" defaultValue={expense?.observation} />
       </div>
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
@@ -105,7 +102,23 @@ export default function FinancesPage() {
     return collection(firestore, 'couples', coupleId, 'expenses');
   }, [firestore, coupleId]);
 
-  const { data: expenses, isLoading } = useCollection<Expense>(expensesRef as any);
+  const { data: expenses, isLoading } = useCollection<Expense>(expensesRef);
+
+  const coupleMembersQuery = useMemoFirebase(() => {
+    if (!firestore || !coupleId) return null;
+    return query(collection(firestore, 'users'), where('coupleId', '==', coupleId));
+  }, [firestore, coupleId]);
+
+  const { data: coupleMembers } = useCollection<UserProfile>(coupleMembersQuery);
+
+  const coupleMembersMap = useMemo(() => {
+    if (!coupleMembers) return {};
+    return coupleMembers.reduce((acc, member) => {
+      acc[member.uid] = member.displayName;
+      return acc;
+    }, {} as Record<string, string>);
+  }, [coupleMembers]);
+
 
   const sortedExpenses = useMemo(() => {
     if (!expenses) return [];
@@ -113,6 +126,25 @@ export default function FinancesPage() {
   }, [expenses]);
 
   const totalExpenses = useMemo(() => sortedExpenses.reduce((acc, expense) => acc + expense.value, 0), [sortedExpenses]);
+
+  const expensesByPayer = useMemo(() => {
+    if (!expenses || !coupleMembers) return {};
+    return expenses.reduce((acc, expense) => {
+      const payerId = expense.payer;
+      acc[payerId] = (acc[payerId] || 0) + expense.value;
+      return acc;
+    }, {} as Record<string, number>);
+  }, [expenses, coupleMembers]);
+
+  const topPayer = useMemo(() => {
+    if (Object.keys(expensesByPayer).length === 0) return { name: 'N/A', amount: 0 };
+    const topPayerId = Object.keys(expensesByPayer).reduce((a, b) => expensesByPayer[a] > expensesByPayer[b] ? a : b);
+    return {
+      name: coupleMembersMap[topPayerId] || 'Desconhecido',
+      amount: expensesByPayer[topPayerId],
+    };
+  }, [expensesByPayer, coupleMembersMap]);
+
 
   const chartData = useMemo(() => {
     if (!sortedExpenses || sortedExpenses.length === 0) return [];
@@ -178,6 +210,7 @@ export default function FinancesPage() {
               expense={editingExpense ?? undefined} 
               onSave={handleSaveExpense}
               onCancel={handleCloseDialog}
+              coupleMembers={coupleMembers || []}
             />
           </DialogContent>
         </Dialog>
@@ -209,8 +242,8 @@ export default function FinancesPage() {
                  <CircleDollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold">Usuário 1</div>
-                <p className="text-xs text-muted-foreground">R$ 1.200,25 a mais</p>
+                <div className="text-2xl font-bold">{topPayer.name}</div>
+                <p className="text-xs text-muted-foreground">R$ {topPayer.amount.toFixed(2)} no total</p>
             </CardContent>
         </Card>
       </div>
@@ -240,7 +273,7 @@ export default function FinancesPage() {
                         <TableCell className="font-medium">{expense.category}</TableCell>
                         <TableCell>R$ {expense.value.toFixed(2).replace('.', ',')}</TableCell>
                         <TableCell className="hidden sm:table-cell">
-                            <Badge variant="outline">{expense.payer}</Badge>
+                            <Badge variant="outline">{coupleMembersMap[expense.payer] || 'Desconhecido'}</Badge>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">{expense.date.toDate().toLocaleDateString('pt-BR')}</TableCell>
                         <TableCell className="text-right">
@@ -271,16 +304,22 @@ export default function FinancesPage() {
             <CardDescription>Mês Atual</CardDescription>
           </CardHeader>
           <CardContent className="flex items-center justify-center">
-             <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[250px]">
-                <PieChart>
-                    <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-                    <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={60} strokeWidth={5}>
-                         {chartData.map((entry) => (
-                            <Cell key={`cell-${entry.name}`} fill={entry.fill} />
-                        ))}
-                    </Pie>
-                </PieChart>
-             </ChartContainer>
+             {chartData.length > 0 ? (
+                <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[250px]">
+                    <PieChart>
+                        <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+                        <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={60} strokeWidth={5}>
+                            {chartData.map((entry) => (
+                                <Cell key={`cell-${entry.name}`} fill={entry.fill} />
+                            ))}
+                        </Pie>
+                    </PieChart>
+                </ChartContainer>
+             ) : (
+                <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+                    <p>Sem dados para exibir o gráfico.</p>
+                </div>
+             )}
           </CardContent>
         </Card>
       </div>

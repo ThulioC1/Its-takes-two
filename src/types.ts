@@ -1,5 +1,12 @@
 import type { Timestamp } from 'firebase/firestore';
 
+export interface UserProfile {
+    uid: string;
+    email: string;
+    displayName: string;
+    coupleId: string;
+}
+
 export interface ToDoItem {
     id: string;
     title: string;
@@ -13,8 +20,9 @@ export interface Expense {
     id: string;
     category: string;
     value: number;
-    payer: string;
+    payer: string; // This is the UID of the user who paid
     date: Timestamp;
+    observation?: string;
 }
 
 export interface ImportantDate {
@@ -36,7 +44,7 @@ export interface CoupleGoal {
 
 export interface Memory {
     id: string;
-    imageUrl: string;
+    image: string;
     description: string;
     date: Timestamp;
     location?: string;
@@ -44,30 +52,30 @@ export interface Memory {
 
 export interface LoveLetter {
     id: string;
-    userId: string; // UID of the sender
-    text: string;
-    timestamp: Timestamp;
-    sent: boolean;
-    scheduled?: boolean;
-    scheduledDate?: Timestamp;
+    senderId: string; // UID of the sender
+    recipientId: string; // UID of the recipient
+    message: string;
+    scheduledDate: Timestamp;
+    isVisible: boolean;
+    timestamp: Timestamp; // Redundant? scheduledDate could be used
 }
 
 export interface Post {
     id: string;
-    userId: string;
-    name: string;
-    content: string;
-    time: Timestamp;
+    userId: string; // UID of the author
+    name: string; // display name of the author
+    text: string;
+    dateTime: Timestamp;
     likes: string[]; // Array of UIDs
     comments: number; // For simplicity, we'll just count them
 }
 
-export interface WatchlistItem {
+export interface MovieSeries {
     id: string;
     name: string;
-    type: 'Filme' | 'Série';
+    type: 'Movie' | 'Series';
     platform: string;
-    status: 'to-watch' | 'watching' | 'watched';
-    image?: string;
+    link?: string;
+    status: 'To Watch' | 'Watching' | 'Watched';
     dateWatched?: Timestamp | null;
 }
