@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { PlusCircle, Clapperboard, Film, Tv, MoreHorizontal } from "lucide-react";
+import { PlusCircle, Clapperboard, Film, Tv, MoreHorizontal, Calendar as CalendarIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
@@ -13,11 +13,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import type { MovieSeries } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { cn } from "@/lib/utils";
 
 interface UserProfile {
   uid: string;
@@ -27,6 +31,9 @@ interface UserProfile {
 }
 
 function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave: (data: Partial<MovieSeries>) => void; onCancel: () => void; }) {
+  const [itemType, setItemType] = useState(item?.type);
+  const [watchedDate, setWatchedDate] = useState<Date | undefined>(item?.dateWatched?.toDate());
+
   const handleItemSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -34,11 +41,14 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
       name: formData.get('name') as string,
       type: formData.get('type') as 'Movie' | 'Series',
       platform: formData.get('platform') as string,
-      link: formData.get('image') as string, // Assuming image url is used as link for now
+      link: formData.get('image') as string,
+      season: itemType === 'Series' ? parseInt(formData.get('season') as string) || undefined : undefined,
+      episode: itemType === 'Series' ? parseInt(formData.get('episode') as string) || undefined : undefined,
+      dateWatched: watchedDate ? Timestamp.fromDate(watchedDate) : undefined,
     };
     onSave(data);
   };
-
+  
   return (
     <form onSubmit={handleItemSubmit} className="grid gap-4 py-4">
       <div className="grid grid-cols-4 items-center gap-4">
@@ -47,7 +57,7 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="type" className="text-right">Tipo</Label>
-        <Select name="type" defaultValue={item?.type} required>
+        <Select name="type" defaultValue={item?.type} required onValueChange={(value) => setItemType(value as 'Movie' | 'Series')}>
           <SelectTrigger className="col-span-3">
             <SelectValue placeholder="Selecione o tipo" />
           </SelectTrigger>
@@ -57,6 +67,48 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
           </SelectContent>
         </Select>
       </div>
+      
+      {itemType === 'Series' && (
+        <>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="season" className="text-right">Temporada</Label>
+            <Input id="season" name="season" type="number" className="col-span-3" defaultValue={item?.season} />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="episode" className="text-right">Episódio</Label>
+            <Input id="episode" name="episode" type="number" className="col-span-3" defaultValue={item?.episode} />
+          </div>
+        </>
+      )}
+
+      {item?.status === 'Watched' && (
+        <div className="grid grid-cols-4 items-center gap-4">
+          <Label htmlFor="dateWatched" className="text-right">Data Assistido</Label>
+           <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "col-span-3 justify-start text-left font-normal",
+                  !watchedDate && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {watchedDate ? format(watchedDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                selected={watchedDate}
+                onSelect={setWatchedDate}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+      )}
+
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="platform" className="text-right">Onde Assistir</Label>
         <Input id="platform" name="platform" placeholder="Netflix, cinema, etc." className="col-span-3" defaultValue={item?.platform} />
@@ -109,10 +161,11 @@ export default function WatchlistPage() {
   const moveItem = async (id: string, newStatus: "To Watch" | "Watching" | "Watched") => {
     if(!watchlistRef) return;
     const itemDoc = doc(watchlistRef, id);
-    await updateDoc(itemDoc, {
-        status: newStatus,
-        dateWatched: newStatus === 'Watched' ? serverTimestamp() : null
-    });
+    const updateData: {status: string, dateWatched?: Timestamp | null} = { status: newStatus };
+    if (newStatus === 'Watched') {
+        updateData.dateWatched = serverTimestamp();
+    }
+    await updateDoc(itemDoc, updateData);
   };
   
   const deleteItem = async (id: string) => {
@@ -129,7 +182,7 @@ export default function WatchlistPage() {
     }
     if (editingItem) {
       const itemDoc = doc(watchlistRef, editingItem.id);
-      await updateDoc(itemDoc, fullData);
+      await updateDoc(itemDoc, data); // Pass only `data` which includes new fields
     } else {
       await addDoc(watchlistRef, {
         ...fullData,
@@ -157,7 +210,16 @@ export default function WatchlistPage() {
         <Card key={item.id} className="overflow-hidden w-full group">
             <div className="relative aspect-[2/3]">
                 <Image src={item.link || `https://picsum.photos/seed/${item.id}/300/450`} alt={item.name} fill objectFit="cover" data-ai-hint="movie poster" />
-                 {item.platform && <Badge variant="secondary" className="absolute top-2 left-2">{item.platform}</Badge>}
+                 <div className="absolute top-2 left-2 right-2 flex justify-between items-start">
+                    {item.platform && <Badge variant="secondary">{item.platform}</Badge>}
+                    {item.type === 'Series' && (item.season || item.episode) && (
+                        <Badge variant="default">
+                            {item.season && `T${item.season}`}
+                            {item.season && item.episode && ':'}
+                            {item.episode && `E${item.episode}`}
+                        </Badge>
+                    )}
+                 </div>
                  <div className="absolute top-1 right-1">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -192,7 +254,7 @@ export default function WatchlistPage() {
             
             <CardFooter className="p-3 pt-0 text-xs text-muted-foreground flex justify-between items-center">
                 {item.status === 'Watched' && item.dateWatched ? (
-                    <span>Assistido em {item.dateWatched.toDate().toLocaleDateString('pt-BR')}</span>
+                    <span>Assistido em {format(item.dateWatched.toDate(), 'dd/MM/yy')}</span>
                 ) : <span />}
                  {item.author && (
                     <Tooltip>

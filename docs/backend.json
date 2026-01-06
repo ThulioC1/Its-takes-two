@@ -124,6 +124,14 @@
           "description": "Date when the movie or series was watched.",
           "format": "date-time"
         },
+        "season": {
+          "type": "number",
+          "description": "The current season number for a series."
+        },
+        "episode": {
+          "type": "number",
+          "description": "The current episode number for a series."
+        },
         "author": {
           "$ref": "#/entities/Author"
         }

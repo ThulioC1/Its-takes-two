@@ -88,5 +88,7 @@ export interface MovieSeries {
     link?: string;
     status: 'To Watch' | 'Watching' | 'Watched';
     dateWatched?: Timestamp | null;
+    season?: number;
+    episode?: number;
     author: Author;
 }
