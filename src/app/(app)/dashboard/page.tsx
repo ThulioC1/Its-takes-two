@@ -50,13 +50,7 @@ export default function DashboardPage({ dates: initialDates = [], todos: initial
   
   useEffect(() => {
     setIsClient(true);
-    // In a real app, you would fetch this data from your backend
-    // For now, we simulate this by setting it from props
-    setDates(initialDates);
-    setTodos(initialTodos);
-    setPosts(initialPosts);
-    setExpenses(initialExpenses);
-  }, [initialDates, initialTodos, initialPosts, initialExpenses]);
+  }, []);
 
   const userAvatar1 = PlaceHolderImages.find((p) => p.id === 'user-avatar-1');
   const bannerImage = PlaceHolderImages.find((p) => p.id === 'couple-banner');
