@@ -4,6 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +26,7 @@ const formSchema = z.object({
 
 export function LoginForm() {
   const router = useRouter();
+  const auth = useAuth();
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -34,17 +37,31 @@ export function LoginForm() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // Mock login logic
-    console.log(values);
-    
-    // In a real app, you would call Firebase Auth here.
-    // For now, we'll just show a success toast and redirect.
-    toast({
-      title: 'Login bem-sucedido!',
-      description: 'Redirecionando para o seu painel...',
-    });
-    router.push('/dashboard');
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!auth) {
+      toast({
+        variant: "destructive",
+        title: "Erro de autenticação",
+        description: "O serviço de autenticação não está disponível.",
+      });
+      return;
+    }
+
+    try {
+      await signInWithEmailAndPassword(auth, values.email, values.password);
+      toast({
+        title: 'Login bem-sucedido!',
+        description: 'Redirecionando para o seu painel...',
+      });
+      router.push('/dashboard');
+    } catch (error: any) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Falha no login",
+        description: error.message || "Ocorreu um erro ao tentar fazer login.",
+      });
+    }
   }
 
   return (
@@ -78,8 +95,8 @@ export function LoginForm() {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full">
-          Entrar
+        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+          {form.formState.isSubmitting ? 'Entrando...' : 'Entrar'}
         </Button>
       </form>
     </Form>

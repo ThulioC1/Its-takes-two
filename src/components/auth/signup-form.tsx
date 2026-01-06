@@ -4,6 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/firebase';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -25,6 +27,7 @@ const formSchema = z.object({
 
 export function SignupForm() {
   const router = useRouter();
+  const auth = useAuth();
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -36,17 +39,39 @@ export function SignupForm() {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    // Mock signup logic
-    console.log(values);
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    if (!auth) {
+      toast({
+        variant: "destructive",
+        title: "Erro de autenticação",
+        description: "O serviço de autenticação não está disponível.",
+      });
+      return;
+    }
+    
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      
+      // Update user profile with name
+      if (userCredential.user) {
+        await updateProfile(userCredential.user, {
+          displayName: values.name,
+        });
+      }
 
-    // In a real app, you would call Firebase Auth here.
-    // For now, we'll just show a success toast and redirect.
-     toast({
-      title: 'Conta criada com sucesso!',
-      description: 'Redirecionando para o seu painel...',
-    });
-    router.push('/dashboard');
+      toast({
+        title: 'Conta criada com sucesso!',
+        description: 'Redirecionando para o seu painel...',
+      });
+      router.push('/dashboard');
+    } catch (error: any) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Falha ao criar conta",
+        description: error.message || "Ocorreu um erro ao tentar criar a conta.",
+      });
+    }
   }
 
   return (
@@ -91,8 +116,8 @@ export function SignupForm() {
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full">
-          Criar conta
+        <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
+          {form.formState.isSubmitting ? 'Criando conta...' : 'Criar conta'}
         </Button>
       </form>
     </Form>
