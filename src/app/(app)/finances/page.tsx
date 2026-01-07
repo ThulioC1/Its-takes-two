@@ -70,9 +70,7 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
           </SelectTrigger>
           <SelectContent>
             {coupleMembers.map(member => (
-              <React.Fragment key={member.uid}>
-                <SelectItem value={member.uid}>{member.displayName}</SelectItem>
-              </React.Fragment>
+                <SelectItem key={member.uid} value={member.uid}>{member.displayName}</SelectItem>
             ))}
           </SelectContent>
         </Select>
