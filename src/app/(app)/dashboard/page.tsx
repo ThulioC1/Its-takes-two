@@ -134,7 +134,7 @@ function CoupleLinker() {
     <Card>
       <CardHeader>
         <CardTitle className="text-xl font-headline">Conecte-se com seu par</CardTitle>
-        <p className="text-muted-foreground text-sm">Para compartilhar o aplicativo, um de vocês deve compartilhar o código e o outro deve inseri-lo.</p>
+        <p className="text-muted-foreground text-sm">Um de vocês deve compartilhar o código e o outro deve inseri-lo para começar a usar o app juntos.</p>
       </CardHeader>
       <CardContent className="grid md:grid-cols-2 gap-6">
         <div className="space-y-3">
@@ -235,9 +235,10 @@ export default function DashboardPage() {
   const daysTogether = useMemo(() => {
     if (!coupleDetails?.relationshipStartDate) return null;
     try {
+      // The date is 'YYYY-MM-DD'. Add T00:00:00 to treat it as local time, not UTC.
       const startDate = new Date(coupleDetails.relationshipStartDate + 'T00:00:00');
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      today.setHours(0, 0, 0, 0); // Set today to midnight for accurate day difference
       return differenceInDays(today, startDate);
     } catch {
       return null;
@@ -250,12 +251,15 @@ export default function DashboardPage() {
     return dates
       .map(d => {
         try {
-            const parsedDate = new Date(d.date);
+            // The date is 'YYYY-MM-DD'. Add T00:00:00 to treat it as local time, not UTC.
+            const parsedDate = new Date(d.date + 'T00:00:00');
             if (isNaN(parsedDate.getTime())) return null;
+            
             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            const eventDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate());
-            const diffTime = eventDate.getTime() - today.getTime();
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            // We only care about the date part, so we can directly compare.
+            // But differenceInDays handles this correctly by ignoring time parts.
+            const diffDays = differenceInDays(parsedDate, today);
+
             return {...d, daysLeft: diffDays};
         } catch (error) {
             return null;
