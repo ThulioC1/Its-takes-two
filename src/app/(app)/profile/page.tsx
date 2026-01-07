@@ -11,7 +11,7 @@ import { useFirestore, useUser, useDoc, useMemoFirebase } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { updateProfile } from 'firebase/auth';
-import type { UserProfile, CoupleDetails } from '@/types';
+import type { UserProfile } from '@/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 
@@ -19,7 +19,6 @@ const profileSchema = z.object({
   displayName: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
   photoURL: z.string().url("Por favor, insira uma URL válida.").or(z.literal('')),
   gender: z.enum(['Masculino', 'Feminino', 'Prefiro não informar']),
-  relationshipStartDate: z.string().optional(),
 });
 
 export default function ProfilePage() {
@@ -32,13 +31,6 @@ export default function ProfilePage() {
     return doc(firestore, 'users', user.uid);
   }, [user, firestore]);
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
-  const coupleId = userProfile?.coupleId;
-
-  const coupleDetailsRef = useMemoFirebase(() => {
-    if(!coupleId || !firestore) return null;
-    return doc(firestore, 'couples', coupleId);
-  }, [coupleId, firestore]);
-  const { data: coupleDetails } = useDoc<CoupleDetails>(coupleDetailsRef);
 
   const form = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
@@ -46,28 +38,26 @@ export default function ProfilePage() {
       displayName: '',
       photoURL: '',
       gender: 'Prefiro não informar',
-      relationshipStartDate: '',
     },
   });
 
   useEffect(() => {
-    if (userProfile || coupleDetails) {
+    if (userProfile) {
       form.reset({
         displayName: userProfile?.displayName || user?.displayName || '',
         photoURL: userProfile?.photoURL || user?.photoURL || '',
         gender: userProfile?.gender || 'Prefiro não informar',
-        relationshipStartDate: coupleDetails?.relationshipStartDate || '',
       });
     }
-  }, [user, userProfile, coupleDetails, form]);
+  }, [user, userProfile, form]);
 
 
   const onSubmit = async (values: z.infer<typeof profileSchema>) => {
-    if (!user || !firestore || !coupleId) {
+    if (!user || !firestore) {
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Usuário, casal ou serviço de banco de dados não encontrado.",
+        description: "Usuário ou serviço de banco de dados não encontrado.",
       });
       return;
     }
@@ -85,12 +75,6 @@ export default function ProfilePage() {
         displayName: values.displayName,
         photoURL: values.photoURL,
         gender: values.gender,
-      });
-
-      // Update couple details document
-      const coupleDocRef = doc(firestore, 'couples', coupleId);
-      await updateDoc(coupleDocRef, {
-        relationshipStartDate: values.relationshipStartDate || null,
       });
       
       toast({
@@ -114,7 +98,7 @@ export default function ProfilePage() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-3xl font-bold font-headline">Meu Perfil</h1>
-        <p className="text-muted-foreground">Gerencie suas informações pessoais e do casal.</p>
+        <p className="text-muted-foreground">Gerencie suas informações pessoais.</p>
       </div>
 
       <Card className="max-w-2xl">
@@ -156,19 +140,6 @@ export default function ProfilePage() {
                     <FormLabel>URL da Foto</FormLabel>
                     <FormControl>
                       <Input placeholder="https://exemplo.com/sua-foto.jpg" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-               <FormField
-                control={form.control}
-                name="relationshipStartDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Início do Relacionamento</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

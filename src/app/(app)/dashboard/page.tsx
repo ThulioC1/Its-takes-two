@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import {
   Card,
@@ -173,6 +173,7 @@ export default function DashboardPage() {
   }, [firestore, user]);
 
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
+  
   const coupleId = userProfile?.coupleId;
 
   const coupleDocRef = useMemoFirebase(() => {
@@ -234,11 +235,8 @@ export default function DashboardPage() {
   const daysTogether = useMemo(() => {
     if (!coupleDetails?.relationshipStartDate) return null;
     try {
-      // The date is stored as 'YYYY-MM-DD', so new Date() will parse it in UTC.
-      // To avoid timezone issues, create the date with a specific time.
       const startDate = new Date(coupleDetails.relationshipStartDate + 'T00:00:00');
       const today = new Date();
-      // Ensure we are comparing dates only by setting time to 0
       today.setHours(0, 0, 0, 0);
       return differenceInDays(today, startDate);
     } catch {
@@ -316,7 +314,7 @@ export default function DashboardPage() {
                 Bem-vindo(a) de volta!
               </h1>
               <p className="text-muted-foreground mt-2">
-                Aqui está um resumo do seu mundo. Conecte-se com seu par para começar a jornada.
+                Aqui está um resumo do seu mundo.
               </p>
             </div>
           )}
