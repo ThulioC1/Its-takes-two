@@ -44,6 +44,12 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
     };
     onSave(data);
   };
+  
+  const payerName = useMemo(() => {
+    if (!expense) return '';
+    const member = coupleMembers.find(m => m.uid === expense.payer);
+    return member ? member.displayName : expense.payer;
+  }, [expense, coupleMembers]);
 
   return (
     <form onSubmit={handleSubmit} className="grid gap-4 py-4">
@@ -64,16 +70,7 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="payer" className="text-right">Pago por</Label>
-         <Select name="payer" defaultValue={expense?.payer} required>
-          <SelectTrigger className="col-span-3">
-            <SelectValue placeholder="Selecione quem pagou" />
-          </SelectTrigger>
-          <SelectContent>
-            {coupleMembers.map(member => (
-                <SelectItem key={member.uid} value={member.uid}>{member.displayName}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Input id="payer" name="payer" placeholder="Nome de quem pagou" className="col-span-3" defaultValue={payerName} required />
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="observation" className="text-right">Observação</Label>
@@ -160,18 +157,20 @@ export default function FinancesPage() {
 
   const expensesByPayer = useMemo(() => {
     return sortedExpenses.reduce((acc, expense) => {
-      const payerId = expense.payer;
-      acc[payerId] = (acc[payerId] || 0) + expense.value;
+      const payerIdOrName = expense.payer;
+      acc[payerIdOrName] = (acc[payerIdOrName] || 0) + expense.value;
       return acc;
     }, {} as Record<string, number>);
   }, [sortedExpenses]);
 
   const topPayer = useMemo(() => {
     if (Object.keys(expensesByPayer).length === 0) return { name: 'N/A', amount: 0 };
-    const topPayerId = Object.keys(expensesByPayer).reduce((a, b) => expensesByPayer[a] > expensesByPayer[b] ? a : b);
+    const topPayerIdOrName = Object.keys(expensesByPayer).reduce((a, b) => expensesByPayer[a] > expensesByPayer[b] ? a : b);
+    // Tenta encontrar o nome no mapa, se não, usa a própria string (que pode ser o nome digitado)
+    const payerName = coupleMembersMap[topPayerIdOrName] || topPayerIdOrName;
     return {
-      name: coupleMembersMap[topPayerId] || 'Desconhecido',
-      amount: expensesByPayer[topPayerId],
+      name: payerName,
+      amount: expensesByPayer[topPayerIdOrName],
     };
   }, [expensesByPayer, coupleMembersMap]);
 
@@ -202,12 +201,19 @@ export default function FinancesPage() {
   
   const handleSaveExpense = async (data: Partial<Expense>) => {
     if (!expensesRef || !user || !user.displayName) return;
+    
+    // Check if payer name matches a couple member, if so, use UID
+    const payerName = data.payer || '';
+    const payingMember = coupleMembers.find(m => m.displayName.toLowerCase() === payerName.toLowerCase());
+    const payerValue = payingMember ? payingMember.uid : payerName;
+
     if (editingExpense) {
       const expenseDoc = doc(expensesRef, editingExpense.id);
-      await updateDoc(expenseDoc, data);
+      await updateDoc(expenseDoc, { ...data, payer: payerValue });
     } else {
       await addDoc(expensesRef, { 
         ...data, 
+        payer: payerValue,
         date: serverTimestamp(),
         author: {
           uid: user.uid,
@@ -303,7 +309,7 @@ export default function FinancesPage() {
                           <TableCell className="font-medium">{expense.category}</TableCell>
                           <TableCell>R$ {expense.value.toFixed(2).replace('.', ',')}</TableCell>
                           <TableCell className="hidden sm:table-cell">
-                              <Badge variant="outline">{coupleMembersMap[expense.payer] || 'Desconhecido'}</Badge>
+                              <Badge variant="outline">{coupleMembersMap[expense.payer] || expense.payer}</Badge>
                           </TableCell>
                           <TableCell className="hidden md:table-cell">{expense.date ? expense.date.toDate().toLocaleDateString('pt-BR') : ''}</TableCell>
                           <TableCell>
