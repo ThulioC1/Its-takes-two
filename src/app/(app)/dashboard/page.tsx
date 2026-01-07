@@ -36,8 +36,6 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 
 const chartConfig = {
   expenses: {
@@ -170,38 +168,11 @@ function CoupleLinker() {
   );
 }
 
-function BannerForm({ coupleDetails, onSave, onCancel }: { coupleDetails?: Partial<CoupleDetails> | null; onSave: (data: Partial<Pick<CoupleDetails, 'bannerUrl'>>) => Promise<void>; onCancel: () => void; }) {
-    
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const formData = new FormData(e.currentTarget);
-        const data: Partial<Pick<CoupleDetails, 'bannerUrl'>> = {
-            bannerUrl: formData.get('bannerUrl') as string,
-        };
-        await onSave(data);
-    };
-
-    return (
-        <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="bannerUrl" className="text-right">URL da Imagem</Label>
-                <Input id="bannerUrl" name="bannerUrl" placeholder="https://exemplo.com/imagem.jpg" className="col-span-3" defaultValue={coupleDetails?.bannerUrl || ''} />
-            </div>
-            <DialogFooter>
-                <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
-                <Button type="submit">Salvar</Button>
-            </DialogFooter>
-        </form>
-    );
-}
-
 export default function DashboardPage() {
   const firestore = useFirestore();
   const { user } = useUser();
-  const [isBannerDialogOpen, setIsBannerDialogOpen] = useState(false);
   const [coupleMembers, setCoupleMembers] = useState<UserProfile[]>([]);
-  const { toast } = useToast();
-
+  
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'users', user.uid);
@@ -241,14 +212,6 @@ export default function DashboardPage() {
 
     fetchCoupleMembers();
   }, [firestore, coupleId, coupleDetails, userProfile]);
-
-  const firestoreRef = useRef(firestore);
-  const coupleIdRef = useRef(coupleId);
-  
-  useEffect(() => {
-      firestoreRef.current = firestore;
-      coupleIdRef.current = coupleId;
-  }, [firestore, coupleId]);
 
   const datesRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
@@ -325,43 +288,9 @@ export default function DashboardPage() {
     return Object.entries(monthlyExpenses).map(([month, expenses]) => ({ month, expenses }));
   }, [expenses]);
 
-  const handleSaveBanner = async (data: Partial<Pick<CoupleDetails, 'bannerUrl'>>) => {
-    const currentFirestore = firestoreRef.current;
-    const currentCoupleId = coupleIdRef.current;
-
-    if (!currentCoupleId || !currentFirestore) {
-         toast({ variant: 'destructive', title: "Erro", description: "Não foi possível salvar, ID do casal não encontrado." });
-         return;
-    }
-
-    try {
-        const coupleDocToUpdate = doc(currentFirestore, 'couples', currentCoupleId);
-        await updateDoc(coupleDocToUpdate, data);
-        toast({ title: "Banner atualizado com sucesso!" });
-        setIsBannerDialogOpen(false);
-    } catch (error: any) {
-        console.error("Error updating banner:", error);
-        toast({ variant: 'destructive', title: "Erro ao atualizar", description: error.message });
-    }
-  };
-
-
   return (
     <div className="flex flex-col gap-8">
        <CoupleLinker />
-
-      <Dialog open={isBannerDialogOpen} onOpenChange={setIsBannerDialogOpen}>
-        <DialogContent>
-            <DialogHeader><DialogTitle>Editar Banner</DialogTitle></DialogHeader>
-            {coupleId && (
-              <BannerForm 
-                coupleDetails={coupleDetails} 
-                onSave={handleSaveBanner}
-                onCancel={() => setIsBannerDialogOpen(false)} 
-              />
-            )}
-        </DialogContent>
-      </Dialog>
 
       <div className="relative w-full h-48 md:h-64 rounded-xl overflow-hidden shadow-lg">
         {bannerImage && (
@@ -394,12 +323,6 @@ export default function DashboardPage() {
               </p>
             </>
           )}
-        </div>
-        <div className="absolute top-4 right-4">
-            <Button variant="secondary" size="sm" onClick={() => setIsBannerDialogOpen(true)} disabled={!coupleId}>
-                <Settings className="mr-2 h-4 w-4" />
-                Editar Banner
-            </Button>
         </div>
       </div>
 
