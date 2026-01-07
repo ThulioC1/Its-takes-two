@@ -18,7 +18,7 @@ export interface UserProfile {
 
 export interface CoupleDetails {
     memberIds: string[];
-    relationshipStartDate?: string;
+    relationshipStartDate?: string; // Stored as 'YYYY-MM-DD'
     bannerUrl?: string;
 }
 

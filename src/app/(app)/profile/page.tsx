@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useFirestore, useUser, useDoc, useMemoFirebase } from "@/firebase";
-import { doc, updateDoc, getDoc } from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { updateProfile } from 'firebase/auth';
 import type { UserProfile, CoupleDetails } from '@/types';
@@ -19,7 +19,7 @@ const profileSchema = z.object({
   displayName: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
   photoURL: z.string().url("Por favor, insira uma URL válida.").or(z.literal('')),
   gender: z.enum(['Masculino', 'Feminino', 'Prefiro não informar']),
-  bannerUrl: z.string().url("Por favor, insira uma URL válida para o banner.").or(z.literal('')),
+  relationshipStartDate: z.string().optional(),
 });
 
 export default function ProfilePage() {
@@ -46,17 +46,17 @@ export default function ProfilePage() {
       displayName: '',
       photoURL: '',
       gender: 'Prefiro não informar',
-      bannerUrl: '',
+      relationshipStartDate: '',
     },
   });
 
   useEffect(() => {
-    if (userProfile) {
+    if (userProfile || coupleDetails) {
       form.reset({
-        displayName: userProfile.displayName || user?.displayName || '',
-        photoURL: userProfile.photoURL || user?.photoURL || '',
-        gender: userProfile.gender || 'Prefiro não informar',
-        bannerUrl: coupleDetails?.bannerUrl || '',
+        displayName: userProfile?.displayName || user?.displayName || '',
+        photoURL: userProfile?.photoURL || user?.photoURL || '',
+        gender: userProfile?.gender || 'Prefiro não informar',
+        relationshipStartDate: coupleDetails?.relationshipStartDate || '',
       });
     }
   }, [user, userProfile, coupleDetails, form]);
@@ -90,7 +90,7 @@ export default function ProfilePage() {
       // Update couple details document
       const coupleDocRef = doc(firestore, 'couples', coupleId);
       await updateDoc(coupleDocRef, {
-        bannerUrl: values.bannerUrl,
+        relationshipStartDate: values.relationshipStartDate || null,
       });
       
       toast({
@@ -163,12 +163,12 @@ export default function ProfilePage() {
               />
                <FormField
                 control={form.control}
-                name="bannerUrl"
+                name="relationshipStartDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>URL do Banner</FormLabel>
+                    <FormLabel>Início do Relacionamento</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://exemplo.com/banner-casal.jpg" {...field} />
+                      <Input type="date" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

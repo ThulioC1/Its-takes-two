@@ -17,8 +17,6 @@ import {
   Check,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
-import Image from 'next/image';
 import {
   ChartContainer,
   ChartTooltip,
@@ -26,7 +24,7 @@ import {
   ChartConfig,
 } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { doc, collection, writeBatch, getDoc } from 'firebase/firestore';
 import type { ToDoItem, ImportantDate, Post, Expense, UserProfile, CoupleDetails } from "@/types";
@@ -73,13 +71,11 @@ function CoupleLinker() {
         throw new Error("Código do parceiro(a) não encontrado.");
       }
 
-      // The new shared coupleId will be the partner's original coupleId
       const newCoupleId = partnerDoc.data().coupleId;
       if (!newCoupleId) {
         throw new Error("Parceiro(a) não possui um código de casal válido.");
       }
   
-      // Use a batch to ensure atomicity
       const batch = writeBatch(firestore);
       
       const currentUserProfileRef = doc(firestore, 'users', user.uid);
@@ -89,7 +85,6 @@ function CoupleLinker() {
       };
       batch.update(currentUserProfileRef, currentUserData);
 
-      // Create the couple document to signify the link
       const coupleDocRef = doc(firestore, "couples", newCoupleId);
       batch.set(coupleDocRef, { memberIds: [user.uid, partnerId], createdAt: new Date() }, { merge: true });
   
@@ -236,8 +231,20 @@ export default function DashboardPage() {
   }, [firestore, coupleId]);
   const { data: expenses } = useCollection<Expense>(expensesRef);
 
-  const placeholderBanner = PlaceHolderImages.find((p) => p.id === 'couple-banner');
-  const bannerImage = coupleDetails?.bannerUrl || placeholderBanner?.imageUrl;
+  const daysTogether = useMemo(() => {
+    if (!coupleDetails?.relationshipStartDate) return null;
+    try {
+      // The date is stored as 'YYYY-MM-DD', so new Date() will parse it in UTC.
+      // To avoid timezone issues, create the date with a specific time.
+      const startDate = new Date(coupleDetails.relationshipStartDate + 'T00:00:00');
+      const today = new Date();
+      // Ensure we are comparing dates only by setting time to 0
+      today.setHours(0, 0, 0, 0);
+      return differenceInDays(today, startDate);
+    } catch {
+      return null;
+    }
+  }, [coupleDetails]);
   
   const upcomingDates = useMemo(() => {
     if (!dates) return [];
@@ -247,7 +254,6 @@ export default function DashboardPage() {
         try {
             const parsedDate = new Date(d.date);
             if (isNaN(parsedDate.getTime())) return null;
-            // Adjust for timezone differences by comparing dates only
             const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             const eventDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate());
             const diffTime = eventDate.getTime() - today.getTime();
@@ -291,36 +297,30 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-8">
        <CoupleLinker />
 
-      <div className="relative w-full h-48 md:h-64 rounded-xl overflow-hidden shadow-lg">
-        {bannerImage && (
-          <Image
-            src={bannerImage}
-            alt="Banner do casal"
-            data-ai-hint="couple banner"
-            fill
-            className="object-cover"
-          />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-        <div className="absolute bottom-0 left-0 p-6">
+        <div className="p-6 rounded-xl bg-card border shadow-sm">
            {coupleMembers.length > 1 ? (
-            <>
-              <h1 className="text-3xl md:text-4xl font-bold text-white font-headline">
+             <div className="text-center">
+              <h1 className="text-3xl md:text-4xl font-bold font-headline">
                 {coupleMembers.map(m => m.displayName).join(' & ')}
               </h1>
-            </>
+              {daysTogether !== null && (
+                <div className="mt-4">
+                  <p className="text-5xl md:text-6xl font-bold text-primary">{daysTogether}</p>
+                  <p className="text-muted-foreground uppercase tracking-widest">Dias Juntos</p>
+                </div>
+              )}
+            </div>
           ) : (
-            <>
-              <h1 className="text-3xl md:text-4xl font-bold text-white font-headline">
+             <div className="text-center">
+              <h1 className="text-3xl md:text-4xl font-bold font-headline">
                 Bem-vindo(a) de volta!
               </h1>
-              <p className="text-white/90 mt-2">
-                Aqui está um resumo do seu mundo.
+              <p className="text-muted-foreground mt-2">
+                Aqui está um resumo do seu mundo. Conecte-se com seu par para começar a jornada.
               </p>
-            </>
+            </div>
           )}
         </div>
-      </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Link href="/dates" className="flex">
