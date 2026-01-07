@@ -12,10 +12,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { cn } from '@/lib/utils';
-import { Calendar as CalendarIcon } from "lucide-react";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import type { ImportantDate, UserProfile } from "@/types";
@@ -31,51 +27,53 @@ const typeIcons: { [key: string]: React.ReactNode } = {
 };
 
 function Countdown({ date }: { date: string }) {
-  const daysLeft = useMemo(() => {
-    if (!date) return null;
-    const targetDate = parseISO(date);
-    if (!isValid(targetDate)) return null;
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    return differenceInDays(targetDate, today);
-  }, [date]);
+    const [countdownText, setCountdownText] = useState('');
 
-  const countdownText = useMemo(() => {
-    if (daysLeft === null) {
-      return '';
-    }
-    if (daysLeft < 0) {
-      return 'Já passou';
-    }
-    if (daysLeft === 0) {
-      return 'É hoje! 🎉';
-    }
-    if (daysLeft === 1) {
-      return 'É amanhã!';
-    }
-    return `Faltam ${daysLeft} dias`;
-  }, [daysLeft]);
+    const daysLeft = useMemo(() => {
+        if (!date) return null;
+        const targetDate = parseISO(date);
+        if (!isValid(targetDate)) return null;
+        const today = new Date();
+        today.setHours(0,0,0,0);
+        return differenceInDays(targetDate, today);
+    }, [date]);
 
-  return <p className="text-sm text-muted-foreground">{countdownText}</p>;
+    useEffect(() => {
+        if (daysLeft === null) {
+        setCountdownText('');
+        return;
+        }
+        if (daysLeft < 0) {
+        setCountdownText('Já passou');
+        } else if (daysLeft === 0) {
+        setCountdownText('É hoje! 🎉');
+        } else if (daysLeft === 1) {
+        setCountdownText('É amanhã!');
+        } else {
+        setCountdownText(`Faltam ${daysLeft} dias`);
+        }
+    }, [daysLeft]);
+
+    return <p className="text-sm text-muted-foreground">{countdownText}</p>;
 }
 
 function DateForm({ date, onSave, onCancel }: { date?: ImportantDate | null; onSave: (data: Partial<ImportantDate>) => void; onCancel: () => void; }) {
   const [title, setTitle] = useState(date?.title || '');
   const [type, setType] = useState(date?.type || '');
   const [observation, setObservation] = useState(date?.observation || '');
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    date?.date ? parseISO(date.date) : new Date()
+  const [dateValue, setDateValue] = useState<string>(
+    date?.date ? date.date : format(new Date(), 'yyyy-MM-dd')
   );
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!selectedDate) return;
+    if (!dateValue) return;
 
     const data: Partial<ImportantDate> = {
       title,
       type,
       observation,
-      date: format(selectedDate, 'yyyy-MM-dd'), // Format to string for Firestore
+      date: dateValue,
     };
     onSave(data);
   };
@@ -89,28 +87,15 @@ function DateForm({ date, onSave, onCancel }: { date?: ImportantDate | null; onS
 
        <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="date" className="text-right">Data</Label>
-         <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "col-span-3 justify-start text-left font-normal",
-                  !selectedDate && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {selectedDate ? format(selectedDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
+        <Input 
+            id="date"
+            name="date"
+            type="date"
+            className="col-span-3"
+            value={dateValue}
+            onChange={(e) => setDateValue(e.target.value)}
+            required
+        />
       </div>
 
       <div className="grid grid-cols-4 items-center gap-4">
@@ -140,6 +125,14 @@ function DateForm({ date, onSave, onCancel }: { date?: ImportantDate | null; onS
 export default function DatesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDate, setEditingDate] = useState<ImportantDate | null>(null);
+  const [dateToEdit, setDateToEdit] = useState<ImportantDate | null>(null);
+  
+  useEffect(() => {
+    if (dateToEdit) {
+      setEditingDate(dateToEdit);
+      setIsDialogOpen(true);
+    }
+  }, [dateToEdit]);
 
   const firestore = useFirestore();
   const { user } = useUser();
@@ -172,16 +165,17 @@ export default function DatesPage() {
 
   const handleOpenDialogForNew = () => {
     setEditingDate(null);
+    setDateToEdit(null);
     setIsDialogOpen(true);
   };
 
   const handleOpenDialogForEdit = (date: ImportantDate) => {
-    setEditingDate(date);
-    setIsDialogOpen(true);
+    setDateToEdit(date);
   }
   
   const handleCloseDialog = () => {
     setEditingDate(null);
+    setDateToEdit(null);
     setIsDialogOpen(false);
   }
 
@@ -242,6 +236,7 @@ export default function DatesPage() {
       <TooltipProvider>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {sortedDates?.map(d => {
+            if (!d.date) return null;
             const parsedDate = parseISO(d.date);
             if (!isValid(parsedDate)) return null;
 
