@@ -12,17 +12,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import type { Memory, UserProfile } from "@/types";
 
-function MemoryForm({ memory, onSave, onCancel }: { memory?: Memory; onSave: (data: Partial<Memory>) => void; onCancel: () => void; }) {
+function MemoryForm({ memory, onSave, onCancel }: { memory?: Memory | null; onSave: (data: Partial<Memory & { dateString?: string }>) => void; onCancel: () => void; }) {
+    const [dateValue, setDateValue] = useState<string>(
+        memory?.date ? format(memory.date.toDate(), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')
+    );
+
+    useEffect(() => {
+        setDateValue(memory?.date ? format(memory.date.toDate(), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'));
+    }, [memory]);
+
     const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
-        const data: Partial<Memory> = {
+        const data: Partial<Memory & { dateString?: string }> = {
             description: formData.get('description') as string,
             location: formData.get('location') as string,
             image: formData.get('imageUrl') as string,
+            dateString: dateValue,
         };
         onSave(data);
     };
@@ -32,6 +41,18 @@ function MemoryForm({ memory, onSave, onCancel }: { memory?: Memory; onSave: (da
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="imageUrl" className="text-right">URL da Foto</Label>
                 <Input id="imageUrl" name="imageUrl" className="col-span-3" placeholder="https://exemplo.com/foto.jpg" defaultValue={memory?.image} required />
+            </div>
+             <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="date" className="text-right">Data</Label>
+                <Input 
+                    id="date"
+                    name="date"
+                    type="date"
+                    className="col-span-3"
+                    value={dateValue}
+                    onChange={(e) => setDateValue(e.target.value)}
+                    required
+                />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="description" className="text-right">Descrição</Label>
@@ -101,16 +122,28 @@ export default function MemoriesPage() {
     setIsDialogOpen(false);
   }
   
-  const handleSaveMemory = async (data: Partial<Memory>) => {
+  const handleSaveMemory = async (data: Partial<Memory & { dateString?: string }>) => {
     if(!memoriesRef || !user || !user.displayName) return;
+
+    const { dateString, ...restData } = data;
+    const dataToSave: Partial<Memory> = {
+        ...restData,
+        image: data.image || `https://picsum.photos/seed/${Math.floor(Math.random()*100)}/400/300`,
+    };
+
+    if (dateString) {
+        // The date comes in as 'YYYY-MM-DD', but the new Date() constructor needs to be careful with timezones.
+        // Adding 'T00:00:00' makes it parse as local time, avoiding timezone shifts.
+        dataToSave.date = Timestamp.fromDate(new Date(dateString + 'T00:00:00'));
+    }
+
     if (editingMemory) {
         const memoryDoc = doc(memoriesRef, editingMemory.id);
-        await updateDoc(memoryDoc, data);
+        await updateDoc(memoryDoc, dataToSave);
     } else {
       const newMemory = { 
-        ...data,
-        date: serverTimestamp(), 
-        image: data.image || `https://picsum.photos/seed/${Math.floor(Math.random()*100)}/400/300`,
+        ...dataToSave,
+        date: dataToSave.date || serverTimestamp(), 
         author: {
           uid: user.uid,
           displayName: user.displayName,
@@ -148,7 +181,7 @@ export default function MemoriesPage() {
             <DialogTitle>{editingMemory ? 'Editar Memória' : 'Nova Memória'}</DialogTitle>
           </DialogHeader>
           <MemoryForm 
-            memory={editingMemory ?? undefined}
+            memory={editingMemory}
             onSave={handleSaveMemory}
             onCancel={handleCloseDialog}
           />
