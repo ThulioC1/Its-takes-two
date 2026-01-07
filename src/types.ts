@@ -26,9 +26,10 @@ export interface ToDoItem {
     id: string;
     title: string;
     description?: string;
-    status: 'Pendente' | 'Em andamento' | 'Concluído';
+    status: 'Pendente' | 'Concluído';
     creationDate: Timestamp;
     completionDate?: Timestamp | null;
+    dueDate?: Timestamp | null;
     author: Author;
 }
 
@@ -36,7 +37,7 @@ export interface Expense {
     id: string;
     category: string;
     value: number;
-    payer: string; // This is the UID of the user who paid
+    payer: string; // This can be a UID or a custom name
     date: Timestamp;
     observation?: string;
     author: Author;
