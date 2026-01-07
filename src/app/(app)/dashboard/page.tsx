@@ -24,7 +24,7 @@ import {
   ChartConfig,
 } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
-import { format } from 'date-fns';
+import { format, differenceInCalendarDays } from 'date-fns';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { doc, collection, writeBatch, getDoc } from 'firebase/firestore';
 import type { ToDoItem, ImportantDate, Post, Expense, UserProfile, CoupleDetails } from "@/types";
@@ -176,6 +176,8 @@ export default function DashboardPage() {
   
   const coupleId = userProfile?.coupleId;
 
+  const isLinked = userProfile && user && userProfile.coupleId !== user.uid;
+
   const coupleDocRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return doc(firestore, 'couples', coupleId);
@@ -235,13 +237,12 @@ export default function DashboardPage() {
   const daysTogether = useMemo(() => {
     if (!coupleDetails?.relationshipStartDate) return null;
     try {
-      const startDate = new Date(coupleDetails.relationshipStartDate + 'T00:00:00');
-      const today = new Date();
-      startDate.setHours(0, 0, 0, 0);
-      today.setHours(0, 0, 0, 0);
-      const diffTime = Math.abs(today.getTime() - startDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays;
+        const today = new Date();
+        const startDate = new Date(coupleDetails.relationshipStartDate + 'T00:00:00');
+        today.setHours(0, 0, 0, 0);
+        startDate.setHours(0, 0, 0, 0);
+        const diffDays = differenceInCalendarDays(today, startDate);
+        return diffDays;
     } catch {
       return null;
     }
@@ -249,26 +250,26 @@ export default function DashboardPage() {
   
   const upcomingDates = useMemo(() => {
     if (!dates) return [];
-    const now = new Date();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     return dates
       .map(d => {
         try {
             const parsedDate = new Date(d.date + 'T00:00:00');
-            if (isNaN(parsedDate.getTime())) return null;
-            
-            const today = new Date();
+             if (isNaN(parsedDate.getTime())) return null;
             parsedDate.setHours(0, 0, 0, 0);
-            today.setHours(0, 0, 0, 0);
             
-            const diffTime = parsedDate.getTime() - today.getTime();
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            if (parsedDate < today) return null;
+
+            const diffDays = differenceInCalendarDays(parsedDate, today);
 
             return {...d, daysLeft: diffDays};
         } catch (error) {
             return null;
         }
       })
-      .filter((d): d is ImportantDate & { daysLeft: number } => d !== null && d.daysLeft >= 0)
+      .filter((d): d is ImportantDate & { daysLeft: number } => d !== null)
       .sort((a, b) => a.daysLeft - b.daysLeft)
       .slice(0, 2);
   }, [dates]);
@@ -301,12 +302,12 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-col gap-8">
       <CoupleLinker />
-      {userProfile && !isLinked && (
+      {!isLinked && (
           <Card>
             <CardHeader>
               <CardTitle className="text-xl font-headline">Bem-vindo(a) de volta!</CardTitle>
               <p className="text-muted-foreground text-sm">
-                Conecte-se com seu par para começar a jornada.
+                Aguardando a conexão com seu par para desbloquear as funcionalidades.
               </p>
             </CardHeader>
           </Card>
