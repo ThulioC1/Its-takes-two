@@ -31,8 +31,6 @@ const typeIcons: { [key: string]: React.ReactNode } = {
 };
 
 function Countdown({ date }: { date: string }) {
-  const [countdown, setCountdown] = useState('');
-
   const daysLeft = useMemo(() => {
     if (!date) return null;
     const targetDate = parseISO(date);
@@ -41,27 +39,29 @@ function Countdown({ date }: { date: string }) {
     return differenceInDays(targetDate, today);
   }, [date]);
 
-  useEffect(() => {
+  const countdownText = useMemo(() => {
     if (daysLeft === null) {
-      setCountdown('');
-      return;
+      return '';
     }
     if (daysLeft < 0) {
-      setCountdown('Já passou');
-    } else if (daysLeft === 0) {
-      setCountdown('É hoje! 🎉');
-    } else if (daysLeft === 1) {
-      setCountdown('É amanhã!');
-    } else {
-      setCountdown(`Faltam ${daysLeft} dias`);
+      return 'Já passou';
     }
+    if (daysLeft === 0) {
+      return 'É hoje! 🎉';
+    }
+    if (daysLeft === 1) {
+      return 'É amanhã!';
+    }
+    return `Faltam ${daysLeft} dias`;
   }, [daysLeft]);
 
-  return <p className="text-sm text-muted-foreground">{countdown}</p>;
+  return <p className="text-sm text-muted-foreground">{countdownText}</p>;
 }
 
 function DateForm({ date, onSave, onCancel }: { date?: ImportantDate; onSave: (data: Partial<ImportantDate>) => void; onCancel: () => void; }) {
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(date ? parseISO(date.date) : new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+    date?.date ? parseISO(date.date) : undefined
+  );
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -70,7 +70,7 @@ function DateForm({ date, onSave, onCancel }: { date?: ImportantDate; onSave: (d
       title: formData.get('title') as string,
       type: formData.get('type') as string,
       observation: formData.get('observation') as string,
-      date: selectedDate ? selectedDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      date: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0],
     };
     onSave(data);
   };
@@ -135,14 +135,6 @@ function DateForm({ date, onSave, onCancel }: { date?: ImportantDate; onSave: (d
 export default function DatesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDate, setEditingDate] = useState<ImportantDate | null>(null);
-  const [dateToEdit, setDateToEdit] = useState<ImportantDate | null>(null);
-
-  useEffect(() => {
-    if (dateToEdit) {
-      setEditingDate(dateToEdit);
-      setIsDialogOpen(true);
-    }
-  }, [dateToEdit]);
 
   const firestore = useFirestore();
   const { user } = useUser();
@@ -167,7 +159,6 @@ export default function DatesPage() {
     return [...importantDates].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [importantDates]);
 
-
   const handleOpenDialog = (date: ImportantDate | null = null) => {
     setEditingDate(date);
     setIsDialogOpen(true);
@@ -175,7 +166,6 @@ export default function DatesPage() {
   
   const handleCloseDialog = () => {
     setEditingDate(null);
-    setDateToEdit(null);
     setIsDialogOpen(false);
   }
 
@@ -189,7 +179,8 @@ export default function DatesPage() {
         ...data,
         author: {
           uid: user.uid,
-          displayName: user.displayName
+          displayName: user.displayName,
+          photoURL: user.photoURL,
         }
       });
     }
@@ -201,7 +192,6 @@ export default function DatesPage() {
     const dateDoc = doc(datesRef, id);
     await deleteDoc(dateDoc);
   };
-
 
   return (
     <div className="flex flex-col gap-6">
@@ -216,16 +206,24 @@ export default function DatesPage() {
         </Button>
       </div>
       
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
+        if (!isOpen) {
+          handleCloseDialog();
+        } else {
+          setIsDialogOpen(true);
+        }
+      }}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingDate ? 'Editar Data' : 'Nova Data'}</DialogTitle>
             </DialogHeader>
-            <DateForm 
-              date={editingDate ?? undefined}
-              onSave={handleSaveDate}
-              onCancel={handleCloseDialog}
-            />
+            {isDialogOpen && (
+              <DateForm 
+                date={editingDate ?? undefined}
+                onSave={handleSaveDate}
+                onCancel={handleCloseDialog}
+              />
+            )}
           </DialogContent>
         </Dialog>
       
@@ -252,7 +250,7 @@ export default function DatesPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onSelect={() => setDateToEdit(d)}>Editar</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleOpenDialog(d)}>Editar</DropdownMenuItem>
                       <DropdownMenuItem className="text-destructive" onSelect={() => handleDelete(d.id)}>Deletar</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
