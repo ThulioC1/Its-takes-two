@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Label } from "@/componentsui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, getDoc } from "firebase/firestore";
@@ -154,8 +154,8 @@ export default function FinancesPage() {
   const sortedExpenses = useMemo(() => {
     if (!expenses) return [];
     return [...expenses].sort((a, b) => {
-        const timeA = a.date ? a.date.toDate().getTime() : 0;
-        const timeB = b.date ? b.date.toDate().getTime() : 0;
+        const timeA = a.date?.toDate?.()?.getTime() || 0;
+        const timeB = b.date?.toDate?.()?.getTime() || 0;
         return timeB - timeA;
     });
   }, [expenses]);
@@ -195,6 +195,7 @@ export default function FinancesPage() {
   }, [sortedExpenses]);
   
   const handleOpenDialog = (expense: Expense | null = null) => {
+    setExpenseToEdit(expense);
     setEditingExpense(expense);
     setIsDialogOpen(true);
   };
@@ -216,7 +217,8 @@ export default function FinancesPage() {
         date: serverTimestamp(),
         author: {
           uid: user.uid,
-          displayName: user.displayName
+          displayName: user.displayName,
+          photoURL: user.photoURL,
         }
       });
     }

@@ -78,6 +78,7 @@ export default function TodosPage() {
   const { data: todos, isLoading } = useCollection<ToDoItem>(todosRef);
 
   const handleOpenDialog = (todo: ToDoItem | null = null) => {
+    setTodoToEdit(todo);
     setEditingTodo(todo);
     setIsDialogOpen(true);
   };
@@ -101,6 +102,7 @@ export default function TodosPage() {
         author: {
           uid: user.uid,
           displayName: user.displayName,
+          photoURL: user.photoURL,
         }
       });
     }

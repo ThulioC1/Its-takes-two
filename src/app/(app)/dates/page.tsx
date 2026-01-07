@@ -165,7 +165,10 @@ export default function DatesPage() {
 
   const sortedDates = useMemo(() => {
     if (!importantDates) return [];
-    return [...importantDates].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    return [...importantDates].sort((a, b) => {
+        if (!a.date || !b.date) return 0;
+        return new Date(a.date).getTime() - new Date(b.date).getTime()
+    });
   }, [importantDates]);
 
   const handleOpenDialogForNew = () => {
@@ -242,7 +245,7 @@ export default function DatesPage() {
                       {typeIcons[d.type] || <Gift className="h-6 w-6 text-primary" />}
                       <div>
                           <CardTitle className="font-headline">{d.title}</CardTitle>
-                          <p className="text-muted-foreground text-sm">{format(parseISO(d.date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
+                          {d.date && <p className="text-muted-foreground text-sm">{format(parseISO(d.date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>}
                       </div>
                   </div>
                   <DropdownMenu>
@@ -260,7 +263,7 @@ export default function DatesPage() {
                 </div>
               </CardHeader>
               <CardContent className="flex-grow">
-                <Countdown date={d.date} />
+                {d.date && <Countdown date={d.date} />}
                 {d.observation && (
                   <p className="text-sm text-foreground mt-2 pt-2 border-t">{d.observation}</p>
                 )}

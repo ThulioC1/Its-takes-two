@@ -113,6 +113,7 @@ export default function GoalsPage() {
 
 
   const handleOpenDialog = (goal: CoupleGoal | null = null) => {
+    setGoalToEdit(goal);
     setEditingGoal(goal);
     setIsDialogOpen(true);
   };
@@ -138,7 +139,8 @@ export default function GoalsPage() {
         status: (data.progress || 0) === 100 ? 'Concluído' : 'Em andamento',
         author: {
             uid: user.uid,
-            displayName: user.displayName
+            displayName: user.displayName,
+            photoURL: user.photoURL,
         }
       });
     }

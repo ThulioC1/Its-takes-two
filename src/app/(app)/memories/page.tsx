@@ -83,13 +83,14 @@ export default function MemoriesPage() {
   const sortedMemories = useMemo(() => {
     if (!memories) return [];
     return [...memories].sort((a, b) => {
-        const timeA = a.date ? a.date.toDate().getTime() : 0;
-        const timeB = b.date ? b.date.toDate().getTime() : 0;
+        const timeA = a.date?.toDate?.()?.getTime() || 0;
+        const timeB = b.date?.toDate?.()?.getTime() || 0;
         return timeB - timeA;
     });
   }, [memories]);
 
   const handleOpenDialog = (memory: Memory | null = null) => {
+    setMemoryToEdit(memory);
     setEditingMemory(memory);
     setIsDialogOpen(true);
   };
@@ -112,7 +113,8 @@ export default function MemoriesPage() {
         image: data.image || `https://picsum.photos/seed/${Math.floor(Math.random()*100)}/400/300`,
         author: {
           uid: user.uid,
-          displayName: user.displayName
+          displayName: user.displayName,
+          photoURL: user.photoURL,
         }
       };
       await addDoc(memoriesRef, newMemory);

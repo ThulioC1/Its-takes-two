@@ -150,6 +150,7 @@ export default function WatchlistPage() {
   const { data: watchlist, isLoading } = useCollection<MovieSeries>(watchlistRef);
   
   const handleOpenDialog = (item: MovieSeries | null = null) => {
+    setItemToEdit(item);
     setEditingItem(item);
     setIsDialogOpen(true);
   };
@@ -206,7 +207,8 @@ export default function WatchlistPage() {
         status: 'To Watch',
         author: {
             uid: user.uid,
-            displayName: user.displayName
+            displayName: user.displayName,
+            photoURL: user.photoURL,
         }
       });
     }
