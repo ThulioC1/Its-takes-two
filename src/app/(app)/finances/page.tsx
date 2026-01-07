@@ -37,6 +37,8 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
   useEffect(() => {
     if (expense) {
       setExpenseToEdit(expense);
+    } else {
+      setExpenseToEdit(null);
     }
   }, [expense]);
 
@@ -103,7 +105,10 @@ function SavingsGoalForm({ goal, coupleId, onCancel }: { goal?: number; coupleId
         const formData = new FormData(e.currentTarget);
         const savingsGoal = parseFloat(formData.get('savingsGoal') as string);
 
-        if (!coupleId || !firestore || isNaN(savingsGoal)) return;
+        if (!coupleId || !firestore || isNaN(savingsGoal)) {
+            toast({ variant: 'destructive', title: "Erro de validação", description: "Dados inválidos para atualizar a meta." });
+            return;
+        };
 
         try {
             const coupleDocRef = doc(firestore, 'couples', coupleId);
@@ -111,6 +116,7 @@ function SavingsGoalForm({ goal, coupleId, onCancel }: { goal?: number; coupleId
             toast({ title: "Meta de economia atualizada!" });
             onCancel();
         } catch (error: any) {
+            console.error("Error updating savings goal:", error);
             toast({ variant: 'destructive', title: "Erro ao atualizar meta", description: error.message });
         }
     };
@@ -133,7 +139,6 @@ export default function FinancesPage() {
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [isGoalDialogOpen, setIsGoalDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
   const [coupleMembers, setCoupleMembers] = useState<UserProfile[]>([]);
   
   const firestore = useFirestore();
@@ -177,13 +182,6 @@ export default function FinancesPage() {
     fetchCoupleMembers();
   }, [firestore, coupleId, userProfile, coupleDocRef]);
   
-  useEffect(() => {
-    if (expenseToEdit) {
-      setEditingExpense(expenseToEdit);
-      setIsExpenseDialogOpen(true);
-    }
-  }, [expenseToEdit]);
-
   const expensesRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return collection(firestore, 'couples', coupleId, 'expenses');
@@ -246,14 +244,12 @@ export default function FinancesPage() {
   }, [sortedExpenses]);
   
   const handleOpenExpenseDialog = (expense: Expense | null = null) => {
-    setExpenseToEdit(expense);
     setEditingExpense(expense);
     setIsExpenseDialogOpen(true);
   };
   
   const handleCloseExpenseDialog = () => {
     setEditingExpense(null);
-    setExpenseToEdit(null);
     setIsExpenseDialogOpen(false);
   }
   
@@ -407,7 +403,7 @@ export default function FinancesPage() {
                                   </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onSelect={() => setExpenseToEdit(expense)}>Editar</DropdownMenuItem>
+                                  <DropdownMenuItem onSelect={() => handleOpenExpenseDialog(expense)}>Editar</DropdownMenuItem>
                                   <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(expense.id)}>Deletar</DropdownMenuItem>
                               </DropdownMenuContent>
                               </DropdownMenu>
@@ -449,5 +445,3 @@ export default function FinancesPage() {
     </div>
   );
 }
-
-    
