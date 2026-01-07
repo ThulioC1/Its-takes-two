@@ -32,6 +32,21 @@ const chartConfig = {
 
 function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: Expense | null; onSave: (data: Partial<Expense>) => void; onCancel: () => void; coupleMembers: UserProfile[] }) {
   
+  const [payer, setPayer] = useState(() => {
+    if (!expense?.payer) return '';
+    const member = coupleMembers.find(m => m.uid === expense.payer);
+    return member ? member.displayName : expense.payer;
+  });
+
+  useEffect(() => {
+    if (expense?.payer) {
+      const member = coupleMembers.find(m => m.uid === expense.payer);
+      setPayer(member ? member.displayName : expense.payer);
+    } else {
+      setPayer('');
+    }
+  }, [expense, coupleMembers]);
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -39,17 +54,11 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
     const data: Partial<Expense> = {
       category: formData.get('category') as string,
       value: valueInput ? parseFloat(valueInput.replace(',', '.')) : 0,
-      payer: formData.get('payer') as string,
+      payer: payer,
       observation: formData.get('observation') as string,
     };
     onSave(data);
   };
-  
-  const payerName = useMemo(() => {
-    if (!expense) return '';
-    const member = coupleMembers.find(m => m.uid === expense.payer);
-    return member ? member.displayName : expense.payer;
-  }, [expense, coupleMembers]);
 
   return (
     <form onSubmit={handleSubmit} className="grid gap-4 py-4">
@@ -70,7 +79,7 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="payer" className="text-right">Pago por</Label>
-        <Input id="payer" name="payer" placeholder="Nome de quem pagou" className="col-span-3" defaultValue={payerName} required />
+        <Input id="payer" name="payer" placeholder="Nome de quem pagou" className="col-span-3" value={payer} onChange={(e) => setPayer(e.target.value)} required />
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="observation" className="text-right">Observação</Label>
@@ -166,7 +175,6 @@ export default function FinancesPage() {
   const topPayer = useMemo(() => {
     if (Object.keys(expensesByPayer).length === 0) return { name: 'N/A', amount: 0 };
     const topPayerIdOrName = Object.keys(expensesByPayer).reduce((a, b) => expensesByPayer[a] > expensesByPayer[b] ? a : b);
-    // Tenta encontrar o nome no mapa, se não, usa a própria string (que pode ser o nome digitado)
     const payerName = coupleMembersMap[topPayerIdOrName] || topPayerIdOrName;
     return {
       name: payerName,
@@ -185,7 +193,7 @@ export default function FinancesPage() {
     ).map(([name, value]) => ({
       name,
       value,
-      fill: `var(--color-${name.toLowerCase().replace('ã', 'a')})`
+      fill: chartConfig[name as keyof typeof chartConfig]?.color || chartConfig.Outros.color,
     }));
   }, [sortedExpenses]);
   
