@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, getDoc, Firestore } from "firebase/firestore";
+import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, getDoc } from "firebase/firestore";
 import type { Expense, UserProfile, CoupleDetails } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -96,44 +96,6 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
   );
 }
 
-function SavingsGoalForm({ firestore, goal, coupleId, onCancel }: { firestore: Firestore; goal?: number; coupleId: string; onCancel: () => void; }) {
-    const { toast } = useToast();
-
-    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-        e.preventDefault();
-        const formData = new FormData(e.currentTarget);
-        const savingsGoal = parseFloat(formData.get('savingsGoal') as string);
-
-        if (!coupleId || !firestore || isNaN(savingsGoal)) {
-            toast({ variant: 'destructive', title: "Erro de validação", description: "Dados inválidos para atualizar a meta." });
-            return;
-        };
-
-        try {
-            const coupleDocRef = doc(firestore, 'couples', coupleId);
-            await updateDoc(coupleDocRef, { savingsGoal: savingsGoal });
-            toast({ title: "Meta de economia atualizada!" });
-            onCancel();
-        } catch (error: any) {
-            console.error("Error updating savings goal:", error);
-            toast({ variant: 'destructive', title: "Erro ao atualizar meta", description: error.message });
-        }
-    };
-
-    return (
-        <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="savingsGoal" className="text-right">Meta (R$)</Label>
-                <Input id="savingsGoal" name="savingsGoal" type="number" step="100" placeholder="5000" className="col-span-3" defaultValue={goal} required />
-            </div>
-            <DialogFooter>
-                <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
-                <Button type="submit">Salvar Meta</Button>
-            </DialogFooter>
-        </form>
-    );
-}
-
 export default function FinancesPage() {
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [isGoalDialogOpen, setIsGoalDialogOpen] = useState(false);
@@ -143,6 +105,7 @@ export default function FinancesPage() {
   
   const firestore = useFirestore();
   const { user } = useUser();
+  const { toast } = useToast();
 
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -288,6 +251,27 @@ export default function FinancesPage() {
     await deleteDoc(expenseDoc);
   };
 
+  const handleSavingsGoalSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const newSavingsGoal = parseFloat(formData.get('savingsGoal') as string);
+
+    if (!coupleId || !firestore || isNaN(newSavingsGoal)) {
+        toast({ variant: 'destructive', title: "Erro de validação", description: "Dados inválidos para atualizar a meta." });
+        return;
+    };
+
+    try {
+        const coupleDocRef = doc(firestore, 'couples', coupleId);
+        await updateDoc(coupleDocRef, { savingsGoal: newSavingsGoal });
+        toast({ title: "Meta de economia atualizada!" });
+        setIsGoalDialogOpen(false);
+    } catch (error: any) {
+        console.error("Error updating savings goal:", error);
+        toast({ variant: 'destructive', title: "Erro ao atualizar meta", description: error.message });
+    }
+  };
+
 
   return (
     <div className="flex flex-col gap-6">
@@ -320,7 +304,16 @@ export default function FinancesPage() {
             <DialogHeader>
               <DialogTitle>Editar Meta de Economia</DialogTitle>
             </DialogHeader>
-            {coupleId && firestore && <SavingsGoalForm firestore={firestore} goal={savingsGoal} coupleId={coupleId} onCancel={() => setIsGoalDialogOpen(false)} />}
+            <form onSubmit={handleSavingsGoalSubmit} className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="savingsGoal" className="text-right">Meta (R$)</Label>
+                    <Input id="savingsGoal" name="savingsGoal" type="number" step="100" placeholder="5000" className="col-span-3" defaultValue={savingsGoal} required />
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="ghost" onClick={() => setIsGoalDialogOpen(false)}>Cancelar</Button>
+                    <Button type="submit">Salvar Meta</Button>
+                </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       
