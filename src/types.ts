@@ -17,11 +17,9 @@ export interface UserProfile {
 }
 
 export interface CoupleDetails {
-    person1Name?: string;
-    person2Name?: string;
+    memberIds: string[];
     relationshipStartDate?: string;
     bannerUrl?: string;
-    savingsGoal?: number;
 }
 
 export interface ToDoItem {
@@ -99,8 +97,8 @@ export interface MovieSeries {
     link?: string;
     status: 'To Watch' | 'Watching' | 'Watched';
     dateWatched?: Timestamp | null;
-    season?: number;
-    episode?: number;
+    season?: number | null;
+    episode?: number | null;
     author: Author;
 }
 

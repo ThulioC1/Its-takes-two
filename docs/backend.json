@@ -505,12 +505,6 @@
             "type": "array",
             "items": { "type": "string" }
         },
-        "person1Name": {
-            "type": "string"
-        },
-        "person2Name": {
-            "type": "string"
-        },
         "relationshipStartDate": {
             "type": "string",
             "format": "date"
@@ -518,9 +512,6 @@
         "bannerUrl": {
             "type": "string",
             "format": "uri"
-        },
-        "savingsGoal": {
-            "type": "number"
         }
       }
     }

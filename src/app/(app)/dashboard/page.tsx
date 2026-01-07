@@ -177,8 +177,6 @@ function BannerForm({ coupleDetails, onSave, onCancel }: { coupleDetails?: Parti
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
         const data: Partial<CoupleDetails> = {
-            person1Name: formData.get('person1Name') as string,
-            person2Name: formData.get('person2Name') as string,
             relationshipStartDate: formData.get('relationshipStartDate') as string,
             bannerUrl: formData.get('bannerUrl') as string,
         };
@@ -187,14 +185,6 @@ function BannerForm({ coupleDetails, onSave, onCancel }: { coupleDetails?: Parti
 
     return (
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="person1Name" className="text-right">Nome 1</Label>
-                <Input id="person1Name" name="person1Name" className="col-span-3" defaultValue={coupleDetails?.person1Name || ''} />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="person2Name" className="text-right">Nome 2</Label>
-                <Input id="person2Name" name="person2Name" className="col-span-3" defaultValue={coupleDetails?.person2Name || ''} />
-            </div>
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="relationshipStartDate" className="text-right">Início do Relacionamento</Label>
                 <Input id="relationshipStartDate" name="relationshipStartDate" type="date" className="col-span-3" defaultValue={coupleDetails?.relationshipStartDate || ''} />
@@ -215,6 +205,7 @@ export default function DashboardPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const [isBannerDialogOpen, setIsBannerDialogOpen] = useState(false);
+  const [coupleMembers, setCoupleMembers] = useState<UserProfile[]>([]);
   const { toast } = useToast();
 
   const userProfileRef = useMemoFirebase(() => {
@@ -224,7 +215,39 @@ export default function DashboardPage() {
 
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
-  
+
+  const coupleDocRef = useMemoFirebase(() => {
+    if (!firestore || !coupleId) return null;
+    return doc(firestore, 'couples', coupleId);
+  }, [firestore, coupleId]);
+  const { data: coupleDetails } = useDoc<CoupleDetails>(coupleDocRef);
+
+   useEffect(() => {
+    const fetchCoupleMembers = async () => {
+        if (!firestore || !coupleId || !coupleDetails?.memberIds) {
+          if (userProfile) setCoupleMembers([userProfile]);
+          return;
+        };
+
+        const memberIds = coupleDetails.memberIds;
+        if (memberIds.length > 0) {
+          try {
+            const memberPromises = memberIds.map((id: string) => getDoc(doc(firestore, 'users', id)));
+            const memberDocs = await Promise.all(memberPromises);
+            const members = memberDocs.map(snap => snap.data() as UserProfile).filter(Boolean);
+            setCoupleMembers(members);
+          } catch (error) {
+             console.error("Error fetching couple members:", error);
+             if(userProfile) setCoupleMembers([userProfile]);
+          }
+        } else if (userProfile) {
+           setCoupleMembers([userProfile]);
+        }
+    };
+
+    fetchCoupleMembers();
+  }, [firestore, coupleId, coupleDetails, userProfile]);
+
   const firestoreRef = useRef(firestore);
   const coupleIdRef = useRef(coupleId);
   
@@ -232,12 +255,6 @@ export default function DashboardPage() {
       firestoreRef.current = firestore;
       coupleIdRef.current = coupleId;
   }, [firestore, coupleId]);
-
-  const coupleDocRef = useMemoFirebase(() => {
-    if (!firestore || !coupleId) return null;
-    return doc(firestore, 'couples', coupleId);
-  }, [firestore, coupleId]);
-  const { data: coupleDetails } = useDoc<CoupleDetails>(coupleDocRef);
 
   const datesRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
@@ -369,10 +386,10 @@ export default function DashboardPage() {
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
         <div className="absolute bottom-0 left-0 p-6">
-           {coupleDetails?.person1Name && coupleDetails?.person2Name ? (
+           {coupleMembers.length > 1 ? (
             <>
               <h1 className="text-3xl md:text-4xl font-bold text-white font-headline">
-                {coupleDetails.person1Name} & {coupleDetails.person2Name}
+                {coupleMembers.map(m => m.displayName).join(' & ')}
               </h1>
               {relationshipDays !== null && (
                 <p className="text-white/90 mt-2">
