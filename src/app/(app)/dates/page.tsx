@@ -1,6 +1,6 @@
 'use client';
 import { useState, useMemo, useEffect } from 'react';
-import { differenceInDays, format, parseISO } from 'date-fns';
+import { differenceInDays, format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -34,6 +34,7 @@ function Countdown({ date }: { date: string }) {
   const daysLeft = useMemo(() => {
     if (!date) return null;
     const targetDate = parseISO(date);
+    if (!isValid(targetDate)) return null;
     const today = new Date();
     today.setHours(0,0,0,0);
     return differenceInDays(targetDate, today);
@@ -59,18 +60,22 @@ function Countdown({ date }: { date: string }) {
 }
 
 function DateForm({ date, onSave, onCancel }: { date?: ImportantDate | null; onSave: (data: Partial<ImportantDate>) => void; onCancel: () => void; }) {
+  const [title, setTitle] = useState(date?.title || '');
+  const [type, setType] = useState(date?.type || '');
+  const [observation, setObservation] = useState(date?.observation || '');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     date?.date ? parseISO(date.date) : new Date()
   );
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
+    if (!selectedDate) return;
+
     const data: Partial<ImportantDate> = {
-      title: formData.get('title') as string,
-      type: formData.get('type') as string,
-      observation: formData.get('observation') as string,
-      date: selectedDate ? format(selectedDate, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0],
+      title,
+      type,
+      observation,
+      date: format(selectedDate, 'yyyy-MM-dd'), // Format to string for Firestore
     };
     onSave(data);
   };
@@ -79,7 +84,7 @@ function DateForm({ date, onSave, onCancel }: { date?: ImportantDate | null; onS
     <form onSubmit={handleSubmit} className="grid gap-4 py-4">
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="title" className="text-right">Título</Label>
-        <Input id="title" name="title" className="col-span-3" defaultValue={date?.title} required />
+        <Input id="title" name="title" className="col-span-3" value={title} onChange={(e) => setTitle(e.target.value)} required />
       </div>
 
        <div className="grid grid-cols-4 items-center gap-4">
@@ -110,7 +115,7 @@ function DateForm({ date, onSave, onCancel }: { date?: ImportantDate | null; onS
 
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="type" className="text-right">Tipo</Label>
-         <Select name="type" defaultValue={date?.type} required>
+         <Select name="type" value={type} onValueChange={setType} required>
           <SelectTrigger className="col-span-3">
             <SelectValue placeholder="Selecione o tipo" />
           </SelectTrigger>
@@ -121,7 +126,7 @@ function DateForm({ date, onSave, onCancel }: { date?: ImportantDate | null; onS
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="observation" className="text-right">Observação</Label>
-        <Textarea id="observation" name="observation" className="col-span-3" defaultValue={date?.observation} />
+        <Textarea id="observation" name="observation" className="col-span-3" value={observation} onChange={(e) => setObservation(e.target.value)} />
       </div>
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
@@ -135,15 +140,6 @@ function DateForm({ date, onSave, onCancel }: { date?: ImportantDate | null; onS
 export default function DatesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDate, setEditingDate] = useState<ImportantDate | null>(null);
-  const [dateToEdit, setDateToEdit] = useState<ImportantDate | null>(null);
-
-  useEffect(() => {
-    if (dateToEdit) {
-      setEditingDate(dateToEdit);
-      setIsDialogOpen(true);
-    }
-  }, [dateToEdit]);
-
 
   const firestore = useFirestore();
   const { user } = useUser();
@@ -167,19 +163,25 @@ export default function DatesPage() {
     if (!importantDates) return [];
     return [...importantDates].sort((a, b) => {
         if (!a.date || !b.date) return 0;
-        return new Date(a.date).getTime() - new Date(b.date).getTime()
+        const dateA = parseISO(a.date);
+        const dateB = parseISO(b.date);
+        if (!isValid(dateA) || !isValid(dateB)) return 0;
+        return dateA.getTime() - dateB.getTime();
     });
   }, [importantDates]);
 
   const handleOpenDialogForNew = () => {
     setEditingDate(null);
-    setDateToEdit(null);
     setIsDialogOpen(true);
   };
+
+  const handleOpenDialogForEdit = (date: ImportantDate) => {
+    setEditingDate(date);
+    setIsDialogOpen(true);
+  }
   
   const handleCloseDialog = () => {
     setEditingDate(null);
-    setDateToEdit(null);
     setIsDialogOpen(false);
   }
 
@@ -225,11 +227,13 @@ export default function DatesPage() {
             <DialogHeader>
               <DialogTitle>{editingDate ? 'Editar Data' : 'Nova Data'}</DialogTitle>
             </DialogHeader>
-            <DateForm 
-              date={editingDate}
-              onSave={handleSaveDate}
-              onCancel={handleCloseDialog}
-            />
+            {isDialogOpen && (
+              <DateForm 
+                date={editingDate}
+                onSave={handleSaveDate}
+                onCancel={handleCloseDialog}
+              />
+            )}
           </DialogContent>
         </Dialog>
       
@@ -237,54 +241,59 @@ export default function DatesPage() {
       {!isLoading && sortedDates?.length === 0 && <p className="text-center text-muted-foreground">Nenhuma data adicionada ainda.</p>}
       <TooltipProvider>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {sortedDates?.map(d => (
-            <Card key={d.id} className="flex flex-col">
-              <CardHeader>
-              <div className="flex flex-row items-center justify-between">
-                  <div className="flex items-center gap-4">
-                      {typeIcons[d.type] || <Gift className="h-6 w-6 text-primary" />}
-                      <div>
-                          <CardTitle className="font-headline">{d.title}</CardTitle>
-                          {d.date && <p className="text-muted-foreground text-sm">{format(parseISO(d.date), "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>}
-                      </div>
+          {sortedDates?.map(d => {
+            const parsedDate = parseISO(d.date);
+            if (!isValid(parsedDate)) return null;
+
+            return (
+              <Card key={d.id} className="flex flex-col">
+                <CardHeader>
+                <div className="flex flex-row items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        {typeIcons[d.type] || <Gift className="h-6 w-6 text-primary" />}
+                        <div>
+                            <CardTitle className="font-headline">{d.title}</CardTitle>
+                            <p className="text-muted-foreground text-sm">{format(parsedDate, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
+                        </div>
+                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Abrir menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => handleOpenDialogForEdit(d)}>Editar</DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive" onSelect={() => handleDelete(d.id)}>Deletar</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Abrir menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onSelect={() => setDateToEdit(d)}>Editar</DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onSelect={() => handleDelete(d.id)}>Deletar</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardHeader>
-              <CardContent className="flex-grow">
-                {d.date && <Countdown date={d.date} />}
-                {d.observation && (
-                  <p className="text-sm text-foreground mt-2 pt-2 border-t">{d.observation}</p>
-                )}
-              </CardContent>
-              <CardFooter className="flex justify-between items-center">
-                <Badge variant="outline">{d.type}</Badge>
-                {d.author && (
-                    <Tooltip>
-                        <TooltipTrigger>
-                            <Avatar className="h-6 w-6">
-                                <AvatarFallback className="text-xs">{d.author.displayName.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>Adicionado por: {d.author.displayName}</p>
-                        </TooltipContent>
-                    </Tooltip>
-                )}
-              </CardFooter>
-            </Card>
-          ))}
+                </CardHeader>
+                <CardContent className="flex-grow">
+                  <Countdown date={d.date} />
+                  {d.observation && (
+                    <p className="text-sm text-foreground mt-2 pt-2 border-t">{d.observation}</p>
+                  )}
+                </CardContent>
+                <CardFooter className="flex justify-between items-center">
+                  <Badge variant="outline">{d.type}</Badge>
+                  {d.author && d.author.displayName && (
+                      <Tooltip>
+                          <TooltipTrigger>
+                              <Avatar className="h-6 w-6">
+                                  <AvatarFallback className="text-xs">{d.author.displayName.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                              <p>Adicionado por: {d.author.displayName}</p>
+                          </TooltipContent>
+                      </Tooltip>
+                  )}
+                </CardFooter>
+              </Card>
+            );
+          })}
         </div>
       </TooltipProvider>
     </div>
