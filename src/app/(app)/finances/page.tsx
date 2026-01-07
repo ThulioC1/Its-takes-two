@@ -17,6 +17,7 @@ import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs
 import type { Expense, UserProfile, CoupleDetails } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import React from 'react';
 
 const categories = ['Alimentação', 'Lazer', 'Moradia', 'Transporte', 'Outros'];
 
@@ -69,7 +70,9 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
           </SelectTrigger>
           <SelectContent>
             {coupleMembers.map(member => (
-              <SelectItem key={member.uid} value={member.uid}>{member.displayName}</SelectItem>
+              <React.Fragment key={member.uid}>
+                <SelectItem value={member.uid}>{member.displayName}</SelectItem>
+              </React.Fragment>
             ))}
           </SelectContent>
         </Select>
@@ -370,5 +373,3 @@ export default function FinancesPage() {
     </div>
   );
 }
-
-    
