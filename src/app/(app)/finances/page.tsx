@@ -88,8 +88,16 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
 export default function FinancesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
   const [coupleMembers, setCoupleMembers] = useState<UserProfile[]>([]);
   
+  useEffect(() => {
+    if (expenseToEdit) {
+        setEditingExpense(expenseToEdit);
+        setIsDialogOpen(true);
+    }
+  }, [expenseToEdit]);
+
   const firestore = useFirestore();
   const { user } = useUser();
 
@@ -193,6 +201,7 @@ export default function FinancesPage() {
 
   const handleCloseDialog = () => {
     setEditingExpense(null);
+    setExpenseToEdit(null);
     setIsDialogOpen(false);
   }
   
@@ -334,7 +343,7 @@ export default function FinancesPage() {
                                   </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => handleOpenDialog(expense)}>Editar</DropdownMenuItem>
+                                  <DropdownMenuItem onSelect={() => setExpenseToEdit(expense)}>Editar</DropdownMenuItem>
                                   <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(expense.id)}>Deletar</DropdownMenuItem>
                               </DropdownMenuContent>
                               </DropdownMenu>

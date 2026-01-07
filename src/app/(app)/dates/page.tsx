@@ -135,6 +135,14 @@ function DateForm({ date, onSave, onCancel }: { date?: ImportantDate; onSave: (d
 export default function DatesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDate, setEditingDate] = useState<ImportantDate | null>(null);
+  const [dateToEdit, setDateToEdit] = useState<ImportantDate | null>(null);
+
+  useEffect(() => {
+    if (dateToEdit) {
+      setEditingDate(dateToEdit);
+      setIsDialogOpen(true);
+    }
+  }, [dateToEdit]);
 
   const firestore = useFirestore();
   const { user } = useUser();
@@ -167,6 +175,7 @@ export default function DatesPage() {
   
   const handleCloseDialog = () => {
     setEditingDate(null);
+    setDateToEdit(null);
     setIsDialogOpen(false);
   }
 
@@ -243,7 +252,7 @@ export default function DatesPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onSelect={() => handleOpenDialog(d)}>Editar</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => setDateToEdit(d)}>Editar</DropdownMenuItem>
                       <DropdownMenuItem className="text-destructive" onSelect={() => handleDelete(d.id)}>Deletar</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

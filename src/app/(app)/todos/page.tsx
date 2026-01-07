@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -49,6 +49,14 @@ function TodoForm({ todo, onSave, onCancel }: { todo?: ToDoItem; onSave: (data: 
 export default function TodosPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTodo, setEditingTodo] = useState<ToDoItem | null>(null);
+  const [todoToEdit, setTodoToEdit] = useState<ToDoItem | null>(null);
+
+  useEffect(() => {
+    if (todoToEdit) {
+        setEditingTodo(todoToEdit);
+        setIsDialogOpen(true);
+    }
+  }, [todoToEdit]);
 
   const firestore = useFirestore();
   const { user } = useUser();
@@ -76,6 +84,7 @@ export default function TodosPage() {
   
   const handleCloseDialog = () => {
     setEditingTodo(null);
+    setTodoToEdit(null);
     setIsDialogOpen(false);
   }
 
@@ -196,7 +205,7 @@ export default function TodosPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleOpenDialog(todo)}>Editar</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => setTodoToEdit(todo)}>Editar</DropdownMenuItem>
                       {todo.status !== 'Concluído' && <DropdownMenuItem onClick={() => toggleTodoStatus(todo)}>Marcar como concluído</DropdownMenuItem>}
                       <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteTodo(todo.id)}>Deletar</DropdownMenuItem>
                     </DropdownMenuContent>

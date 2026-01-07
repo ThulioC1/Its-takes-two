@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -14,16 +14,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from '@/components/ui/slider';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
-import type { CoupleGoal } from "@/types";
+import type { CoupleGoal, UserProfile } from "@/types";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-
-interface UserProfile {
-  uid: string;
-  email: string;
-  displayName: string;
-  coupleId: string;
-}
 
 const typeInfo: { [key: string]: { icon: React.ReactNode, color: string } } = {
   'Financeiro': { icon: <PiggyBank />, color: 'text-emerald-500' },
@@ -86,6 +79,14 @@ function GoalForm({ goal, onSave, onCancel }: { goal?: CoupleGoal; onSave: (data
 export default function GoalsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<CoupleGoal | null>(null);
+  const [goalToEdit, setGoalToEdit] = useState<CoupleGoal | null>(null);
+
+  useEffect(() => {
+    if (goalToEdit) {
+      setEditingGoal(goalToEdit);
+      setIsDialogOpen(true);
+    }
+  }, [goalToEdit]);
 
   const firestore = useFirestore();
   const { user } = useUser();
@@ -118,6 +119,7 @@ export default function GoalsPage() {
   
   const handleCloseDialog = () => {
     setEditingGoal(null);
+    setGoalToEdit(null);
     setIsDialogOpen(false);
   }
 
@@ -194,7 +196,7 @@ export default function GoalsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleOpenDialog(goal)}>Editar</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => setGoalToEdit(goal)}>Editar</DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(goal.id)}>Deletar</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

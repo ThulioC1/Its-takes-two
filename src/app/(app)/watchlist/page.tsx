@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { PlusCircle, Clapperboard, Film, Tv, MoreHorizontal, Calendar as CalendarIcon } from "lucide-react";
@@ -30,7 +30,7 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
   const handleItemSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const data: Partial<MovieSeries> = {
+    const data: Partial<MovieSeries & {dateWatched?: Date}> = {
       name: formData.get('name') as string,
       type: formData.get('type') as 'Movie' | 'Series',
       platform: formData.get('platform') as string,
@@ -122,6 +122,14 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
 export default function WatchlistPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MovieSeries | null>(null);
+  const [itemToEdit, setItemToEdit] = useState<MovieSeries | null>(null);
+
+  useEffect(() => {
+    if (itemToEdit) {
+      setEditingItem(itemToEdit);
+      setIsDialogOpen(true);
+    }
+  }, [itemToEdit]);
 
   const firestore = useFirestore();
   const { user } = useUser();
@@ -148,6 +156,7 @@ export default function WatchlistPage() {
   
   const handleCloseDialog = () => {
     setEditingItem(null);
+    setItemToEdit(null);
     setIsDialogOpen(false);
   }
 
@@ -236,7 +245,7 @@ export default function WatchlistPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                         <DropdownMenuItem onSelect={() => handleOpenDialog(item)}>Editar</DropdownMenuItem>
+                         <DropdownMenuItem onSelect={() => setItemToEdit(item)}>Editar</DropdownMenuItem>
                          <DropdownMenuSub>
                             <DropdownMenuSubTrigger>Mover para</DropdownMenuSubTrigger>
                             <DropdownMenuPortal>

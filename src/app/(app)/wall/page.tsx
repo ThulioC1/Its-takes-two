@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -44,6 +44,14 @@ export default function WallPage() {
     const [newPostContent, setNewPostContent] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingPost, setEditingPost] = useState<Post | null>(null);
+    const [postToEdit, setPostToEdit] = useState<Post | null>(null);
+
+    useEffect(() => {
+        if (postToEdit) {
+            setEditingPost(postToEdit);
+            setIsDialogOpen(true);
+        }
+    }, [postToEdit]);
 
     const firestore = useFirestore();
     const { user } = useUser();
@@ -67,19 +75,15 @@ export default function WallPage() {
     const sortedPosts = useMemo(() => {
         if (!posts) return [];
         return [...posts].sort((a, b) => {
-            const timeA = a.dateTime ? a.dateTime.toDate().getTime() : 0;
-            const timeB = b.dateTime ? b.dateTime.toDate().getTime() : 0;
+            const timeA = a.dateTime?.toDate?.()?.getTime() || 0;
+            const timeB = b.dateTime?.toDate?.()?.getTime() || 0;
             return timeB - timeA;
         });
     }, [posts]);
 
-    const handleOpenDialog = (post: Post) => {
-        setEditingPost(post);
-        setIsDialogOpen(true);
-    };
-
     const handleCloseDialog = () => {
         setEditingPost(null);
+        setPostToEdit(null);
         setIsDialogOpen(false);
     };
 
@@ -194,7 +198,7 @@ export default function WallPage() {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleOpenDialog(post)}>Editar</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => setPostToEdit(post)}>Editar</DropdownMenuItem>
                                 <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(post.id)}>Deletar</DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>

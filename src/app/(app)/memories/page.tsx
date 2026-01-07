@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
@@ -52,6 +52,15 @@ function MemoryForm({ memory, onSave, onCancel }: { memory?: Memory; onSave: (da
 export default function MemoriesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
+  const [memoryToEdit, setMemoryToEdit] = useState<Memory | null>(null);
+
+  useEffect(() => {
+    if (memoryToEdit) {
+        setEditingMemory(memoryToEdit);
+        setIsDialogOpen(true);
+    }
+  }, [memoryToEdit]);
+
 
   const firestore = useFirestore();
   const { user } = useUser();
@@ -87,6 +96,7 @@ export default function MemoriesPage() {
 
   const handleCloseDialog = () => {
     setEditingMemory(null);
+    setMemoryToEdit(null);
     setIsDialogOpen(false);
   }
   
@@ -200,7 +210,7 @@ export default function MemoriesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleOpenDialog(memory)}>Editar</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setMemoryToEdit(memory)}>Editar</DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(memory.id)}>Deletar</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
