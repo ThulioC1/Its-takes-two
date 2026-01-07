@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, MoreHorizontal, TrendingUp, TrendingDown, CircleDollarSign, Pencil } from "lucide-react";
+import { PlusCircle, MoreHorizontal, TrendingDown, CircleDollarSign, Pencil } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from "@/components/ui/chart";
 import { PieChart, Pie, Cell } from "recharts";
@@ -31,7 +31,7 @@ const chartConfig = {
   'Outros': { label: "Outros", color: "hsl(var(--chart-5))" },
 } satisfies ChartConfig;
 
-function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: Expense; onSave: (data: Partial<Expense>) => void; onCancel: () => void; coupleMembers: UserProfile[] }) {
+function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: Expense | null; onSave: (data: Partial<Expense>) => void; onCancel: () => void; coupleMembers: UserProfile[] }) {
   const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
 
   useEffect(() => {
@@ -133,6 +133,7 @@ export default function FinancesPage() {
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [isGoalDialogOpen, setIsGoalDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
   const [coupleMembers, setCoupleMembers] = useState<UserProfile[]>([]);
   
   const firestore = useFirestore();
@@ -175,6 +176,13 @@ export default function FinancesPage() {
 
     fetchCoupleMembers();
   }, [firestore, coupleId, userProfile, coupleDocRef]);
+  
+  useEffect(() => {
+    if (expenseToEdit) {
+      setEditingExpense(expenseToEdit);
+      setIsExpenseDialogOpen(true);
+    }
+  }, [expenseToEdit]);
 
   const expensesRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
@@ -238,12 +246,14 @@ export default function FinancesPage() {
   }, [sortedExpenses]);
   
   const handleOpenExpenseDialog = (expense: Expense | null = null) => {
+    setExpenseToEdit(expense);
     setEditingExpense(expense);
     setIsExpenseDialogOpen(true);
   };
   
   const handleCloseExpenseDialog = () => {
     setEditingExpense(null);
+    setExpenseToEdit(null);
     setIsExpenseDialogOpen(false);
   }
   
@@ -293,7 +303,7 @@ export default function FinancesPage() {
               <DialogTitle>{editingExpense ? 'Editar Despesa' : 'Nova Despesa'}</DialogTitle>
             </DialogHeader>
             <ExpenseForm 
-              expense={editingExpense ?? undefined} 
+              expense={editingExpense} 
               onSave={handleSaveExpense}
               onCancel={handleCloseExpenseDialog}
               coupleMembers={coupleMembers || []}
@@ -375,7 +385,7 @@ export default function FinancesPage() {
                           </TableCell>
                           <TableCell className="hidden md:table-cell">{expense.date ? expense.date.toDate().toLocaleDateString('pt-BR') : ''}</TableCell>
                           <TableCell>
-                            {expense.author && (
+                            {expense.author && expense.author.displayName && (
                                 <Tooltip>
                                     <TooltipTrigger>
                                         <Avatar className="h-6 w-6">
@@ -397,7 +407,7 @@ export default function FinancesPage() {
                                   </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onSelect={() => handleOpenExpenseDialog(expense)}>Editar</DropdownMenuItem>
+                                  <DropdownMenuItem onSelect={() => setExpenseToEdit(expense)}>Editar</DropdownMenuItem>
                                   <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(expense.id)}>Deletar</DropdownMenuItem>
                               </DropdownMenuContent>
                               </DropdownMenu>
@@ -439,3 +449,5 @@ export default function FinancesPage() {
     </div>
   );
 }
+
+    

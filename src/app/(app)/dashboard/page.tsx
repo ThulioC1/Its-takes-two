@@ -271,14 +271,28 @@ export default function DashboardPage() {
   
   const relationshipDays = useMemo(() => {
     if (!coupleDetails?.relationshipStartDate) return null;
-    return differenceInDays(new Date(), parseISO(coupleDetails.relationshipStartDate));
+    try {
+        const startDate = parseISO(coupleDetails.relationshipStartDate);
+        if (isNaN(startDate.getTime())) return null;
+        return differenceInDays(new Date(), startDate);
+    } catch (error) {
+        return null;
+    }
   }, [coupleDetails]);
 
   const upcomingDates = useMemo(() => {
     if (!dates) return [];
     return dates
-      .map(d => ({...d, daysLeft: differenceInDays(parseISO(d.date), new Date())}))
-      .filter(d => d.daysLeft >= 0)
+      .map(d => {
+        try {
+            const parsedDate = parseISO(d.date);
+            if (isNaN(parsedDate.getTime())) return null;
+            return {...d, daysLeft: differenceInDays(parsedDate, new Date())};
+        } catch (error) {
+            return null;
+        }
+      })
+      .filter((d): d is ImportantDate & { daysLeft: number } => d !== null && d.daysLeft >= 0)
       .sort((a, b) => a.daysLeft - b.daysLeft)
       .slice(0, 2);
   }, [dates]);
@@ -290,12 +304,11 @@ export default function DashboardPage() {
 
   const latestPost = useMemo(() => {
     if (!posts || posts.length === 0) return null;
-    const sorted = [...posts].sort((a, b) => {
-        const timeA = a.dateTime?.toDate?.().getTime() || 0;
-        const timeB = b.dateTime?.toDate?.().getTime() || 0;
+    return [...posts].sort((a, b) => {
+        const timeA = a.dateTime?.toDate?.()?.getTime() || 0;
+        const timeB = b.dateTime?.toDate?.()?.getTime() || 0;
         return timeB - timeA;
-    });
-    return sorted[0];
+    })[0];
   }, [posts]);
   
   const chartData = useMemo(() => {
@@ -374,22 +387,29 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
                 <div className="space-y-4">
-                {upcomingDates.length > 0 ? upcomingDates.map(d => (
-                    <div key={d.id} className="flex items-center">
-                    <div className="flex flex-col h-10 w-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
-                        <span className="text-xs font-bold uppercase">{format(parseISO(d.date), 'MMM')}</span>
-                        <span className="text-lg font-bold">{format(parseISO(d.date), 'dd')}</span>
-                    </div>
-                    <div className="ml-4 space-y-1">
-                        <p className="text-sm font-medium leading-none">
-                        {d.title}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                            {d.daysLeft === 0 ? 'É hoje! 🎉' : `Em ${d.daysLeft} dias`}
-                        </p>
-                    </div>
-                    </div>
-                )) : (
+                {upcomingDates.length > 0 ? upcomingDates.map(d => {
+                    if (!d.date) return null;
+                    try {
+                        const parsedDate = parseISO(d.date);
+                         if (isNaN(parsedDate.getTime())) return null;
+                        return (
+                            <div key={d.id} className="flex items-center">
+                                <div className="flex flex-col h-10 w-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
+                                    <span className="text-xs font-bold uppercase">{format(parsedDate, 'MMM')}</span>
+                                    <span className="text-lg font-bold">{format(parsedDate, 'dd')}</span>
+                                </div>
+                                <div className="ml-4 space-y-1">
+                                    <p className="text-sm font-medium leading-none">
+                                    {d.title}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                        {d.daysLeft === 0 ? 'É hoje! 🎉' : `Em ${d.daysLeft} dias`}
+                                    </p>
+                                </div>
+                            </div>
+                        )
+                    } catch (e) { return null }
+                }) : (
                     <p className="text-sm text-muted-foreground">Nenhuma data próxima.</p>
                 )}
                 </div>
@@ -425,14 +445,14 @@ export default function DashboardPage() {
                 <Users className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-                {latestPost && latestPost.dateTime ? (
+                {latestPost && latestPost.author ? (
                     <div className="flex items-start space-x-4">
                     <Avatar>
-                        <AvatarImage src={latestPost.author?.photoURL || ''} />
-                        <AvatarFallback>{latestPost.author?.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                        <AvatarImage src={latestPost.author.photoURL || ''} />
+                        <AvatarFallback>{latestPost.author.displayName?.charAt(0) || 'U'}</AvatarFallback>
                     </Avatar>
                     <div className="space-y-2 flex-1 min-w-0">
-                        <p className="text-sm font-medium">{latestPost.author?.displayName}</p>
+                        <p className="text-sm font-medium">{latestPost.author.displayName}</p>
                         <p className="text-sm text-muted-foreground bg-accent p-3 rounded-lg truncate">
                         {latestPost.text}
                         </p>
@@ -491,3 +511,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
