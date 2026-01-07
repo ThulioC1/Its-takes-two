@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Card,
@@ -15,7 +15,6 @@ import {
   MessageSquare,
   Copy,
   Check,
-  Settings,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -29,7 +28,7 @@ import {
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { format } from 'date-fns';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { doc, collection, writeBatch, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, collection, writeBatch, getDoc } from 'firebase/firestore';
 import type { ToDoItem, ImportantDate, Post, Expense, UserProfile, CoupleDetails } from "@/types";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -239,7 +238,7 @@ export default function DashboardPage() {
 
   const placeholderBanner = PlaceHolderImages.find((p) => p.id === 'couple-banner');
   const bannerImage = coupleDetails?.bannerUrl || placeholderBanner?.imageUrl;
-
+  
   const upcomingDates = useMemo(() => {
     if (!dates) return [];
     const now = new Date();
@@ -309,9 +308,6 @@ export default function DashboardPage() {
               <h1 className="text-3xl md:text-4xl font-bold text-white font-headline">
                 {coupleMembers.map(m => m.displayName).join(' & ')}
               </h1>
-                <p className="text-white/90 mt-2">
-                  Seu espaço compartilhado.
-                </p>
             </>
           ) : (
             <>
