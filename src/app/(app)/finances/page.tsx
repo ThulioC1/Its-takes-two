@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, MoreHorizontal, TrendingDown, CircleDollarSign } from "lucide-react";
@@ -30,30 +30,15 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: Expense | null; onSave: (data: Partial<Expense>) => void; onCancel: () => void; coupleMembers: UserProfile[] }) {
-  const [expenseToEdit, setExpenseToEdit] = useState<Partial<Expense> | null>(null);
-  const [itemToEdit, setItemToEdit] = useState<Expense | null>(null);
-
-  useEffect(() => {
-    if (itemToEdit) {
-      setExpenseToEdit(itemToEdit);
-    } else {
-      setExpenseToEdit(null);
-    }
-  }, [itemToEdit]);
-
-  useEffect(() => {
-    if (expense) {
-      setItemToEdit(expense);
-    }
-  }, [expense]);
-
+  
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const valueInput = formData.get('value') as string;
     const data: Partial<Expense> = {
       category: formData.get('category') as string,
-      value: parseFloat(formData.get('value') as string),
-      payer: formData.get('payer') as string, // Payer is now UID
+      value: valueInput ? parseFloat(valueInput.replace(',', '.')) : 0,
+      payer: formData.get('payer') as string,
       observation: formData.get('observation') as string,
     };
     onSave(data);
@@ -63,7 +48,7 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
     <form onSubmit={handleSubmit} className="grid gap-4 py-4">
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="category" className="text-right">Categoria</Label>
-         <Select name="category" defaultValue={expenseToEdit?.category} required>
+         <Select name="category" defaultValue={expense?.category} required>
           <SelectTrigger className="col-span-3">
             <SelectValue placeholder="Selecione a categoria" />
           </SelectTrigger>
@@ -74,11 +59,11 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
       </div>
        <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="value" className="text-right">Valor (R$)</Label>
-        <Input id="value" name="value" type="number" step="0.01" placeholder="99,99" className="col-span-3" defaultValue={expenseToEdit?.value} required />
+        <Input id="value" name="value" type="text" placeholder="99,99" className="col-span-3" defaultValue={expense?.value?.toString().replace('.', ',')} required />
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="payer" className="text-right">Pago por</Label>
-         <Select name="payer" defaultValue={expenseToEdit?.payer} required>
+         <Select name="payer" defaultValue={expense?.payer} required>
           <SelectTrigger className="col-span-3">
             <SelectValue placeholder="Selecione quem pagou" />
           </SelectTrigger>
@@ -91,7 +76,7 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="observation" className="text-right">Observação</Label>
-          <Input id="observation" name="observation" className="col-span-3" defaultValue={expenseToEdit?.observation} />
+          <Input id="observation" name="observation" className="col-span-3" defaultValue={expense?.observation} />
       </div>
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
@@ -104,7 +89,6 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
 export default function FinancesPage() {
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
   const [coupleMembers, setCoupleMembers] = useState<UserProfile[]>([]);
   
   const firestore = useFirestore();
@@ -122,16 +106,8 @@ export default function FinancesPage() {
     if (!firestore || !coupleId) return null;
     return doc(firestore, 'couples', coupleId);
   }, [firestore, coupleId]);
-  const { data: coupleDetails } = useDoc<CoupleDetails>(coupleDocRef);
-
+  
    useEffect(() => {
-    if (expenseToEdit) {
-      setEditingExpense(expenseToEdit);
-      setIsExpenseDialogOpen(true);
-    }
-  }, [expenseToEdit]);
-
-  useEffect(() => {
     const fetchCoupleMembers = async () => {
         if (!firestore || !coupleId) return;
 
@@ -214,12 +190,12 @@ export default function FinancesPage() {
   }, [sortedExpenses]);
   
   const handleOpenExpenseDialog = (expense: Expense | null = null) => {
-    setExpenseToEdit(expense);
+    setEditingExpense(expense);
+    setIsExpenseDialogOpen(true);
   };
   
   const handleCloseExpenseDialog = () => {
     setEditingExpense(null);
-    setExpenseToEdit(null);
     setIsExpenseDialogOpen(false);
   }
   
@@ -249,13 +225,6 @@ export default function FinancesPage() {
     await deleteDoc(expenseDoc);
   };
 
-  useEffect(() => {
-    if (expenseToEdit) {
-      setIsExpenseDialogOpen(true);
-    }
-  }, [expenseToEdit]);
-
-
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -275,7 +244,7 @@ export default function FinancesPage() {
               <DialogTitle>{editingExpense ? 'Editar Despesa' : 'Nova Despesa'}</DialogTitle>
             </DialogHeader>
             <ExpenseForm 
-              expense={expenseToEdit} 
+              expense={editingExpense} 
               onSave={handleSaveExpense}
               onCancel={handleCloseExpenseDialog}
               coupleMembers={coupleMembers || []}
@@ -401,3 +370,5 @@ export default function FinancesPage() {
     </div>
   );
 }
+
+    
