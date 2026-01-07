@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, getDoc } from "firebase/firestore";
+import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, getDoc, Firestore } from "firebase/firestore";
 import type { Expense, UserProfile, CoupleDetails } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -96,8 +96,7 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
   );
 }
 
-function SavingsGoalForm({ goal, coupleId, onCancel }: { goal?: number; coupleId: string; onCancel: () => void; }) {
-    const firestore = useFirestore();
+function SavingsGoalForm({ firestore, goal, coupleId, onCancel }: { firestore: Firestore; goal?: number; coupleId: string; onCancel: () => void; }) {
     const { toast } = useToast();
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -139,6 +138,7 @@ export default function FinancesPage() {
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [isGoalDialogOpen, setIsGoalDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
   const [coupleMembers, setCoupleMembers] = useState<UserProfile[]>([]);
   
   const firestore = useFirestore();
@@ -157,6 +157,13 @@ export default function FinancesPage() {
     return doc(firestore, 'couples', coupleId);
   }, [firestore, coupleId]);
   const { data: coupleDetails } = useDoc<CoupleDetails>(coupleDocRef);
+
+   useEffect(() => {
+    if (expenseToEdit) {
+      setEditingExpense(expenseToEdit);
+      setIsExpenseDialogOpen(true);
+    }
+  }, [expenseToEdit]);
 
   useEffect(() => {
     const fetchCoupleMembers = async () => {
@@ -244,12 +251,14 @@ export default function FinancesPage() {
   }, [sortedExpenses]);
   
   const handleOpenExpenseDialog = (expense: Expense | null = null) => {
+    setExpenseToEdit(expense);
     setEditingExpense(expense);
     setIsExpenseDialogOpen(true);
   };
   
   const handleCloseExpenseDialog = () => {
     setEditingExpense(null);
+    setExpenseToEdit(null);
     setIsExpenseDialogOpen(false);
   }
   
@@ -311,7 +320,7 @@ export default function FinancesPage() {
             <DialogHeader>
               <DialogTitle>Editar Meta de Economia</DialogTitle>
             </DialogHeader>
-            {coupleId && <SavingsGoalForm goal={savingsGoal} coupleId={coupleId} onCancel={() => setIsGoalDialogOpen(false)} />}
+            {coupleId && firestore && <SavingsGoalForm firestore={firestore} goal={savingsGoal} coupleId={coupleId} onCancel={() => setIsGoalDialogOpen(false)} />}
           </DialogContent>
         </Dialog>
       
@@ -403,7 +412,7 @@ export default function FinancesPage() {
                                   </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onSelect={() => handleOpenExpenseDialog(expense)}>Editar</DropdownMenuItem>
+                                  <DropdownMenuItem onSelect={() => setExpenseToEdit(expense)}>Editar</DropdownMenuItem>
                                   <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(expense.id)}>Deletar</DropdownMenuItem>
                               </DropdownMenuContent>
                               </DropdownMenu>
