@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import {
   Card,
@@ -225,6 +225,14 @@ export default function DashboardPage() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
 
+  const firestoreRef = useRef(firestore);
+  const coupleIdRef = useRef(coupleId);
+
+  useEffect(() => {
+      firestoreRef.current = firestore;
+      coupleIdRef.current = coupleId;
+  }, [firestore, coupleId]);
+
   const coupleDocRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return doc(firestore, 'couples', coupleId);
@@ -312,13 +320,16 @@ export default function DashboardPage() {
   }, [expenses]);
 
   const handleSaveBanner = async (data: Partial<CoupleDetails>) => {
-    if (!coupleId || !firestore) {
+    const currentFirestore = firestoreRef.current;
+    const currentCoupleId = coupleIdRef.current;
+
+    if (!currentCoupleId || !currentFirestore) {
          toast({ variant: 'destructive', title: "Erro", description: "Não foi possível salvar, ID do casal não encontrado." });
          return;
     }
 
     try {
-        const coupleDocRef = doc(firestore, 'couples', coupleId);
+        const coupleDocRef = doc(currentFirestore, 'couples', currentCoupleId);
         await updateDoc(coupleDocRef, data);
         toast({ title: "Banner atualizado com sucesso!" });
         setIsBannerDialogOpen(false);
