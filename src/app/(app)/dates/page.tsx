@@ -58,9 +58,9 @@ function Countdown({ date }: { date: string }) {
   return <p className="text-sm text-muted-foreground">{countdownText}</p>;
 }
 
-function DateForm({ date, onSave, onCancel }: { date?: ImportantDate; onSave: (data: Partial<ImportantDate>) => void; onCancel: () => void; }) {
+function DateForm({ date, onSave, onCancel }: { date?: ImportantDate | null; onSave: (data: Partial<ImportantDate>) => void; onCancel: () => void; }) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    date?.date ? parseISO(date.date) : undefined
+    date?.date ? parseISO(date.date) : new Date()
   );
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -135,6 +135,15 @@ function DateForm({ date, onSave, onCancel }: { date?: ImportantDate; onSave: (d
 export default function DatesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDate, setEditingDate] = useState<ImportantDate | null>(null);
+  const [dateToEdit, setDateToEdit] = useState<ImportantDate | null>(null);
+
+  useEffect(() => {
+    if (dateToEdit) {
+      setEditingDate(dateToEdit);
+      setIsDialogOpen(true);
+    }
+  }, [dateToEdit]);
+
 
   const firestore = useFirestore();
   const { user } = useUser();
@@ -159,13 +168,15 @@ export default function DatesPage() {
     return [...importantDates].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [importantDates]);
 
-  const handleOpenDialog = (date: ImportantDate | null = null) => {
-    setEditingDate(date);
+  const handleOpenDialogForNew = () => {
+    setEditingDate(null);
+    setDateToEdit(null);
     setIsDialogOpen(true);
   };
   
   const handleCloseDialog = () => {
     setEditingDate(null);
+    setDateToEdit(null);
     setIsDialogOpen(false);
   }
 
@@ -200,30 +211,22 @@ export default function DatesPage() {
           <h1 className="text-3xl font-bold font-headline">Datas Importantes</h1>
           <p className="text-muted-foreground">Nunca mais esqueçam uma data especial.</p>
         </div>
-        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()} disabled={!coupleId}>
+        <Button className="w-full sm:w-auto" onClick={handleOpenDialogForNew} disabled={!coupleId}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Adicionar Data
         </Button>
       </div>
       
-      <Dialog open={isDialogOpen} onOpenChange={(isOpen) => {
-        if (!isOpen) {
-          handleCloseDialog();
-        } else {
-          setIsDialogOpen(true);
-        }
-      }}>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingDate ? 'Editar Data' : 'Nova Data'}</DialogTitle>
             </DialogHeader>
-            {isDialogOpen && (
-              <DateForm 
-                date={editingDate ?? undefined}
-                onSave={handleSaveDate}
-                onCancel={handleCloseDialog}
-              />
-            )}
+            <DateForm 
+              date={editingDate}
+              onSave={handleSaveDate}
+              onCancel={handleCloseDialog}
+            />
           </DialogContent>
         </Dialog>
       
@@ -250,7 +253,7 @@ export default function DatesPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onSelect={() => handleOpenDialog(d)}>Editar</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => setDateToEdit(d)}>Editar</DropdownMenuItem>
                       <DropdownMenuItem className="text-destructive" onSelect={() => handleDelete(d.id)}>Deletar</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
