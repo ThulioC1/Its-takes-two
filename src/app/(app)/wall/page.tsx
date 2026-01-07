@@ -18,6 +18,10 @@ import { cn } from '@/lib/utils';
 function PostForm({ post, onSave, onCancel }: { post?: Post; onSave: (content: string) => void; onCancel: () => void; }) {
   const [content, setContent] = useState(post ? post.text : '');
 
+  useEffect(() => {
+    setContent(post ? post.text : '');
+  }, [post]);
+
   const handlePublish = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (content.trim()) {
@@ -44,14 +48,6 @@ export default function WallPage() {
     const [newPostContent, setNewPostContent] = useState('');
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [editingPost, setEditingPost] = useState<Post | null>(null);
-    const [postToEdit, setPostToEdit] = useState<Post | null>(null);
-
-    useEffect(() => {
-        if (postToEdit) {
-            setEditingPost(postToEdit);
-            setIsDialogOpen(true);
-        }
-    }, [postToEdit]);
 
     const firestore = useFirestore();
     const { user } = useUser();
@@ -81,9 +77,13 @@ export default function WallPage() {
         });
     }, [posts]);
 
+    const handleOpenDialog = (post: Post | null = null) => {
+        setEditingPost(post);
+        setIsDialogOpen(true);
+    };
+    
     const handleCloseDialog = () => {
         setEditingPost(null);
-        setPostToEdit(null);
         setIsDialogOpen(false);
     };
 
@@ -104,8 +104,8 @@ export default function WallPage() {
                 author: {
                   uid: user.uid,
                   displayName: user.displayName,
-                  photoURL: user.photoURL,
-                  gender: userProfile?.gender
+                  photoURL: user.photoURL || null,
+                  gender: userProfile?.gender || 'Prefiro não informar'
                 }
             });
             setNewPostContent('');
@@ -198,7 +198,7 @@ export default function WallPage() {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem onSelect={() => setPostToEdit(post)}>Editar</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => handleOpenDialog(post)}>Editar</DropdownMenuItem>
                                 <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(post.id)}>Deletar</DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
@@ -209,8 +209,8 @@ export default function WallPage() {
                 </CardContent>
                 <CardFooter className="gap-4">
                     <Button variant="ghost" size="sm" className="flex items-center gap-2" onClick={() => handleLike(post)}>
-                        <Heart className={cn("h-4 w-4", post.likes.includes(user?.uid || '') && "fill-destructive text-destructive")}/>
-                        <span>{post.likes.length} Curtir</span>
+                        <Heart className={cn("h-4 w-4", post.likes && post.likes.includes(user?.uid || '') && "fill-destructive text-destructive")}/>
+                        <span>{post.likes?.length || 0} Curtir</span>
                     </Button>
                      <Button variant="ghost" size="sm" className="flex items-center gap-2">
                         <MessageSquare className="h-4 w-4"/>

@@ -1,23 +1,52 @@
 'use client';
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Send } from "lucide-react";
+import { Send, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, doc, addDoc, serverTimestamp, Timestamp } from "firebase/firestore";
+import { collection, doc, addDoc, serverTimestamp, Timestamp, updateDoc, deleteDoc } from "firebase/firestore";
 import type { LoveLetter, UserProfile } from "@/types";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
-// NOTE: This is a placeholder for a real user profile fetching logic
-const userAvatars: { [key: string]: string } = {
-  'user-1': 'https://images.unsplash.com/photo-1615538785945-6625ccdb4b25?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxwb3J0cmFpdCUyMHdvbWFufGVufDB8fHx8MTc2NzY5OTA5OXww&ixlib=rb-4.1.0&q=80&w=1080',
-  'user-2': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxwb3J0cmFpdCUyMG1hbnxlbnwwfHx8fDE3Njc1OTUwOTN8MA&ixlib=rb-4.1.0&q=80&w=1080',
-};
+function MessageForm({ message, onSave, onCancel }: { message: LoveLetter; onSave: (content: string) => void; onCancel: () => void; }) {
+  const [content, setContent] = useState(message.message);
+
+  useEffect(() => {
+    setContent(message.message);
+  }, [message]);
+
+  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (content.trim()) {
+      onSave(content);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSave} className="grid gap-4 py-4">
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="content" className="text-right">Mensagem</Label>
+        <Textarea id="content" name="content" className="col-span-3" value={content} onChange={(e) => setContent(e.target.value)} required />
+      </div>
+      <DialogFooter>
+        <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
+        <Button type="submit">Salvar</Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
 
 export default function MessagesPage() {
   const [newMessage, setNewMessage] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingMessage, setEditingMessage] = useState<LoveLetter | null>(null);
+
   const firestore = useFirestore();
   const { user } = useUser();
 
@@ -38,10 +67,9 @@ export default function MessagesPage() {
 
   const sortedMessages = useMemo(() => {
     if (!messages) return [];
-    // Firestore Timestamps need to be converted for sorting, especially if they can be null
     return [...messages].sort((a, b) => {
-        const timeA = a.scheduledDate?.toDate?.()?.getTime() || 0;
-        const timeB = b.scheduledDate?.toDate?.()?.getTime() || 0;
+        const timeA = a.dateTime?.toDate?.()?.getTime() || 0;
+        const timeB = b.dateTime?.toDate?.()?.getTime() || 0;
         return timeA - timeB;
     });
   }, [messages]);
@@ -53,39 +81,38 @@ export default function MessagesPage() {
       senderId: user.uid,
       recipientId: '', // This needs logic to determine partner's ID
       message: newMessage,
-      scheduledDate: serverTimestamp(),
-      isVisible: true,
+      dateTime: serverTimestamp(),
       author: {
         uid: user.uid,
         displayName: user.displayName,
-        photoURL: user.photoURL,
-        gender: userProfile?.gender,
+        photoURL: user.photoURL || null,
+        gender: userProfile?.gender || 'Prefiro não informar',
       }
     });
     setNewMessage("");
   };
 
-  // NOTE: A real scheduling feature would require a backend (Cloud Functions).
-  // This is a placeholder to show the UI.
-  const handleScheduleMessage = async () => {
-    if (newMessage.trim() === "" || !messagesRef || !user || !user.displayName) return;
+  const handleOpenDialog = (message: LoveLetter | null = null) => {
+    setEditingMessage(message);
+    setIsDialogOpen(true);
+  };
+  
+  const handleCloseDialog = () => {
+    setEditingMessage(null);
+    setIsDialogOpen(false);
+  };
 
-     await addDoc(messagesRef, {
-      senderId: user.uid,
-      recipientId: '', // This needs logic to determine partner's ID
-      message: newMessage,
-      scheduledDate: serverTimestamp(), // Placeholder, real scheduling needs a future date.
-      isVisible: false, // Will become visible on scheduled date
-      author: {
-        uid: user.uid,
-        displayName: user.displayName,
-        photoURL: user.photoURL,
-        gender: userProfile?.gender,
-      }
-    });
-    setNewMessage("");
+  const handleSaveMessage = async (content: string) => {
+    if (!messagesRef || !editingMessage) return;
+    const messageDoc = doc(messagesRef, editingMessage.id);
+    await updateDoc(messageDoc, { message: content });
+    handleCloseDialog();
+  };
+
+  const handleDeleteMessage = async (id: string) => {
+    if (!messagesRef) return;
+    await deleteDoc(doc(messagesRef, id));
   }
-
 
   return (
     <div className="flex flex-col h-[calc(100vh-theme(spacing.24))]">
@@ -99,7 +126,21 @@ export default function MessagesPage() {
           {isLoading && <p className="text-center text-muted-foreground">Carregando mensagens...</p>}
           {!isLoading && sortedMessages?.length === 0 && <p className="text-center text-muted-foreground">Nenhuma mensagem ainda.</p>}
           {sortedMessages?.map(message => (
-            <div key={message.id} className={cn("flex items-end gap-3", message.senderId === user?.uid ? "justify-end" : "justify-start")}>
+            <div key={message.id} className={cn("flex items-end gap-3 group", message.senderId === user?.uid ? "justify-end" : "justify-start")}>
+               {message.senderId === user?.uid && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onSelect={() => handleOpenDialog(message)}>Editar</DropdownMenuItem>
+                    <DropdownMenuItem className="text-destructive" onSelect={() => handleDeleteMessage(message.id)}>Apagar</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+
               {message.senderId !== user?.uid && (
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={message.author?.photoURL || ''} /> 
@@ -109,11 +150,10 @@ export default function MessagesPage() {
               <div className={cn(
                   "max-w-xs md:max-w-md rounded-2xl p-3", 
                   message.senderId === user?.uid ? "bg-primary text-primary-foreground rounded-br-none" : "bg-accent rounded-bl-none",
-                  !message.isVisible && "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300"
                   )}>
                 <p className="text-sm">{message.message}</p>
                 <p className={cn("text-xs mt-1 opacity-70", message.senderId === user?.uid ? "text-right" : "text-left")}>
-                    {!message.isVisible ? `Agendada (em breve)` : (message.scheduledDate && message.scheduledDate.toDate ? message.scheduledDate.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '')}
+                    {message.dateTime && message.dateTime.toDate ? message.dateTime.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
                 </p>
               </div>
               {message.senderId === user?.uid && (
@@ -129,7 +169,7 @@ export default function MessagesPage() {
           <div className="relative">
             <Textarea 
                 placeholder="Escreva uma carta de amor..." 
-                className="pr-24"
+                className="pr-14"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyDown={(e) => {
@@ -141,12 +181,26 @@ export default function MessagesPage() {
                 disabled={!coupleId}
             />
             <div className="absolute top-1/2 right-3 -translate-y-1/2 flex gap-1">
-                <Button variant="ghost" size="icon" onClick={handleScheduleMessage} disabled={!coupleId}><Calendar className="h-5 w-5"/></Button>
-                <Button size="icon" onClick={handleSendMessage} disabled={!coupleId}><Send className="h-5 w-5"/></Button>
+                <Button size="icon" onClick={handleSendMessage} disabled={!coupleId || !newMessage.trim()}><Send className="h-5 w-5"/></Button>
             </div>
           </div>
         </div>
       </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>Editar Mensagem</DialogTitle>
+              </DialogHeader>
+              {editingMessage && (
+                <MessageForm
+                    message={editingMessage}
+                    onSave={handleSaveMessage}
+                    onCancel={handleCloseDialog}
+                />
+              )}
+          </DialogContent>
+      </Dialog>
     </div>
   );
 }

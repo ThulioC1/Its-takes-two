@@ -2,143 +2,46 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * Core Philosophy: This ruleset implements a "Couple Membership" security model
-     * based on a user's profile document in the `/users` collection.
-     * All data is strictly segregated by a unique `coupleId`. A user can only
-     * access data under a `/couples/{coupleId}` path if their own user profile
-     * at `/users/{request.auth.uid}` contains a matching `coupleId` field.
-     *
-     * Data Structure: All application data is organized into subcollections under a
-     * top-level `/couples/{coupleId}` document. User profiles are stored in a separate
-     * top-level `/users` collection.
-     *
-     * Key Security Decisions:
-     * - Authorization via Profile Document: Access is determined by a `get()` call
-     *   to the user's own profile. This is secure and allows for flexible couple
-     *   management. While `get()` calls have a performance cost, they are necessary
-     *   for this relational security model and are scoped to a single document read
-     *   per protected operation.
-     * - No Public Data: There are no publicly readable collections. All access
-     *   requires a user to be signed in.
-     * - User Profile Security: Users can only create their own profile, read their
-     *   own profile, and can only update their own coupleId if they are part of the
-     *   same couple (to allow joining/leaving).
-     */
-
-    // --------------------------------------------------------------------------
-    // Helper Functions
-    // --------------------------------------------------------------------------
-
-    /**
-     * Checks if a user is authenticated.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Checks if the authenticated user is a member of the couple specified by the coupleId.
-     * It does this by reading the user's profile from the /users collection and
-     * comparing the coupleId stored there with the one in the path.
-     */
     function isMemberOfCouple(coupleId) {
       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.coupleId == coupleId;
     }
     
-    /**
-     * Checks if the user is a member of the couple AND the resource already exists.
-     * Used for safe update and delete operations.
-     */
-    function isExistingMemberOfCouple(coupleId) {
-      return isMemberOfCouple(coupleId) && exists(/databases/$(database)/documents/couples/$(coupleId));
-    }
-
-    // --------------------------------------------------------------------------
-    // Collection Rules
-    // --------------------------------------------------------------------------
-
-    /**
-     * @description Rules for user profile documents.
-     * @path /users/{userId}
-     * @allow (get) A user can read their own profile. This is crucial for security rules on other collections to work.
-     * @allow (create, update) A user can create or update their own profile.
-     * @deny (delete, list) Users cannot delete their profiles or list all users.
-     * @principle Enforces ownership and privacy for user-specific data.
-     */
     match /users/{userId} {
-      allow get: if isSignedIn() && request.auth.uid == userId;
+      allow get: if isSignedIn();
       allow update, create: if isSignedIn() && request.auth.uid == userId;
       allow delete, list: if false;
     }
     
-    /**
-     * @description Rules for the couple's root document.
-     * @path /couples/{coupleId}
-     * @allow (get) A member of the couple can read the document.
-     * @principle Restricts access to a couple's own data tree.
-     */
     match /couples/{coupleId} {
-      allow get: if isMemberOfCouple(coupleId);
-      allow list: if false; // Disallow listing all couples for privacy.
-      allow create, update, delete: if isMemberOfCouple(coupleId);
+      allow read, write: if isMemberOfCouple(coupleId);
       
-      /**
-       * @description Rules for the couple's shared to-do list items.
-       * @path /couples/{coupleId}/todos/{todoId}
-       * @allow (read, write) Any member of the couple can manage to-do items.
-       * @principle Inherits couple membership check from the parent path.
-       */
       match /todos/{todoId} {
         allow read, write: if isMemberOfCouple(coupleId);
       }
 
-      /**
-       * @description Rules for the couple's shared expenses.
-       * @path /couples/{coupleId}/expenses/{expenseId}
-       * @allow (read, write) Any member of the couple can manage expenses.
-       * @principle Inherits couple membership check.
-       */
       match /expenses/{expenseId} {
         allow read, write: if isMemberOfCouple(coupleId);
       }
 
-      /**
-       * @description Rules for the couple's shared list of movies and series.
-       * @path /couples/{coupleId}/movies/{movieId}
-       * @allow (read, write) Any member of the couple can manage the watchlist.
-       * @principle Inherits couple membership check.
-       */
       match /movies/{movieId} {
         allow read, write: if isMemberOfCouple(coupleId);
       }
 
-      /**
-       * @description Rules for the couple's important dates.
-       * @path /couples/{coupleId}/dates/{dateId}
-       * @allow (read, write) Any member of the couple can manage important dates.
-       * @principle Inherits couple membership check.
-       */
+      match /games/{gameId} {
+        allow read, write: if isMemberOfCouple(coupleId);
+      }
+
       match /dates/{dateId} {
         allow read, write: if isMemberOfCouple(coupleId);
       }
 
-      /**
-       * @description Rules for the couple's shared wall posts.
-       * @path /couples/{coupleId}/posts/{postId}
-       * @allow (read, write) Any member of the couple can manage wall posts.
-       * @principle Inherits couple membership check.
-       */
       match /posts/{postId} {
         allow read, write: if isMemberOfCouple(coupleId);
 
-        /**
-         * @description Rules for comments on a post. Access is still governed by membership in the parent couple.
-         * @path /couples/{coupleId}/posts/{postId}/comments/{commentId}
-         * @allow (create) A member of the couple can create a comment, linking it to their userId.
-         * @allow (update, delete) Only the author of a comment can update or delete it.
-         * @principle Enforces document ownership for writes on sub-collections.
-         */
         match /comments/{commentId} {
           allow read, list: if isMemberOfCouple(coupleId);
           allow create: if isMemberOfCouple(coupleId) && request.resource.data.userId == request.auth.uid;
@@ -146,35 +49,16 @@ service cloud.firestore {
         }
       }
 
-      /**
-       * @description Rules for the couple's shared memories (photos).
-       * @path /couples/{coupleId}/memories/{memoryId}
-       * @allow (read, write) Any member of the couple can manage memories.
-       * @principle Inherits couple membership check.
-       */
       match /memories/{memoryId} {
         allow read, write: if isMemberOfCouple(coupleId);
       }
 
-      /**
-       * @description Rules for private love letters between the couple.
-       * @path /couples/{coupleId}/loveLetters/{loveLetterId}
-       * @allow (create) A member of the couple can create a letter, setting themself as the sender.
-       * @allow (update, delete) Only the sender of a letter can update or delete it.
-       * @principle Enforces document ownership for writes.
-       */
       match /loveLetters/{loveLetterId} {
-        allow read, list: if isMemberOfCouple(coupleId);
+        allow read: if isMemberOfCouple(coupleId);
         allow create: if isMemberOfCouple(coupleId) && request.resource.data.senderId == request.auth.uid;
         allow update, delete: if isMemberOfCouple(coupleId) && resource.data.senderId == request.auth.uid;
       }
 
-      /**
-       * @description Rules for the couple's shared goals.
-       * @path /couples/{coupleId}/goals/{goalId}
-       * @allow (read, write) Any member of the couple can manage goals.
-       * @principle Inherits couple membership check.
-       */
       match /goals/{goalId} {
         allow read, write: if isMemberOfCouple(coupleId);
       }

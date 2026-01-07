@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, MoreHorizontal, TrendingUp, TrendingDown, CircleDollarSign } from "lucide-react";
+import { PlusCircle, MoreHorizontal, TrendingUp, TrendingDown, CircleDollarSign, Pencil } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from "@/components/ui/chart";
 import { PieChart, Pie, Cell } from "recharts";
@@ -14,9 +14,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, getDoc } from "firebase/firestore";
-import type { Expense, UserProfile } from "@/types";
+import type { Expense, UserProfile, CoupleDetails } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useToast } from '@/hooks/use-toast';
 
 
 const categories = ['Alimentação', 'Lazer', 'Moradia', 'Transporte', 'Outros'];
@@ -31,6 +32,14 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: Expense; onSave: (data: Partial<Expense>) => void; onCancel: () => void; coupleMembers: UserProfile[] }) {
+  const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
+
+  useEffect(() => {
+    if (expense) {
+      setExpenseToEdit(expense);
+    }
+  }, [expense]);
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
@@ -47,7 +56,7 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
     <form onSubmit={handleSubmit} className="grid gap-4 py-4">
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="category" className="text-right">Categoria</Label>
-         <Select name="category" defaultValue={expense?.category} required>
+         <Select name="category" defaultValue={expenseToEdit?.category} required>
           <SelectTrigger className="col-span-3">
             <SelectValue placeholder="Selecione a categoria" />
           </SelectTrigger>
@@ -58,11 +67,11 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
       </div>
        <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="value" className="text-right">Valor (R$)</Label>
-        <Input id="value" name="value" type="number" step="0.01" placeholder="99,99" className="col-span-3" defaultValue={expense?.value} required />
+        <Input id="value" name="value" type="number" step="0.01" placeholder="99,99" className="col-span-3" defaultValue={expenseToEdit?.value} required />
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="payer" className="text-right">Pago por</Label>
-         <Select name="payer" defaultValue={expense?.payer} required>
+         <Select name="payer" defaultValue={expenseToEdit?.payer} required>
           <SelectTrigger className="col-span-3">
             <SelectValue placeholder="Selecione quem pagou" />
           </SelectTrigger>
@@ -75,7 +84,7 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="observation" className="text-right">Observação</Label>
-          <Input id="observation" name="observation" className="col-span-3" defaultValue={expense?.observation} />
+          <Input id="observation" name="observation" className="col-span-3" defaultValue={expenseToEdit?.observation} />
       </div>
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
@@ -85,19 +94,47 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
   );
 }
 
+function SavingsGoalForm({ goal, coupleId, onCancel }: { goal?: number; coupleId: string; onCancel: () => void; }) {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        const savingsGoal = parseFloat(formData.get('savingsGoal') as string);
+
+        if (!coupleId || !firestore || isNaN(savingsGoal)) return;
+
+        try {
+            const coupleDocRef = doc(firestore, 'couples', coupleId);
+            await updateDoc(coupleDocRef, { savingsGoal: savingsGoal });
+            toast({ title: "Meta de economia atualizada!" });
+            onCancel();
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: "Erro ao atualizar meta", description: error.message });
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="savingsGoal" className="text-right">Meta (R$)</Label>
+                <Input id="savingsGoal" name="savingsGoal" type="number" step="100" placeholder="5000" className="col-span-3" defaultValue={goal} required />
+            </div>
+            <DialogFooter>
+                <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
+                <Button type="submit">Salvar Meta</Button>
+            </DialogFooter>
+        </form>
+    );
+}
+
 export default function FinancesPage() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
+  const [isGoalDialogOpen, setIsGoalDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
-  const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
   const [coupleMembers, setCoupleMembers] = useState<UserProfile[]>([]);
   
-  useEffect(() => {
-    if (expenseToEdit) {
-        setEditingExpense(expenseToEdit);
-        setIsDialogOpen(true);
-    }
-  }, [expenseToEdit]);
-
   const firestore = useFirestore();
   const { user } = useUser();
 
@@ -109,32 +146,35 @@ export default function FinancesPage() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
 
+  const coupleDocRef = useMemoFirebase(() => {
+    if (!firestore || !coupleId) return null;
+    return doc(firestore, 'couples', coupleId);
+  }, [firestore, coupleId]);
+  const { data: coupleDetails } = useDoc<CoupleDetails>(coupleDocRef);
+
   useEffect(() => {
     const fetchCoupleMembers = async () => {
         if (!firestore || !coupleId) return;
 
-        const coupleDocRef = doc(firestore, 'couples', coupleId);
-        const coupleDocSnap = await getDoc(coupleDocRef);
+        const coupleDocSnap = await getDoc(coupleDocRef as any);
 
         if (coupleDocSnap.exists()) {
-            const memberIds = coupleDocSnap.data().memberIds || [];
+            const memberIds = coupleDocSnap.data()?.memberIds || [];
             if (memberIds.length > 0) {
               const memberPromises = memberIds.map((id: string) => getDoc(doc(firestore, 'users', id)));
               const memberDocs = await Promise.all(memberPromises);
               const members = memberDocs.map(snap => snap.data() as UserProfile).filter(Boolean);
               setCoupleMembers(members);
             } else if (userProfile) {
-               // Fallback for single user or if memberIds is empty
                setCoupleMembers([userProfile]);
             }
         } else if (userProfile) {
-            // Fallback for single user before linking
             setCoupleMembers([userProfile]);
         }
     };
 
     fetchCoupleMembers();
-  }, [firestore, coupleId, userProfile]);
+  }, [firestore, coupleId, userProfile, coupleDocRef]);
 
   const expensesRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
@@ -161,6 +201,9 @@ export default function FinancesPage() {
   }, [expenses]);
 
   const totalExpenses = useMemo(() => sortedExpenses.reduce((acc, expense) => acc + expense.value, 0), [sortedExpenses]);
+  const savingsGoal = coupleDetails?.savingsGoal || 5000;
+  const savingsProgress = savingsGoal > 0 ? Math.min((totalExpenses / savingsGoal) * 100, 100) : 0;
+
 
   const expensesByPayer = useMemo(() => {
     return sortedExpenses.reduce((acc, expense) => {
@@ -194,20 +237,14 @@ export default function FinancesPage() {
     }));
   }, [sortedExpenses]);
   
-  const handleOpenDialogForNew = () => {
-    setEditingExpense(null);
-    setExpenseToEdit(null);
-    setIsDialogOpen(true);
+  const handleOpenExpenseDialog = (expense: Expense | null = null) => {
+    setEditingExpense(expense);
+    setIsExpenseDialogOpen(true);
   };
   
-  const handleOpenDialogForEdit = (expense: Expense) => {
-    setExpenseToEdit(expense);
-  }
-
-  const handleCloseDialog = () => {
+  const handleCloseExpenseDialog = () => {
     setEditingExpense(null);
-    setExpenseToEdit(null);
-    setIsDialogOpen(false);
+    setIsExpenseDialogOpen(false);
   }
   
   const handleSaveExpense = async (data: Partial<Expense>) => {
@@ -222,11 +259,12 @@ export default function FinancesPage() {
         author: {
           uid: user.uid,
           displayName: user.displayName,
-          photoURL: user.photoURL,
+          photoURL: user.photoURL || null,
+          gender: userProfile?.gender || 'Prefiro não informar'
         }
       });
     }
-    handleCloseDialog();
+    handleCloseExpenseDialog();
   };
 
   const handleDelete = async (id: string) => {
@@ -243,25 +281,31 @@ export default function FinancesPage() {
           <h1 className="text-3xl font-bold font-headline">Finanças do Casal</h1>
           <p className="text-muted-foreground">Controle de despesas e metas financeiras compartilhadas.</p>
         </div>
-        <Button className="w-full sm:w-auto" onClick={handleOpenDialogForNew} disabled={!coupleId}>
+        <Button className="w-full sm:w-auto" onClick={() => handleOpenExpenseDialog()} disabled={!coupleId}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Adicionar Despesa
         </Button>
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isExpenseDialogOpen} onOpenChange={setIsExpenseDialogOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingExpense ? 'Editar Despesa' : 'Nova Despesa'}</DialogTitle>
             </DialogHeader>
-            {isDialogOpen && (
-                <ExpenseForm 
-                expense={editingExpense ?? undefined} 
-                onSave={handleSaveExpense}
-                onCancel={handleCloseDialog}
-                coupleMembers={coupleMembers || []}
-                />
-            )}
+            <ExpenseForm 
+              expense={editingExpense ?? undefined} 
+              onSave={handleSaveExpense}
+              onCancel={handleCloseExpenseDialog}
+              coupleMembers={coupleMembers || []}
+            />
+          </DialogContent>
+        </Dialog>
+        <Dialog open={isGoalDialogOpen} onOpenChange={setIsGoalDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Meta de Economia</DialogTitle>
+            </DialogHeader>
+            {coupleId && <SavingsGoalForm goal={savingsGoal} coupleId={coupleId} onCancel={() => setIsGoalDialogOpen(false)} />}
           </DialogContent>
         </Dialog>
       
@@ -279,11 +323,13 @@ export default function FinancesPage() {
          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Meta de Economia</CardTitle>
-                <TrendingUp className="h-4 w-4 text-emerald-500" />
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsGoalDialogOpen(true)} disabled={!coupleId}>
+                    <Pencil className="h-4 w-4 text-muted-foreground" />
+                </Button>
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold">R$ 5.000,00</div>
-                <p className="text-xs text-muted-foreground">75% concluído</p>
+                <div className="text-2xl font-bold">R$ {savingsGoal.toFixed(2).replace('.', ',')}</div>
+                <p className="text-xs text-muted-foreground">{savingsProgress.toFixed(0)}% concluído</p>
             </CardContent>
         </Card>
         <Card>
@@ -293,7 +339,7 @@ export default function FinancesPage() {
             </CardHeader>
             <CardContent>
                 <div className="text-2xl font-bold">{topPayer.name}</div>
-                <p className="text-xs text-muted-foreground">R$ {topPayer.amount.toFixed(2)} no total</p>
+                <p className="text-xs text-muted-foreground">R$ {topPayer.amount.toFixed(2).replace('.',',')} no total</p>
             </CardContent>
         </Card>
       </div>
@@ -333,7 +379,7 @@ export default function FinancesPage() {
                                 <Tooltip>
                                     <TooltipTrigger>
                                         <Avatar className="h-6 w-6">
-                                            <AvatarFallback className="text-xs">{expense.author.displayName.charAt(0)}</AvatarFallback>
+                                            <AvatarFallback className="text-xs">{expense.author.displayName?.charAt(0) || '?'}</AvatarFallback>
                                         </Avatar>
                                     </TooltipTrigger>
                                     <TooltipContent>
@@ -351,7 +397,7 @@ export default function FinancesPage() {
                                   </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onSelect={() => handleOpenDialogForEdit(expense)}>Editar</DropdownMenuItem>
+                                  <DropdownMenuItem onSelect={() => handleOpenExpenseDialog(expense)}>Editar</DropdownMenuItem>
                                   <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(expense.id)}>Deletar</DropdownMenuItem>
                               </DropdownMenuContent>
                               </DropdownMenu>

@@ -16,6 +16,14 @@ export interface UserProfile {
     gender?: 'Masculino' | 'Feminino' | 'Prefiro não informar';
 }
 
+export interface CoupleDetails {
+    person1Name?: string;
+    person2Name?: string;
+    relationshipStartDate?: string;
+    bannerUrl?: string;
+    savingsGoal?: number;
+}
+
 export interface ToDoItem {
     id: string;
     title: string;
@@ -42,6 +50,7 @@ export interface ImportantDate {
     date: string; // Storing as 'YYYY-MM-DD' string
     type: string;
     observation?: string;
+    repeat?: 'none' | 'monthly' | 'yearly';
     author: Author;
 }
 
@@ -69,8 +78,7 @@ export interface LoveLetter {
     senderId: string; // UID of the sender
     recipientId: string; // UID of the recipient
     message: string;
-    scheduledDate: Timestamp;
-    isVisible: boolean;
+    dateTime: Timestamp;
     author: Author;
 }
 
@@ -93,5 +101,16 @@ export interface MovieSeries {
     dateWatched?: Timestamp | null;
     season?: number;
     episode?: number;
+    author: Author;
+}
+
+export interface Game {
+    id: string;
+    name: string;
+    platform: string;
+    link?: string; // For cover image
+    status: 'Para Jogar' | 'Jogando' | 'Zerado';
+    startDate?: Timestamp | null;
+    completionDate?: Timestamp | null;
     author: Author;
 }

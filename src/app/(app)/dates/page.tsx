@@ -4,7 +4,7 @@ import { differenceInDays, format, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Gift, PartyPopper, Plane, MoreHorizontal } from "lucide-react";
+import { PlusCircle, Gift, PartyPopper, Plane, MoreHorizontal, Repeat } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -26,6 +26,12 @@ const typeIcons: { [key: string]: React.ReactNode } = {
   'Outro': <Gift className="h-6 w-6 text-slate-500" />,
 };
 
+const repeatOptions = {
+    'none': 'Não repetir',
+    'monthly': 'Mensalmente',
+    'yearly': 'Anualmente'
+}
+
 function Countdown({ date }: { date: string }) {
     const [countdownText, setCountdownText] = useState('');
 
@@ -40,17 +46,17 @@ function Countdown({ date }: { date: string }) {
 
     useEffect(() => {
         if (daysLeft === null) {
-        setCountdownText('');
-        return;
+            setCountdownText('');
+            return;
         }
         if (daysLeft < 0) {
-        setCountdownText('Já passou');
+            setCountdownText('Já passou');
         } else if (daysLeft === 0) {
-        setCountdownText('É hoje! 🎉');
+            setCountdownText('É hoje! 🎉');
         } else if (daysLeft === 1) {
-        setCountdownText('É amanhã!');
+            setCountdownText('É amanhã!');
         } else {
-        setCountdownText(`Faltam ${daysLeft} dias`);
+            setCountdownText(`Faltam ${daysLeft} dias`);
         }
     }, [daysLeft]);
 
@@ -58,12 +64,19 @@ function Countdown({ date }: { date: string }) {
 }
 
 function DateForm({ date, onSave, onCancel }: { date?: ImportantDate | null; onSave: (data: Partial<ImportantDate>) => void; onCancel: () => void; }) {
-  const [title, setTitle] = useState(date?.title || '');
-  const [type, setType] = useState(date?.type || '');
-  const [observation, setObservation] = useState(date?.observation || '');
-  const [dateValue, setDateValue] = useState<string>(
-    date?.date ? date.date : format(new Date(), 'yyyy-MM-dd')
-  );
+  const [title, setTitle] = useState('');
+  const [type, setType] = useState('');
+  const [observation, setObservation] = useState('');
+  const [dateValue, setDateValue] = useState('');
+  const [repeat, setRepeat] = useState<'none' | 'monthly' | 'yearly'>('none');
+
+  useEffect(() => {
+    setTitle(date?.title || '');
+    setType(date?.type || '');
+    setObservation(date?.observation || '');
+    setDateValue(date?.date || format(new Date(), 'yyyy-MM-dd'));
+    setRepeat(date?.repeat || 'none');
+  }, [date]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -74,6 +87,7 @@ function DateForm({ date, onSave, onCancel }: { date?: ImportantDate | null; onS
       type,
       observation,
       date: dateValue,
+      repeat,
     };
     onSave(data);
   };
@@ -109,6 +123,19 @@ function DateForm({ date, onSave, onCancel }: { date?: ImportantDate | null; onS
           </SelectContent>
         </Select>
       </div>
+
+       <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="repeat" className="text-right">Repetir</Label>
+         <Select name="repeat" value={repeat} onValueChange={(v) => setRepeat(v as any)} required>
+          <SelectTrigger className="col-span-3">
+            <SelectValue placeholder="Selecione a recorrência" />
+          </SelectTrigger>
+          <SelectContent>
+             {Object.entries(repeatOptions).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="observation" className="text-right">Observação</Label>
         <Textarea id="observation" name="observation" className="col-span-3" value={observation} onChange={(e) => setObservation(e.target.value)} />
@@ -125,15 +152,7 @@ function DateForm({ date, onSave, onCancel }: { date?: ImportantDate | null; onS
 export default function DatesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingDate, setEditingDate] = useState<ImportantDate | null>(null);
-  const [dateToEdit, setDateToEdit] = useState<ImportantDate | null>(null);
   
-  useEffect(() => {
-    if (dateToEdit) {
-      setEditingDate(dateToEdit);
-      setIsDialogOpen(true);
-    }
-  }, [dateToEdit]);
-
   const firestore = useFirestore();
   const { user } = useUser();
   
@@ -150,7 +169,7 @@ export default function DatesPage() {
     return collection(firestore, 'couples', coupleId, 'dates');
   }, [firestore, coupleId]);
 
-  const { data: importantDates, isLoading } = useCollection<ImportantDate>(datesRef as any);
+  const { data: importantDates, isLoading } = useCollection<ImportantDate>(datesRef);
 
   const sortedDates = useMemo(() => {
     if (!importantDates) return [];
@@ -163,19 +182,13 @@ export default function DatesPage() {
     });
   }, [importantDates]);
 
-  const handleOpenDialogForNew = () => {
-    setEditingDate(null);
-    setDateToEdit(null);
+  const handleOpenDialog = (date: ImportantDate | null = null) => {
+    setEditingDate(date);
     setIsDialogOpen(true);
   };
-
-  const handleOpenDialogForEdit = (date: ImportantDate) => {
-    setDateToEdit(date);
-  }
   
   const handleCloseDialog = () => {
     setEditingDate(null);
-    setDateToEdit(null);
     setIsDialogOpen(false);
   }
 
@@ -190,7 +203,8 @@ export default function DatesPage() {
         author: {
           uid: user.uid,
           displayName: user.displayName,
-          photoURL: user.photoURL,
+          photoURL: user.photoURL || null,
+          gender: userProfile?.gender || 'Prefiro não informar'
         }
       });
     }
@@ -210,7 +224,7 @@ export default function DatesPage() {
           <h1 className="text-3xl font-bold font-headline">Datas Importantes</h1>
           <p className="text-muted-foreground">Nunca mais esqueçam uma data especial.</p>
         </div>
-        <Button className="w-full sm:w-auto" onClick={handleOpenDialogForNew} disabled={!coupleId}>
+        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog(null)} disabled={!coupleId}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Adicionar Data
         </Button>
@@ -221,13 +235,11 @@ export default function DatesPage() {
             <DialogHeader>
               <DialogTitle>{editingDate ? 'Editar Data' : 'Nova Data'}</DialogTitle>
             </DialogHeader>
-            {isDialogOpen && (
-              <DateForm 
-                date={editingDate}
-                onSave={handleSaveDate}
-                onCancel={handleCloseDialog}
-              />
-            )}
+            <DateForm 
+              date={editingDate}
+              onSave={handleSaveDate}
+              onCancel={handleCloseDialog}
+            />
           </DialogContent>
         </Dialog>
       
@@ -259,7 +271,7 @@ export default function DatesPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => handleOpenDialogForEdit(d)}>Editar</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleOpenDialog(d)}>Editar</DropdownMenuItem>
                         <DropdownMenuItem className="text-destructive" onSelect={() => handleDelete(d.id)}>Deletar</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -272,7 +284,15 @@ export default function DatesPage() {
                   )}
                 </CardContent>
                 <CardFooter className="flex justify-between items-center">
-                  <Badge variant="outline">{d.type}</Badge>
+                    <div>
+                        <Badge variant="outline">{d.type}</Badge>
+                        {d.repeat && d.repeat !== 'none' && (
+                            <Badge variant="secondary" className="ml-2">
+                                <Repeat className="h-3 w-3 mr-1" />
+                                {repeatOptions[d.repeat]}
+                            </Badge>
+                        )}
+                    </div>
                   {d.author && d.author.displayName && (
                       <Tooltip>
                           <TooltipTrigger>

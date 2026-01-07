@@ -13,6 +13,7 @@ import {
   Mail,
   Users,
   User,
+  Gamepad2,
 } from "lucide-react"
 
 import {
@@ -31,16 +32,16 @@ import {
 import { Icons } from "@/components/icons"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { PlaceHolderImages } from "@/lib/placeholder-images"
-import { Separator } from "@/components/ui/separator"
 import { useAuth, useUser } from "@/firebase"
 import { signOut } from "firebase/auth"
+import { Separator } from "@/components/ui/separator"
 
 const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Painel" },
   { href: "/todos", icon: ListTodo, label: "Lista de Tarefas" },
   { href: "/finances", icon: CircleDollarSign, label: "Finanças do Casal" },
   { href: "/watchlist", icon: Clapperboard, label: "Filmes & Séries" },
+  { href: "/games", icon: Gamepad2, label: "Jogos" },
   { href: "/dates", icon: CalendarHeart, label: "Datas Importantes" },
   { href: "/wall", icon: Users, label: "Mural do Casal" },
   { href: "/memories", icon: ImageIcon, label: "Álbum de Memórias" },

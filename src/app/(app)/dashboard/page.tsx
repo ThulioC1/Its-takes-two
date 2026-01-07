@@ -15,6 +15,7 @@ import {
   MessageSquare,
   Copy,
   Check,
+  Settings,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -28,14 +29,16 @@ import {
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { differenceInDays, format, parseISO } from 'date-fns';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { doc, collection, setDoc, query, where, writeBatch, getDoc } from 'firebase/firestore';
-import type { ToDoItem, ImportantDate, Post, Expense, UserProfile } from "@/types";
+import { doc, collection, setDoc, query, where, writeBatch, getDoc, updateDoc } from 'firebase/firestore';
+import type { ToDoItem, ImportantDate, Post, Expense, UserProfile, CoupleDetails } from "@/types";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 
 const chartConfig = {
   expenses: {
@@ -85,14 +88,10 @@ function CoupleLinker() {
       
       const currentUserProfileRef = doc(firestore, 'users', user.uid);
 
-      // Using set with merge will create the doc if it doesn't exist, or update it if it does.
       const currentUserData = {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName,
         coupleId: newCoupleId,
       };
-      batch.set(currentUserProfileRef, currentUserData, { merge: true });
+      batch.update(currentUserProfileRef, currentUserData);
 
       // Create the couple document to signify the link
       const coupleDocRef = doc(firestore, "couples", newCoupleId);
@@ -137,18 +136,9 @@ function CoupleLinker() {
   };
   
   if (isLinked) {
-    return (
-      <Alert>
-        <Users className="h-4 w-4" />
-        <AlertTitle>Vocês estão conectados!</AlertTitle>
-        <AlertDescription>
-          Seu mundo compartilhado está pronto.
-        </AlertDescription>
-      </Alert>
-    );
+    return null;
   }
 
-  // If user is not linked, show the linking interface.
   return (
     <Card>
       <CardHeader>
@@ -181,10 +171,62 @@ function CoupleLinker() {
   );
 }
 
+function BannerForm({ coupleDetails, coupleId, onCancel }: { coupleDetails?: Partial<CoupleDetails> | null; coupleId: string; onCancel: () => void; }) {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        const data: Partial<CoupleDetails> = {
+            person1Name: formData.get('person1Name') as string,
+            person2Name: formData.get('person2Name') as string,
+            relationshipStartDate: formData.get('relationshipStartDate') as string,
+            bannerUrl: formData.get('bannerUrl') as string,
+        };
+
+        if (!coupleId || !firestore) return;
+
+        try {
+            const coupleDocRef = doc(firestore, 'couples', coupleId);
+            await updateDoc(coupleDocRef, data);
+            toast({ title: "Banner atualizado com sucesso!" });
+            onCancel();
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: "Erro ao atualizar", description: error.message });
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="person1Name" className="text-right">Nome 1</Label>
+                <Input id="person1Name" name="person1Name" className="col-span-3" defaultValue={coupleDetails?.person1Name || ''} />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="person2Name" className="text-right">Nome 2</Label>
+                <Input id="person2Name" name="person2Name" className="col-span-3" defaultValue={coupleDetails?.person2Name || ''} />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="relationshipStartDate" className="text-right">Início do Relacionamento</Label>
+                <Input id="relationshipStartDate" name="relationshipStartDate" type="date" className="col-span-3" defaultValue={coupleDetails?.relationshipStartDate || ''} />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="bannerUrl" className="text-right">URL da Imagem</Label>
+                <Input id="bannerUrl" name="bannerUrl" placeholder="https://exemplo.com/imagem.jpg" className="col-span-3" defaultValue={coupleDetails?.bannerUrl || ''} />
+            </div>
+            <DialogFooter>
+                <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
+                <Button type="submit">Salvar</Button>
+            </DialogFooter>
+        </form>
+    );
+}
 
 export default function DashboardPage() {
   const firestore = useFirestore();
   const { user } = useUser();
+  const [isBannerDialogOpen, setIsBannerDialogOpen] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -193,6 +235,12 @@ export default function DashboardPage() {
 
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
+
+  const coupleDocRef = useMemoFirebase(() => {
+    if (!firestore || !coupleId) return null;
+    return doc(firestore, 'couples', coupleId);
+  }, [firestore, coupleId]);
+  const { data: coupleDetails } = useDoc<CoupleDetails>(coupleDocRef);
 
   const datesRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
@@ -218,9 +266,13 @@ export default function DashboardPage() {
   }, [firestore, coupleId]);
   const { data: expenses } = useCollection<Expense>(expensesRef);
 
-
-  const userAvatar1 = PlaceHolderImages.find((p) => p.id === 'user-avatar-1');
-  const bannerImage = PlaceHolderImages.find((p) => p.id === 'couple-banner');
+  const placeholderBanner = PlaceHolderImages.find((p) => p.id === 'couple-banner');
+  const bannerImage = coupleDetails?.bannerUrl || placeholderBanner?.imageUrl;
+  
+  const relationshipDays = useMemo(() => {
+    if (!coupleDetails?.relationshipStartDate) return null;
+    return differenceInDays(new Date(), parseISO(coupleDetails.relationshipStartDate));
+  }, [coupleDetails]);
 
   const upcomingDates = useMemo(() => {
     if (!dates) return [];
@@ -238,10 +290,9 @@ export default function DashboardPage() {
 
   const latestPost = useMemo(() => {
     if (!posts || posts.length === 0) return null;
-    // Firestore Timestamps need to be converted for sorting
     const sorted = [...posts].sort((a, b) => {
-        const timeA = a.dateTime?.toDate?.()?.getTime() || 0;
-        const timeB = b.dateTime?.toDate?.()?.getTime() || 0;
+        const timeA = a.dateTime?.toDate?.().getTime() || 0;
+        const timeB = b.dateTime?.toDate?.().getTime() || 0;
         return timeB - timeA;
     });
     return sorted[0];
@@ -250,7 +301,6 @@ export default function DashboardPage() {
   const chartData = useMemo(() => {
     if (!expenses) return [];
     const monthlyExpenses = expenses.reduce((acc, expense) => {
-        // Ensure date is a Timestamp and convert it
         const date = expense.date?.toDate ? expense.date.toDate() : new Date();
         const month = format(date, 'MMM');
         acc[month] = (acc[month] || 0) + expense.value;
@@ -264,24 +314,52 @@ export default function DashboardPage() {
     <div className="flex flex-col gap-8">
        <CoupleLinker />
 
+      <Dialog open={isBannerDialogOpen} onOpenChange={setIsBannerDialogOpen}>
+        <DialogContent>
+            <DialogHeader><DialogTitle>Editar Banner</DialogTitle></DialogHeader>
+            {coupleId && <BannerForm coupleDetails={coupleDetails} coupleId={coupleId} onCancel={() => setIsBannerDialogOpen(false)} />}
+        </DialogContent>
+      </Dialog>
+
       <div className="relative w-full h-48 md:h-64 rounded-xl overflow-hidden shadow-lg">
         {bannerImage && (
           <Image
-            src={bannerImage.imageUrl}
-            alt={bannerImage.description}
-            data-ai-hint={bannerImage.imageHint}
+            src={bannerImage}
+            alt="Banner do casal"
+            data-ai-hint="couple banner"
             fill
             className="object-cover"
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
         <div className="absolute bottom-0 left-0 p-6">
-          <h1 className="text-3xl md:text-4xl font-bold text-white font-headline">
-            Bem-vindos de volta!
-          </h1>
-          <p className="text-white/90 mt-2">
-            Aqui está um resumo do seu mundo compartilhado.
-          </p>
+           {coupleDetails?.person1Name && coupleDetails?.person2Name ? (
+            <>
+              <h1 className="text-3xl md:text-4xl font-bold text-white font-headline">
+                {coupleDetails.person1Name} & {coupleDetails.person2Name}
+              </h1>
+              {relationshipDays !== null && (
+                <p className="text-white/90 mt-2">
+                  {relationshipDays} dias de parceria e contando!
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <h1 className="text-3xl md:text-4xl font-bold text-white font-headline">
+                Bem-vindos de volta!
+              </h1>
+              <p className="text-white/90 mt-2">
+                Aqui está um resumo do seu mundo compartilhado.
+              </p>
+            </>
+          )}
+        </div>
+        <div className="absolute top-4 right-4">
+            <Button variant="secondary" size="sm" onClick={() => setIsBannerDialogOpen(true)} disabled={!coupleId}>
+                <Settings className="mr-2 h-4 w-4" />
+                Editar Banner
+            </Button>
         </div>
       </div>
 
@@ -350,6 +428,7 @@ export default function DashboardPage() {
                 {latestPost && latestPost.dateTime ? (
                     <div className="flex items-start space-x-4">
                     <Avatar>
+                        <AvatarImage src={latestPost.author?.photoURL || ''} />
                         <AvatarFallback>{latestPost.author?.displayName?.charAt(0) || 'U'}</AvatarFallback>
                     </Avatar>
                     <div className="space-y-2 flex-1 min-w-0">

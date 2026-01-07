@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { PlusCircle, Clapperboard, Film, Tv, MoreHorizontal, Calendar as CalendarIcon } from "lucide-react";
+import { PlusCircle, Clapperboard, Film, Tv, MoreHorizontal } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
@@ -17,27 +17,30 @@ import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, Timesta
 import type { MovieSeries, UserProfile } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { cn } from "@/lib/utils";
 
 function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave: (data: Partial<MovieSeries>) => void; onCancel: () => void; }) {
   const [itemType, setItemType] = useState(item?.type);
-  const [watchedDate, setWatchedDate] = useState<Date | undefined>(item?.dateWatched ? item.dateWatched.toDate() : undefined);
+  const [watchedDate, setWatchedDate] = useState<string>(
+    item?.dateWatched ? format(item.dateWatched.toDate(), 'yyyy-MM-dd') : ''
+  );
 
+  useEffect(() => {
+    setItemType(item?.type);
+    setWatchedDate(item?.dateWatched ? format(item.dateWatched.toDate(), 'yyyy-MM-dd') : '');
+  }, [item]);
+  
   const handleItemSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const data: Partial<MovieSeries & {dateWatched?: Date}> = {
+    const data: Partial<MovieSeries & { dateWatchedString?: string }> = {
       name: formData.get('name') as string,
       type: formData.get('type') as 'Movie' | 'Series',
       platform: formData.get('platform') as string,
       link: formData.get('image') as string,
       season: itemType === 'Series' ? parseInt(formData.get('season') as string) || undefined : undefined,
       episode: itemType === 'Series' ? parseInt(formData.get('episode') as string) || undefined : undefined,
-      dateWatched: watchedDate,
+      dateWatchedString: watchedDate,
     };
     onSave(data);
   };
@@ -77,28 +80,14 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
       {item?.status === 'Watched' && (
         <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="dateWatched" className="text-right">Data Assistido</Label>
-           <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant={"outline"}
-                className={cn(
-                  "col-span-3 justify-start text-left font-normal",
-                  !watchedDate && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {watchedDate ? format(watchedDate, "PPP", { locale: ptBR }) : <span>Escolha uma data</span>}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={watchedDate}
-                onSelect={setWatchedDate}
-                initialFocus
-              />
-            </PopoverContent>
-          </Popover>
+          <Input 
+            id="dateWatched" 
+            name="dateWatched" 
+            type="date"
+            className="col-span-3" 
+            value={watchedDate} 
+            onChange={(e) => setWatchedDate(e.target.value)} 
+          />
         </div>
       )}
 
@@ -122,14 +111,6 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
 export default function WatchlistPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MovieSeries | null>(null);
-  const [itemToEdit, setItemToEdit] = useState<MovieSeries | null>(null);
-
-  useEffect(() => {
-    if (itemToEdit) {
-      setEditingItem(itemToEdit);
-      setIsDialogOpen(true);
-    }
-  }, [itemToEdit]);
 
   const firestore = useFirestore();
   const { user } = useUser();
@@ -150,14 +131,12 @@ export default function WatchlistPage() {
   const { data: watchlist, isLoading } = useCollection<MovieSeries>(watchlistRef);
   
   const handleOpenDialog = (item: MovieSeries | null = null) => {
-    setItemToEdit(item);
     setEditingItem(item);
     setIsDialogOpen(true);
   };
   
   const handleCloseDialog = () => {
     setEditingItem(null);
-    setItemToEdit(null);
     setIsDialogOpen(false);
   }
 
@@ -179,23 +158,25 @@ export default function WatchlistPage() {
     await deleteDoc(itemDoc);
   };
   
-  const handleSaveItem = async (data: Partial<MovieSeries & {dateWatched?: Date | undefined}>) => {
+  const handleSaveItem = async (data: Partial<MovieSeries & { dateWatchedString?: string }>) => {
     if(!watchlistRef || !user || !user.displayName) return;
 
+    const { dateWatchedString, ...restOfData } = data;
+
     const dataToSave: any = {
-      name: data.name,
-      type: data.type,
-      platform: data.platform,
+      ...restOfData,
       link: data.link || `https://picsum.photos/seed/${Date.now()}/300/450`,
     };
 
     if (data.type === 'Series') {
       if (data.season !== undefined && !isNaN(data.season)) dataToSave.season = data.season;
+      else dataToSave.season = null;
       if (data.episode !== undefined && !isNaN(data.episode)) dataToSave.episode = data.episode;
+      else dataToSave.episode = null;
     }
 
-    if (data.dateWatched) {
-      dataToSave.dateWatched = Timestamp.fromDate(data.dateWatched);
+    if (dateWatchedString) {
+      dataToSave.dateWatched = Timestamp.fromDate(new Date(dateWatchedString));
     }
 
     if (editingItem) {
@@ -208,7 +189,8 @@ export default function WatchlistPage() {
         author: {
             uid: user.uid,
             displayName: user.displayName,
-            photoURL: user.photoURL,
+            photoURL: user.photoURL || null,
+            gender: userProfile?.gender || 'Prefiro não informar'
         }
       });
     }
@@ -247,7 +229,7 @@ export default function WatchlistPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                         <DropdownMenuItem onSelect={() => setItemToEdit(item)}>Editar</DropdownMenuItem>
+                         <DropdownMenuItem onSelect={() => handleOpenDialog(item)}>Editar</DropdownMenuItem>
                          <DropdownMenuSub>
                             <DropdownMenuSubTrigger>Mover para</DropdownMenuSubTrigger>
                             <DropdownMenuPortal>
@@ -279,7 +261,7 @@ export default function WatchlistPage() {
                     <Tooltip>
                         <TooltipTrigger>
                             <Avatar className="h-5 w-5">
-                                <AvatarFallback className="text-[10px]">{item.author.displayName.charAt(0)}</AvatarFallback>
+                                <AvatarFallback className="text-[10px]">{item.author.displayName?.charAt(0) || '?'}</AvatarFallback>
                             </Avatar>
                         </TooltipTrigger>
                         <TooltipContent>
