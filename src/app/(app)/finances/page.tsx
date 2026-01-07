@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, MoreHorizontal, TrendingDown, CircleDollarSign } from "lucide-react";
@@ -261,7 +261,7 @@ export default function FinancesPage() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold font-headline">Finanças do Casal</h1>
-          <p className="text-muted-foreground">Controle de despesas e metas financeiras compartilhadas.</p>
+          <p className="text-muted-foreground">Controle de despesas compartilhadas.</p>
         </div>
         <Button className="w-full sm:w-auto" onClick={() => handleOpenExpenseDialog(null)} disabled={!coupleId}>
             <PlusCircle className="mr-2 h-4 w-4" />
@@ -283,7 +283,7 @@ export default function FinancesPage() {
           </DialogContent>
         </Dialog>
       
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2">
         <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total de Despesas (Mês)</CardTitle>

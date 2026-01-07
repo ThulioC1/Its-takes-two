@@ -27,14 +27,13 @@ import {
   ChartConfig,
 } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
-import { differenceInDays, format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { doc, collection, setDoc, query, where, writeBatch, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, collection, writeBatch, getDoc, updateDoc } from 'firebase/firestore';
 import type { ToDoItem, ImportantDate, Post, Expense, UserProfile, CoupleDetails } from "@/types";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -171,13 +170,12 @@ function CoupleLinker() {
   );
 }
 
-function BannerForm({ coupleDetails, onSave, onCancel }: { coupleDetails?: Partial<CoupleDetails> | null; onSave: (data: Partial<CoupleDetails>) => Promise<void>; onCancel: () => void; }) {
+function BannerForm({ coupleDetails, onSave, onCancel }: { coupleDetails?: Partial<CoupleDetails> | null; onSave: (data: Partial<Pick<CoupleDetails, 'bannerUrl'>>) => Promise<void>; onCancel: () => void; }) {
     
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
-        const data: Partial<CoupleDetails> = {
-            relationshipStartDate: formData.get('relationshipStartDate') as string,
+        const data: Partial<Pick<CoupleDetails, 'bannerUrl'>> = {
             bannerUrl: formData.get('bannerUrl') as string,
         };
         await onSave(data);
@@ -185,10 +183,6 @@ function BannerForm({ coupleDetails, onSave, onCancel }: { coupleDetails?: Parti
 
     return (
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="relationshipStartDate" className="text-right">Início do Relacionamento</Label>
-                <Input id="relationshipStartDate" name="relationshipStartDate" type="date" className="col-span-3" defaultValue={coupleDetails?.relationshipStartDate || ''} />
-            </div>
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="bannerUrl" className="text-right">URL da Imagem</Label>
                 <Input id="bannerUrl" name="bannerUrl" placeholder="https://exemplo.com/imagem.jpg" className="col-span-3" defaultValue={coupleDetails?.bannerUrl || ''} />
@@ -282,26 +276,21 @@ export default function DashboardPage() {
 
   const placeholderBanner = PlaceHolderImages.find((p) => p.id === 'couple-banner');
   const bannerImage = coupleDetails?.bannerUrl || placeholderBanner?.imageUrl;
-  
-  const relationshipDays = useMemo(() => {
-    if (!coupleDetails?.relationshipStartDate) return null;
-    try {
-        const startDate = parseISO(coupleDetails.relationshipStartDate);
-        if (isNaN(startDate.getTime())) return null;
-        return differenceInDays(new Date(), startDate);
-    } catch (error) {
-        return null;
-    }
-  }, [coupleDetails]);
 
   const upcomingDates = useMemo(() => {
     if (!dates) return [];
+    const now = new Date();
     return dates
       .map(d => {
         try {
-            const parsedDate = parseISO(d.date);
+            const parsedDate = new Date(d.date);
             if (isNaN(parsedDate.getTime())) return null;
-            return {...d, daysLeft: differenceInDays(parsedDate, new Date())};
+            // Adjust for timezone differences by comparing dates only
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const eventDate = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate());
+            const diffTime = eventDate.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return {...d, daysLeft: diffDays};
         } catch (error) {
             return null;
         }
@@ -336,7 +325,7 @@ export default function DashboardPage() {
     return Object.entries(monthlyExpenses).map(([month, expenses]) => ({ month, expenses }));
   }, [expenses]);
 
-  const handleSaveBanner = async (data: Partial<CoupleDetails>) => {
+  const handleSaveBanner = async (data: Partial<Pick<CoupleDetails, 'bannerUrl'>>) => {
     const currentFirestore = firestoreRef.current;
     const currentCoupleId = coupleIdRef.current;
 
@@ -346,8 +335,8 @@ export default function DashboardPage() {
     }
 
     try {
-        const coupleDocRef = doc(currentFirestore, 'couples', currentCoupleId);
-        await updateDoc(coupleDocRef, data);
+        const coupleDocToUpdate = doc(currentFirestore, 'couples', currentCoupleId);
+        await updateDoc(coupleDocToUpdate, data);
         toast({ title: "Banner atualizado com sucesso!" });
         setIsBannerDialogOpen(false);
     } catch (error: any) {
@@ -391,19 +380,17 @@ export default function DashboardPage() {
               <h1 className="text-3xl md:text-4xl font-bold text-white font-headline">
                 {coupleMembers.map(m => m.displayName).join(' & ')}
               </h1>
-              {relationshipDays !== null && (
                 <p className="text-white/90 mt-2">
-                  {relationshipDays} dias de parceria e contando!
+                  Seu espaço compartilhado.
                 </p>
-              )}
             </>
           ) : (
             <>
               <h1 className="text-3xl md:text-4xl font-bold text-white font-headline">
-                Bem-vindos de volta!
+                Bem-vindo(a) de volta!
               </h1>
               <p className="text-white/90 mt-2">
-                Aqui está um resumo do seu mundo compartilhado.
+                Aqui está um resumo do seu mundo.
               </p>
             </>
           )}
@@ -430,7 +417,7 @@ export default function DashboardPage() {
                 {upcomingDates.length > 0 ? upcomingDates.map(d => {
                     if (!d.date) return null;
                     try {
-                        const parsedDate = parseISO(d.date);
+                        const parsedDate = new Date(d.date + 'T00:00:00'); // Treat as local date
                          if (isNaN(parsedDate.getTime())) return null;
                         return (
                             <div key={d.id} className="flex items-center">

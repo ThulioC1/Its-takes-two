@@ -22,12 +22,12 @@ import { format } from 'date-fns';
 function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave: (data: Partial<MovieSeries>) => void; onCancel: () => void; }) {
   const [itemType, setItemType] = useState(item?.type);
   const [watchedDate, setWatchedDate] = useState<string>(
-    item?.dateWatched ? format(item.dateWatched.toDate(), 'yyyy-MM-dd') : ''
+    item?.dateWatched && item.dateWatched.toDate ? format(item.dateWatched.toDate(), 'yyyy-MM-dd') : ''
   );
 
   useEffect(() => {
     setItemType(item?.type);
-    setWatchedDate(item?.dateWatched ? format(item.dateWatched.toDate(), 'yyyy-MM-dd') : '');
+    setWatchedDate(item?.dateWatched && item.dateWatched.toDate ? format(item.dateWatched.toDate(), 'yyyy-MM-dd') : '');
   }, [item]);
   
   const handleItemSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -38,8 +38,8 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
       type: formData.get('type') as 'Movie' | 'Series',
       platform: formData.get('platform') as string,
       link: formData.get('image') as string,
-      season: itemType === 'Series' ? parseInt(formData.get('season') as string) : undefined,
-      episode: itemType === 'Series' ? parseInt(formData.get('episode') as string) : undefined,
+      season: itemType === 'Series' ? parseInt(formData.get('season') as string, 10) : undefined,
+      episode: itemType === 'Series' ? parseInt(formData.get('episode') as string, 10) : undefined,
       dateWatchedString: watchedDate,
     };
     onSave(data);
@@ -68,11 +68,11 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
         <>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="season" className="text-right">Temporada</Label>
-            <Input id="season" name="season" type="number" className="col-span-3" defaultValue={item?.season} />
+            <Input id="season" name="season" type="number" className="col-span-3" defaultValue={item?.season ?? ''} />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="episode" className="text-right">Episódio</Label>
-            <Input id="episode" name="episode" type="number" className="col-span-3" defaultValue={item?.episode} />
+            <Input id="episode" name="episode" type="number" className="col-span-3" defaultValue={item?.episode ?? ''} />
           </div>
         </>
       )}
@@ -163,7 +163,7 @@ export default function WatchlistPage() {
 
     const { dateWatchedString, ...restOfData } = data;
 
-    const dataToSave: any = {
+    const dataToSave: Partial<MovieSeries> = {
       ...restOfData,
       link: data.link || `https://picsum.photos/seed/${Date.now()}/300/450`,
     };
@@ -172,13 +172,16 @@ export default function WatchlistPage() {
       dataToSave.season = !isNaN(data.season as number) ? data.season : null;
       dataToSave.episode = !isNaN(data.episode as number) ? data.episode : null;
     } else {
-      delete dataToSave.season;
-      delete dataToSave.episode;
+      dataToSave.season = null;
+      dataToSave.episode = null;
     }
-
 
     if (dateWatchedString) {
       dataToSave.dateWatched = Timestamp.fromDate(new Date(dateWatchedString));
+    } else if (editingItem && editingItem.status === 'Watched') {
+       // do nothing to keep the existing date if field is cleared
+    } else {
+       dataToSave.dateWatched = null;
     }
 
     if (editingItem) {
@@ -256,7 +259,7 @@ export default function WatchlistPage() {
             </CardContent>
             
             <CardFooter className="p-3 pt-0 text-xs text-muted-foreground flex justify-between items-center">
-                {item.status === 'Watched' && item.dateWatched ? (
+                {item.status === 'Watched' && item.dateWatched && item.dateWatched.toDate ? (
                     <span>Assistido em {format(item.dateWatched.toDate(), 'dd/MM/yy')}</span>
                 ) : <span />}
                  {item.author && (
