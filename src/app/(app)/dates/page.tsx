@@ -33,7 +33,6 @@ const typeIcons: { [key: string]: React.ReactNode } = {
 function Countdown({ date }: { date: string }) {
   const [countdown, setCountdown] = useState('');
 
-  // Using useMemo to avoid re-calculation on every render, depends only on `date`
   const daysLeft = useMemo(() => {
     if (!date) return null;
     const targetDate = parseISO(date);
@@ -244,8 +243,8 @@ export default function DatesPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleOpenDialog(d)}>Editar</DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(d.id)}>Deletar</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleOpenDialog(d)}>Editar</DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive" onSelect={() => handleDelete(d.id)}>Deletar</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>

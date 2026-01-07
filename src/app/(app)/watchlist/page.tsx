@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 
 function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave: (data: Partial<MovieSeries>) => void; onCancel: () => void; }) {
   const [itemType, setItemType] = useState(item?.type);
-  const [watchedDate, setWatchedDate] = useState<Date | undefined>(item?.dateWatched?.toDate());
+  const [watchedDate, setWatchedDate] = useState<Date | undefined>(item?.dateWatched ? item.dateWatched.toDate() : undefined);
 
   const handleItemSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -37,7 +37,7 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
       link: formData.get('image') as string,
       season: itemType === 'Series' ? parseInt(formData.get('season') as string) || undefined : undefined,
       episode: itemType === 'Series' ? parseInt(formData.get('episode') as string) || undefined : undefined,
-      dateWatched: watchedDate ? Timestamp.fromDate(watchedDate) : undefined,
+      dateWatched: watchedDate,
     };
     onSave(data);
   };
@@ -169,10 +169,9 @@ export default function WatchlistPage() {
     await deleteDoc(itemDoc);
   };
   
-  const handleSaveItem = async (data: Partial<MovieSeries>) => {
+  const handleSaveItem = async (data: Partial<MovieSeries & {dateWatched?: Date | undefined}>) => {
     if(!watchlistRef || !user || !user.displayName) return;
 
-    // Dynamically build the data object to avoid sending undefined fields
     const dataToSave: any = {
       name: data.name,
       type: data.type,
@@ -186,7 +185,7 @@ export default function WatchlistPage() {
     }
 
     if (data.dateWatched) {
-      dataToSave.dateWatched = data.dateWatched;
+      dataToSave.dateWatched = Timestamp.fromDate(data.dateWatched);
     }
 
     if (editingItem) {
@@ -221,7 +220,7 @@ export default function WatchlistPage() {
                 <Image src={item.link || `https://picsum.photos/seed/${item.id}/300/450`} alt={item.name} fill objectFit="cover" data-ai-hint="movie poster" />
                  <div className="absolute top-2 left-2 right-2 flex justify-between items-start">
                     {item.platform && <Badge variant="secondary">{item.platform}</Badge>}
-                    {item.type === 'Series' && (item.season || item.episode) && (
+                    {item.type === 'Series' && item.status === 'Watching' && (item.season || item.episode) && (
                         <Badge variant="default">
                             {item.season && `T${item.season}`}
                             {item.season && item.episode && ':'}
@@ -237,18 +236,18 @@ export default function WatchlistPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                         <DropdownMenuItem onClick={() => handleOpenDialog(item)}>Editar</DropdownMenuItem>
+                         <DropdownMenuItem onSelect={() => handleOpenDialog(item)}>Editar</DropdownMenuItem>
                          <DropdownMenuSub>
                             <DropdownMenuSubTrigger>Mover para</DropdownMenuSubTrigger>
                             <DropdownMenuPortal>
                                 <DropdownMenuSubContent>
-                                    {item.status !== 'To Watch' && <DropdownMenuItem onClick={() => moveItem(item.id, 'To Watch')}>Para Assistir</DropdownMenuItem>}
-                                    {item.status !== 'Watching' && <DropdownMenuItem onClick={() => moveItem(item.id, 'Watching')}>Assistindo</DropdownMenuItem>}
-                                    {item.status !== 'Watched' && <DropdownMenuItem onClick={() => moveItem(item.id, 'Watched')}>Já Vimos</DropdownMenuItem>}
+                                    {item.status !== 'To Watch' && <DropdownMenuItem onSelect={() => moveItem(item.id, 'To Watch')}>Para Assistir</DropdownMenuItem>}
+                                    {item.status !== 'Watching' && <DropdownMenuItem onSelect={() => moveItem(item.id, 'Watching')}>Assistindo</DropdownMenuItem>}
+                                    {item.status !== 'Watched' && <DropdownMenuItem onSelect={() => moveItem(item.id, 'Watched')}>Já Vimos</DropdownMenuItem>}
                                 </DropdownMenuSubContent>
                             </DropdownMenuPortal>
                          </DropdownMenuSub>
-                        <DropdownMenuItem className="text-destructive" onClick={() => deleteItem(item.id)}>Deletar</DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive" onSelect={() => deleteItem(item.id)}>Deletar</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                  </div>
