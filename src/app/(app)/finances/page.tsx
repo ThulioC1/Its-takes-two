@@ -1,8 +1,8 @@
 'use client';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, MoreHorizontal, TrendingDown, CircleDollarSign, Pencil } from "lucide-react";
+import { PlusCircle, MoreHorizontal, TrendingDown, CircleDollarSign } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from "@/components/ui/chart";
 import { PieChart, Pie, Cell } from "recharts";
@@ -17,8 +17,6 @@ import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs
 import type { Expense, UserProfile, CoupleDetails } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useToast } from '@/hooks/use-toast';
-
 
 const categories = ['Alimentação', 'Lazer', 'Moradia', 'Transporte', 'Outros'];
 
@@ -32,13 +30,20 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: Expense | null; onSave: (data: Partial<Expense>) => void; onCancel: () => void; coupleMembers: UserProfile[] }) {
-  const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
+  const [expenseToEdit, setExpenseToEdit] = useState<Partial<Expense> | null>(null);
+  const [itemToEdit, setItemToEdit] = useState<Expense | null>(null);
+
+  useEffect(() => {
+    if (itemToEdit) {
+      setExpenseToEdit(itemToEdit);
+    } else {
+      setExpenseToEdit(null);
+    }
+  }, [itemToEdit]);
 
   useEffect(() => {
     if (expense) {
-      setExpenseToEdit(expense);
-    } else {
-      setExpenseToEdit(null);
+      setItemToEdit(expense);
     }
   }, [expense]);
 
@@ -98,14 +103,12 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
 
 export default function FinancesPage() {
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
-  const [isGoalDialogOpen, setIsGoalDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
   const [coupleMembers, setCoupleMembers] = useState<UserProfile[]>([]);
   
   const firestore = useFirestore();
   const { user } = useUser();
-  const { toast } = useToast();
 
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -114,15 +117,6 @@ export default function FinancesPage() {
 
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
-
-  // Use refs to hold the latest values of firestore and coupleId
-  const firestoreRef = useRef(firestore);
-  const coupleIdRef = useRef(coupleId);
-
-  useEffect(() => {
-    firestoreRef.current = firestore;
-    coupleIdRef.current = coupleId;
-  }, [firestore, coupleId]);
 
   const coupleDocRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
@@ -186,9 +180,6 @@ export default function FinancesPage() {
   }, [expenses]);
 
   const totalExpenses = useMemo(() => sortedExpenses.reduce((acc, expense) => acc + expense.value, 0), [sortedExpenses]);
-  const savingsGoal = coupleDetails?.savingsGoal || 5000;
-  const savingsProgress = savingsGoal > 0 ? Math.min((totalExpenses / savingsGoal) * 100, 100) : 0;
-
 
   const expensesByPayer = useMemo(() => {
     return sortedExpenses.reduce((acc, expense) => {
@@ -224,8 +215,6 @@ export default function FinancesPage() {
   
   const handleOpenExpenseDialog = (expense: Expense | null = null) => {
     setExpenseToEdit(expense);
-    setEditingExpense(expense);
-    setIsExpenseDialogOpen(true);
   };
   
   const handleCloseExpenseDialog = () => {
@@ -260,30 +249,11 @@ export default function FinancesPage() {
     await deleteDoc(expenseDoc);
   };
 
-  const handleSavingsGoalSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const newSavingsGoal = parseFloat(formData.get('savingsGoal') as string);
-    
-    // Read from refs to get the latest values
-    const currentFirestore = firestoreRef.current;
-    const currentCoupleId = coupleIdRef.current;
-
-    if (!currentCoupleId || !currentFirestore || isNaN(newSavingsGoal)) {
-        toast({ variant: 'destructive', title: "Erro de validação", description: "Dados inválidos para atualizar a meta." });
-        return;
-    };
-
-    try {
-        const coupleDocRef = doc(currentFirestore, 'couples', currentCoupleId);
-        await updateDoc(coupleDocRef, { savingsGoal: newSavingsGoal });
-        toast({ title: "Meta de economia atualizada!" });
-        setIsGoalDialogOpen(false);
-    } catch (error: any) {
-        console.error("Error updating savings goal:", error);
-        toast({ variant: 'destructive', title: "Erro ao atualizar meta", description: error.message });
+  useEffect(() => {
+    if (expenseToEdit) {
+      setIsExpenseDialogOpen(true);
     }
-  };
+  }, [expenseToEdit]);
 
 
   return (
@@ -293,7 +263,7 @@ export default function FinancesPage() {
           <h1 className="text-3xl font-bold font-headline">Finanças do Casal</h1>
           <p className="text-muted-foreground">Controle de despesas e metas financeiras compartilhadas.</p>
         </div>
-        <Button className="w-full sm:w-auto" onClick={() => handleOpenExpenseDialog()} disabled={!coupleId}>
+        <Button className="w-full sm:w-auto" onClick={() => handleOpenExpenseDialog(null)} disabled={!coupleId}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Adicionar Despesa
         </Button>
@@ -305,28 +275,11 @@ export default function FinancesPage() {
               <DialogTitle>{editingExpense ? 'Editar Despesa' : 'Nova Despesa'}</DialogTitle>
             </DialogHeader>
             <ExpenseForm 
-              expense={editingExpense} 
+              expense={expenseToEdit} 
               onSave={handleSaveExpense}
               onCancel={handleCloseExpenseDialog}
               coupleMembers={coupleMembers || []}
             />
-          </DialogContent>
-        </Dialog>
-        <Dialog open={isGoalDialogOpen} onOpenChange={setIsGoalDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Editar Meta de Economia</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSavingsGoalSubmit} className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="savingsGoal" className="text-right">Meta (R$)</Label>
-                    <Input id="savingsGoal" name="savingsGoal" type="number" step="100" placeholder="5000" className="col-span-3" defaultValue={savingsGoal} required />
-                </div>
-                <DialogFooter>
-                    <Button type="button" variant="ghost" onClick={() => setIsGoalDialogOpen(false)}>Cancelar</Button>
-                    <Button type="submit">Salvar Meta</Button>
-                </DialogFooter>
-            </form>
           </DialogContent>
         </Dialog>
       
@@ -339,18 +292,6 @@ export default function FinancesPage() {
             <CardContent>
                 <div className="text-2xl font-bold">R$ {totalExpenses.toFixed(2).replace('.', ',')}</div>
                 <p className="text-xs text-muted-foreground">Atualizado agora</p>
-            </CardContent>
-        </Card>
-         <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Meta de Economia</CardTitle>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsGoalDialogOpen(true)} disabled={!coupleId}>
-                    <Pencil className="h-4 w-4 text-muted-foreground" />
-                </Button>
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold">R$ {savingsGoal.toFixed(2).replace('.', ',')}</div>
-                <p className="text-xs text-muted-foreground">{savingsProgress.toFixed(0)}% concluído</p>
             </CardContent>
         </Card>
         <Card>
@@ -418,7 +359,7 @@ export default function FinancesPage() {
                                   </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onSelect={() => setExpenseToEdit(expense)}>Editar</DropdownMenuItem>
+                                  <DropdownMenuItem onSelect={() => handleOpenExpenseDialog(expense)}>Editar</DropdownMenuItem>
                                   <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(expense.id)}>Deletar</DropdownMenuItem>
                               </DropdownMenuContent>
                               </DropdownMenu>

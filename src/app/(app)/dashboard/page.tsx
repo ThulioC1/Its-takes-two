@@ -171,10 +171,8 @@ function CoupleLinker() {
   );
 }
 
-function BannerForm({ coupleDetails, coupleId, onCancel }: { coupleDetails?: Partial<CoupleDetails> | null; coupleId: string; onCancel: () => void; }) {
-    const firestore = useFirestore();
-    const { toast } = useToast();
-
+function BannerForm({ coupleDetails, onSave, onCancel }: { coupleDetails?: Partial<CoupleDetails> | null; onSave: (data: Partial<CoupleDetails>) => Promise<void>; onCancel: () => void; }) {
+    
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
@@ -184,17 +182,7 @@ function BannerForm({ coupleDetails, coupleId, onCancel }: { coupleDetails?: Par
             relationshipStartDate: formData.get('relationshipStartDate') as string,
             bannerUrl: formData.get('bannerUrl') as string,
         };
-
-        if (!coupleId || !firestore) return;
-
-        try {
-            const coupleDocRef = doc(firestore, 'couples', coupleId);
-            await updateDoc(coupleDocRef, data);
-            toast({ title: "Banner atualizado com sucesso!" });
-            onCancel();
-        } catch (error: any) {
-            toast({ variant: 'destructive', title: "Erro ao atualizar", description: error.message });
-        }
+        await onSave(data);
     };
 
     return (
@@ -227,6 +215,7 @@ export default function DashboardPage() {
   const firestore = useFirestore();
   const { user } = useUser();
   const [isBannerDialogOpen, setIsBannerDialogOpen] = useState(false);
+  const { toast } = useToast();
 
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -322,6 +311,23 @@ export default function DashboardPage() {
     return Object.entries(monthlyExpenses).map(([month, expenses]) => ({ month, expenses }));
   }, [expenses]);
 
+  const handleSaveBanner = async (data: Partial<CoupleDetails>) => {
+    if (!coupleId || !firestore) {
+         toast({ variant: 'destructive', title: "Erro", description: "Não foi possível salvar, ID do casal não encontrado." });
+         return;
+    }
+
+    try {
+        const coupleDocRef = doc(firestore, 'couples', coupleId);
+        await updateDoc(coupleDocRef, data);
+        toast({ title: "Banner atualizado com sucesso!" });
+        setIsBannerDialogOpen(false);
+    } catch (error: any) {
+        console.error("Error updating banner:", error);
+        toast({ variant: 'destructive', title: "Erro ao atualizar", description: error.message });
+    }
+  };
+
 
   return (
     <div className="flex flex-col gap-8">
@@ -330,7 +336,13 @@ export default function DashboardPage() {
       <Dialog open={isBannerDialogOpen} onOpenChange={setIsBannerDialogOpen}>
         <DialogContent>
             <DialogHeader><DialogTitle>Editar Banner</DialogTitle></DialogHeader>
-            {coupleId && <BannerForm coupleDetails={coupleDetails} coupleId={coupleId} onCancel={() => setIsBannerDialogOpen(false)} />}
+            {coupleId && (
+              <BannerForm 
+                coupleDetails={coupleDetails} 
+                onSave={handleSaveBanner}
+                onCancel={() => setIsBannerDialogOpen(false)} 
+              />
+            )}
         </DialogContent>
       </Dialog>
 
@@ -511,5 +523,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
