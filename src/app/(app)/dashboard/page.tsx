@@ -24,7 +24,7 @@ import {
   ChartConfig,
 } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
-import { format, differenceInDays } from 'date-fns';
+import { format } from 'date-fns';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { doc, collection, writeBatch, getDoc } from 'firebase/firestore';
 import type { ToDoItem, ImportantDate, Post, Expense, UserProfile, CoupleDetails } from "@/types";
@@ -235,11 +235,13 @@ export default function DashboardPage() {
   const daysTogether = useMemo(() => {
     if (!coupleDetails?.relationshipStartDate) return null;
     try {
-      // The date is 'YYYY-MM-DD'. Add T00:00:00 to treat it as local time, not UTC.
       const startDate = new Date(coupleDetails.relationshipStartDate + 'T00:00:00');
       const today = new Date();
-      today.setHours(0, 0, 0, 0); // Set today to midnight for accurate day difference
-      return differenceInDays(today, startDate);
+      startDate.setHours(0, 0, 0, 0);
+      today.setHours(0, 0, 0, 0);
+      const diffTime = Math.abs(today.getTime() - startDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays;
     } catch {
       return null;
     }
@@ -251,14 +253,15 @@ export default function DashboardPage() {
     return dates
       .map(d => {
         try {
-            // The date is 'YYYY-MM-DD'. Add T00:00:00 to treat it as local time, not UTC.
             const parsedDate = new Date(d.date + 'T00:00:00');
             if (isNaN(parsedDate.getTime())) return null;
             
-            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            // We only care about the date part, so we can directly compare.
-            // But differenceInDays handles this correctly by ignoring time parts.
-            const diffDays = differenceInDays(parsedDate, today);
+            const today = new Date();
+            parsedDate.setHours(0, 0, 0, 0);
+            today.setHours(0, 0, 0, 0);
+            
+            const diffTime = parsedDate.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
             return {...d, daysLeft: diffDays};
         } catch (error) {
@@ -297,11 +300,22 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-8">
-       <CoupleLinker />
+      <CoupleLinker />
+      {userProfile && !isLinked && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl font-headline">Bem-vindo(a) de volta!</CardTitle>
+              <p className="text-muted-foreground text-sm">
+                Conecte-se com seu par para começar a jornada.
+              </p>
+            </CardHeader>
+          </Card>
+      )}
 
-        <div className="p-6 rounded-xl bg-card border shadow-sm">
-           {coupleMembers.length > 1 ? (
-             <div className="text-center">
+      {isLinked && (
+        <>
+          <div className="p-6 rounded-xl bg-card border shadow-sm">
+            <div className="text-center">
               <h1 className="text-3xl md:text-4xl font-bold font-headline">
                 {coupleMembers.map(m => m.displayName).join(' & ')}
               </h1>
@@ -312,17 +326,9 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
-          ) : (
-             <div className="text-center">
-              <h1 className="text-3xl md:text-4xl font-bold font-headline">
-                Bem-vindo(a) de volta!
-              </h1>
-              <p className="text-muted-foreground mt-2">
-                Aqui está um resumo do seu mundo.
-              </p>
-            </div>
-          )}
-        </div>
+          </div>
+        </>
+      )}
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Link href="/dates" className="flex">
@@ -351,7 +357,7 @@ export default function DashboardPage() {
                                     {d.title}
                                     </p>
                                     <p className="text-sm text-muted-foreground">
-                                        {d.daysLeft === 0 ? 'É hoje! 🎉' : `Em ${d.daysLeft} dias`}
+                                        {d.daysLeft === 0 ? 'É hoje! 🎉' : d.daysLeft === 1 ? 'É amanhã!' : `Em ${d.daysLeft} dias`}
                                     </p>
                                 </div>
                             </div>

@@ -1,6 +1,6 @@
 'use client';
 import { useState, useMemo, useEffect } from 'react';
-import { differenceInDays, format, isValid } from 'date-fns';
+import { isValid, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,14 +37,16 @@ function Countdown({ date }: { date: string }) {
 
     const daysLeft = useMemo(() => {
         if (!date) return null;
-        // The date is 'YYYY-MM-DD'. Add T00:00:00 to treat it as local time, not UTC.
+        
         const targetDate = new Date(date + 'T00:00:00');
         if (!isValid(targetDate)) return null;
         
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // Set today to midnight for accurate day difference
-
-        return differenceInDays(targetDate, today);
+        targetDate.setHours(0,0,0,0);
+        today.setHours(0,0,0,0);
+        
+        const diffTime = targetDate.getTime() - today.getTime();
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     }, [date]);
 
     useEffect(() => {
