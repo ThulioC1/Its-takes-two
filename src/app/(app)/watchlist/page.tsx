@@ -38,8 +38,8 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
       type: formData.get('type') as 'Movie' | 'Series',
       platform: formData.get('platform') as string,
       link: formData.get('image') as string,
-      season: itemType === 'Series' ? parseInt(formData.get('season') as string) || undefined : undefined,
-      episode: itemType === 'Series' ? parseInt(formData.get('episode') as string) || undefined : undefined,
+      season: itemType === 'Series' ? parseInt(formData.get('season') as string) : undefined,
+      episode: itemType === 'Series' ? parseInt(formData.get('episode') as string) : undefined,
       dateWatchedString: watchedDate,
     };
     onSave(data);
@@ -145,7 +145,7 @@ export default function WatchlistPage() {
     const itemDoc = doc(watchlistRef, id);
     const updateData: {status: string, dateWatched?: Timestamp | null} = { status: newStatus };
     if (newStatus === 'Watched') {
-        updateData.dateWatched = serverTimestamp();
+        updateData.dateWatched = serverTimestamp() as Timestamp;
     } else {
         updateData.dateWatched = null;
     }
@@ -169,11 +169,13 @@ export default function WatchlistPage() {
     };
 
     if (data.type === 'Series') {
-      if (data.season !== undefined && !isNaN(data.season)) dataToSave.season = data.season;
-      else dataToSave.season = null;
-      if (data.episode !== undefined && !isNaN(data.episode)) dataToSave.episode = data.episode;
-      else dataToSave.episode = null;
+      dataToSave.season = !isNaN(data.season as number) ? data.season : null;
+      dataToSave.episode = !isNaN(data.episode as number) ? data.episode : null;
+    } else {
+      delete dataToSave.season;
+      delete dataToSave.episode;
     }
+
 
     if (dateWatchedString) {
       dataToSave.dateWatched = Timestamp.fromDate(new Date(dateWatchedString));

@@ -224,10 +224,10 @@ export default function DashboardPage() {
 
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
-
+  
   const firestoreRef = useRef(firestore);
   const coupleIdRef = useRef(coupleId);
-
+  
   useEffect(() => {
       firestoreRef.current = firestore;
       coupleIdRef.current = coupleId;
