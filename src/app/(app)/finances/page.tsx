@@ -34,14 +34,15 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
   
   const [payer, setPayer] = useState(() => {
     if (!expense?.payer) return '';
+    // Check if the payer is a UID, and if so, find the display name
     const member = coupleMembers.find(m => m.uid === expense.payer);
     return member ? member.displayName : expense.payer;
   });
 
   useEffect(() => {
     if (expense?.payer) {
-      const member = coupleMembers.find(m => m.uid === expense.payer);
-      setPayer(member ? member.displayName : expense.payer);
+       const member = coupleMembers.find(m => m.uid === expense.payer);
+       setPayer(member ? member.displayName : expense.payer);
     } else {
       setPayer('');
     }
@@ -54,7 +55,7 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
     const data: Partial<Expense> = {
       category: formData.get('category') as string,
       value: valueInput ? parseFloat(valueInput.replace(',', '.')) : 0,
-      payer: payer,
+      payer: payer, // The state `payer` now holds the display name
       observation: formData.get('observation') as string,
     };
     onSave(data);
@@ -295,7 +296,7 @@ export default function FinancesPage() {
           <CardHeader>
             <CardTitle>Despesas Recentes</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="overflow-x-auto">
             {isLoading && <p className="text-center text-muted-foreground py-4">Carregando despesas...</p>}
             {!isLoading && sortedExpenses?.length === 0 && <p className="text-center text-muted-foreground py-4">Nenhuma despesa adicionada.</p>}
             {sortedExpenses.length > 0 && (
