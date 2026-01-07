@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, MoreHorizontal, TrendingDown, CircleDollarSign, Pencil } from "lucide-react";
@@ -114,6 +114,15 @@ export default function FinancesPage() {
 
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
+
+  // Use refs to hold the latest values of firestore and coupleId
+  const firestoreRef = useRef(firestore);
+  const coupleIdRef = useRef(coupleId);
+
+  useEffect(() => {
+    firestoreRef.current = firestore;
+    coupleIdRef.current = coupleId;
+  }, [firestore, coupleId]);
 
   const coupleDocRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
@@ -255,14 +264,18 @@ export default function FinancesPage() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const newSavingsGoal = parseFloat(formData.get('savingsGoal') as string);
+    
+    // Read from refs to get the latest values
+    const currentFirestore = firestoreRef.current;
+    const currentCoupleId = coupleIdRef.current;
 
-    if (!coupleId || !firestore || isNaN(newSavingsGoal)) {
+    if (!currentCoupleId || !currentFirestore || isNaN(newSavingsGoal)) {
         toast({ variant: 'destructive', title: "Erro de validação", description: "Dados inválidos para atualizar a meta." });
         return;
     };
 
     try {
-        const coupleDocRef = doc(firestore, 'couples', coupleId);
+        const coupleDocRef = doc(currentFirestore, 'couples', currentCoupleId);
         await updateDoc(coupleDocRef, { savingsGoal: newSavingsGoal });
         toast({ title: "Meta de economia atualizada!" });
         setIsGoalDialogOpen(false);
