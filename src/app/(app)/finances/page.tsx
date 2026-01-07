@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/componentsui/label";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, getDoc } from "firebase/firestore";
@@ -194,11 +194,15 @@ export default function FinancesPage() {
     }));
   }, [sortedExpenses]);
   
-  const handleOpenDialog = (expense: Expense | null = null) => {
-    setExpenseToEdit(expense);
-    setEditingExpense(expense);
+  const handleOpenDialogForNew = () => {
+    setEditingExpense(null);
+    setExpenseToEdit(null);
     setIsDialogOpen(true);
   };
+  
+  const handleOpenDialogForEdit = (expense: Expense) => {
+    setExpenseToEdit(expense);
+  }
 
   const handleCloseDialog = () => {
     setEditingExpense(null);
@@ -239,7 +243,7 @@ export default function FinancesPage() {
           <h1 className="text-3xl font-bold font-headline">Finanças do Casal</h1>
           <p className="text-muted-foreground">Controle de despesas e metas financeiras compartilhadas.</p>
         </div>
-        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()} disabled={!coupleId}>
+        <Button className="w-full sm:w-auto" onClick={handleOpenDialogForNew} disabled={!coupleId}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Adicionar Despesa
         </Button>
@@ -250,12 +254,14 @@ export default function FinancesPage() {
             <DialogHeader>
               <DialogTitle>{editingExpense ? 'Editar Despesa' : 'Nova Despesa'}</DialogTitle>
             </DialogHeader>
-            <ExpenseForm 
-              expense={editingExpense ?? undefined} 
-              onSave={handleSaveExpense}
-              onCancel={handleCloseDialog}
-              coupleMembers={coupleMembers || []}
-            />
+            {isDialogOpen && (
+                <ExpenseForm 
+                expense={editingExpense ?? undefined} 
+                onSave={handleSaveExpense}
+                onCancel={handleCloseDialog}
+                coupleMembers={coupleMembers || []}
+                />
+            )}
           </DialogContent>
         </Dialog>
       
@@ -345,7 +351,7 @@ export default function FinancesPage() {
                                   </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onSelect={() => setExpenseToEdit(expense)}>Editar</DropdownMenuItem>
+                                  <DropdownMenuItem onSelect={() => handleOpenDialogForEdit(expense)}>Editar</DropdownMenuItem>
                                   <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(expense.id)}>Deletar</DropdownMenuItem>
                               </DropdownMenuContent>
                               </DropdownMenu>
