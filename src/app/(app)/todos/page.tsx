@@ -73,14 +73,6 @@ function TodoForm({ todo, onSave, onCancel }: { todo?: ToDoItem; onSave: (data: 
 export default function TodosPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTodo, setEditingTodo] = useState<ToDoItem | null>(null);
-  const [todoToEdit, setTodoToEdit] = useState<ToDoItem | null>(null);
-
-  useEffect(() => {
-    if (todoToEdit) {
-        setEditingTodo(todoToEdit);
-        setIsDialogOpen(true);
-    }
-  }, [todoToEdit]);
 
   const firestore = useFirestore();
   const { user } = useUser();
@@ -108,18 +100,13 @@ export default function TodosPage() {
   const { data: todos, isLoading } = useCollection<ToDoItem>(todosRef);
 
   const handleOpenDialog = (todo: ToDoItem | null = null) => {
-    setTodoToEdit(todo);
     setEditingTodo(todo);
     setIsDialogOpen(true);
   };
   
   const handleCloseDialog = () => {
     setEditingTodo(null);
-    setTodoToEdit(null);
     setIsDialogOpen(false);
-    if (editingTodo) {
-        window.location.reload();
-    }
   }
 
   const handleSaveTodo = async (data: Partial<ToDoItem & { dueDateString?: string }>) => {
@@ -264,7 +251,7 @@ export default function TodosPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => setTodoToEdit(todo)}>Editar</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => handleOpenDialog(todo)}>Editar</DropdownMenuItem>
                         {todo.status !== 'Concluído' && <DropdownMenuItem onClick={() => toggleTodoStatus(todo)}>Marcar como concluído</DropdownMenuItem>}
                         <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteTodo(todo.id)}>Deletar</DropdownMenuItem>
                       </DropdownMenuContent>

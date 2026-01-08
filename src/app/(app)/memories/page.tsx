@@ -73,15 +73,6 @@ function MemoryForm({ memory, onSave, onCancel }: { memory?: Memory | null; onSa
 export default function MemoriesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
-  const [memoryToEdit, setMemoryToEdit] = useState<Memory | null>(null);
-
-  useEffect(() => {
-    if (memoryToEdit) {
-        setEditingMemory(memoryToEdit);
-        setIsDialogOpen(true);
-    }
-  }, [memoryToEdit]);
-
 
   const firestore = useFirestore();
   const { user } = useUser();
@@ -111,18 +102,13 @@ export default function MemoriesPage() {
   }, [memories]);
 
   const handleOpenDialog = (memory: Memory | null = null) => {
-    setMemoryToEdit(memory);
     setEditingMemory(memory);
     setIsDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
     setEditingMemory(null);
-    setMemoryToEdit(null);
     setIsDialogOpen(false);
-    if (editingMemory) {
-        window.location.reload();
-    }
   }
   
   const handleSaveMemory = async (data: Partial<Memory & { dateString?: string }>) => {
@@ -248,7 +234,7 @@ export default function MemoriesPage() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => setMemoryToEdit(memory)}>Editar</DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => handleOpenDialog(memory)}>Editar</DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(memory.id)}>Deletar</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
