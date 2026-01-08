@@ -65,8 +65,9 @@ service cloud.firestore {
       }
       
       match /notifications/{notificationId} {
-        // A user can query for their own notifications.
-        allow list: if isMemberOfCouple(coupleId) && request.query.get('where')[0][2] == request.auth.uid;
+        // A user can query for their own notifications. This rule enforces that the query
+        // MUST include a `where('recipientId', '==', request.auth.uid)` clause.
+        allow list: if isMemberOfCouple(coupleId) && request.query.where.recipientId == request.auth.uid;
         
         // A user can get or update a notification intended for them.
         allow get, update: if isMemberOfCouple(coupleId) && resource.data.recipientId == request.auth.uid;
