@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { PlusCircle, PiggyBank, HeartHandshake, User, MoreHorizontal } from "lucide-react";
+import { PlusCircle, PiggyBank, HeartHandshake, User, MoreHorizontal, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -13,10 +13,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from '@/components/ui/slider';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, doc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, doc, addDoc, updateDoc, deleteDoc, Timestamp, serverTimestamp } from "firebase/firestore";
 import type { CoupleGoal, UserProfile } from "@/types";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const typeInfo: { [key: string]: { icon: React.ReactNode, color: string } } = {
   'Financeiro': { icon: <PiggyBank />, color: 'text-emerald-500' },
@@ -24,17 +26,30 @@ const typeInfo: { [key: string]: { icon: React.ReactNode, color: string } } = {
   'Relacionamento': { icon: <HeartHandshake />, color: 'text-pink-500' },
 };
 
-function GoalForm({ goal, onSave, onCancel }: { goal?: CoupleGoal; onSave: (data: Partial<CoupleGoal>) => void; onCancel: () => void; }) {
-  const [progressValue, setProgressValue] = useState(goal ? goal.progress : 0);
+function GoalForm({ goal, onSave, onCancel }: { goal?: CoupleGoal; onSave: (data: Partial<CoupleGoal & { completionDateString?: string }>) => void; onCancel: () => void; }) {
+  const [progressValue, setProgressValue] = useState(goal?.progress || 0);
+  const [completionDate, setCompletionDate] = useState<string>('');
+
+  useEffect(() => {
+    setProgressValue(goal?.progress || 0);
+    if (goal?.completionDate && goal.completionDate.toDate) {
+      setCompletionDate(format(goal.completionDate.toDate(), 'yyyy-MM-dd'));
+    } else {
+      setCompletionDate('');
+    }
+  }, [goal]);
+
+  const showCompletionDate = progressValue === 100 || goal?.status === 'Concluído';
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const data: Partial<CoupleGoal> = {
+    const data: Partial<CoupleGoal & { completionDateString?: string }> = {
       title: formData.get('title') as string,
       description: formData.get('description') as string,
       type: formData.get('type') as string,
       progress: progressValue,
+      completionDateString: completionDate,
     };
     onSave(data);
   };
@@ -67,6 +82,19 @@ function GoalForm({ goal, onSave, onCancel }: { goal?: CoupleGoal; onSave: (data
             <span className="text-sm font-semibold w-12 text-right">{progressValue}%</span>
         </div>
       </div>
+       {showCompletionDate && (
+        <div className="grid grid-cols-4 items-center gap-4">
+          <Label htmlFor="completionDate" className="text-right">Data Conclusão</Label>
+          <Input 
+            id="completionDate" 
+            name="completionDate" 
+            type="date"
+            className="col-span-3" 
+            value={completionDate} 
+            onChange={(e) => setCompletionDate(e.target.value)} 
+          />
+        </div>
+      )}
       <DialogFooter>
         <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
         <Button type="submit">Salvar Meta</Button>
@@ -79,15 +107,7 @@ function GoalForm({ goal, onSave, onCancel }: { goal?: CoupleGoal; onSave: (data
 export default function GoalsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<CoupleGoal | null>(null);
-  const [goalToEdit, setGoalToEdit] = useState<CoupleGoal | null>(null);
-
-  useEffect(() => {
-    if (goalToEdit) {
-      setEditingGoal(goalToEdit);
-      setIsDialogOpen(true);
-    }
-  }, [goalToEdit]);
-
+  
   const firestore = useFirestore();
   const { user } = useUser();
 
@@ -113,30 +133,42 @@ export default function GoalsPage() {
 
 
   const handleOpenDialog = (goal: CoupleGoal | null = null) => {
-    setGoalToEdit(goal);
     setEditingGoal(goal);
     setIsDialogOpen(true);
   };
   
   const handleCloseDialog = () => {
     setEditingGoal(null);
-    setGoalToEdit(null);
     setIsDialogOpen(false);
   }
 
-  const handleSaveGoal = async (data: Partial<CoupleGoal>) => {
+  const handleSaveGoal = async (data: Partial<CoupleGoal & { completionDateString?: string }>) => {
     if (!goalsRef || !user || !user.displayName) return;
+    
+    const { completionDateString, ...restData } = data;
+    const isCompleted = restData.progress === 100;
+
+    const dataToSave: Partial<CoupleGoal> = {
+        ...restData,
+        status: isCompleted ? 'Concluído' : 'Em andamento',
+    };
+
+    if (isCompleted) {
+        if (completionDateString) {
+            dataToSave.completionDate = Timestamp.fromDate(new Date(completionDateString + 'T00:00:00'));
+        } else if (!editingGoal?.completionDate) {
+            dataToSave.completionDate = serverTimestamp() as Timestamp;
+        }
+    } else {
+        dataToSave.completionDate = null;
+    }
 
     if (editingGoal) {
       const goalDoc = doc(goalsRef, editingGoal.id);
-      await updateDoc(goalDoc, {
-        ...data,
-        status: (data.progress || 0) === 100 ? 'Concluído' : 'Em andamento',
-      });
+      await updateDoc(goalDoc, dataToSave);
     } else {
       await addDoc(goalsRef, {
-        ...data,
-        status: (data.progress || 0) === 100 ? 'Concluído' : 'Em andamento',
+        ...dataToSave,
         author: {
             uid: user.uid,
             displayName: user.displayName,
@@ -198,7 +230,7 @@ export default function GoalsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onSelect={() => setGoalToEdit(goal)}>Editar</DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => handleOpenDialog(goal)}>Editar</DropdownMenuItem>
                           <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(goal.id)}>Deletar</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -212,6 +244,12 @@ export default function GoalsPage() {
                   <span className="text-sm font-semibold">{goal.progress}%</span>
                 </div>
                 <Progress value={goal.progress} />
+                 {goal.status === 'Concluído' && goal.completionDate && (
+                    <div className="text-sm text-emerald-600 mt-2 flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4" />
+                      <span>Concluído em {format(goal.completionDate.toDate(), "dd 'de' MMMM, yyyy", { locale: ptBR })}</span>
+                    </div>
+                  )}
               </CardContent>
               <CardFooter className="flex justify-between items-center">
                 <Badge variant={goal.status === 'Concluído' ? 'secondary' : 'outline'}>{goal.status}</Badge>

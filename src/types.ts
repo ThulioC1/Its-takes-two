@@ -61,6 +61,7 @@ export interface CoupleGoal {
     status: 'Em andamento' | 'Concluído';
     type: string;
     author: Author;
+    completionDate?: Timestamp | null;
 }
 
 export interface Memory {
