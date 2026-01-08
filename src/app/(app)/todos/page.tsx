@@ -119,28 +119,6 @@ export default function TodosPage() {
     setIsDialogOpen(false);
   }
 
-  const createNotification = async (data: Partial<ToDoItem>) => {
-    if (!firestore || !coupleId || !user || !user.displayName || !coupleDetails) return;
-    
-    const partnerId = coupleDetails.memberIds?.find((id: string) => id !== user.uid);
-    if (!partnerId) return;
-
-    const notificationsRef = collection(firestore, `couples/${coupleId}/notifications`);
-    await addDoc(notificationsRef, {
-        recipientId: partnerId,
-        actor: {
-            uid: user.uid,
-            displayName: user.displayName,
-            photoURL: user.photoURL || null
-        },
-        type: 'todo',
-        text: `${user.displayName} adicionou uma nova tarefa: "${data.title}"`,
-        link: `/todos`,
-        read: false,
-        createdAt: serverTimestamp(),
-    });
-  }
-
   const handleSaveTodo = async (data: Partial<ToDoItem & { dueDateString?: string }>) => {
     if (!todosRef || !user || !user.displayName) return;
 
@@ -165,7 +143,6 @@ export default function TodosPage() {
           photoURL: user.photoURL,
         }
       });
-      await createNotification(data);
     }
     handleCloseDialog();
   };
@@ -299,3 +276,5 @@ export default function TodosPage() {
     </div>
   );
 }
+
+    

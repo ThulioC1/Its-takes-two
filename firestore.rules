@@ -63,21 +63,8 @@ service cloud.firestore {
       match /goals/{goalId} {
         allow read, write: if isMemberOfCouple(coupleId);
       }
-      
-      match /notifications/{notificationId} {
-        // A user can query for their own notifications. This rule enforces that the query
-        // MUST include a `where('recipientId', '==', request.auth.uid)` clause.
-        allow list: if isMemberOfCouple(coupleId) && request.query.where.recipientId == request.auth.uid;
-        
-        // A user can get or update a notification intended for them.
-        allow get, update: if isMemberOfCouple(coupleId) && resource.data.recipientId == request.auth.uid;
-        
-        // A user can create a notification for their partner
-        allow create: if isMemberOfCouple(coupleId) && request.resource.data.actor.uid == request.auth.uid;
-
-        // Notifications cannot be deleted by clients
-        allow delete: if false;
-      }
     }
   }
 }
+
+    

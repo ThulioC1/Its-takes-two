@@ -125,13 +125,4 @@ export interface Game {
     author: Author;
 }
 
-export interface Notification {
-    id: string;
-    recipientId: string;
-    actor: Author;
-    type: 'like' | 'comment' | 'post' | 'todo';
-    text: string;
-    link: string;
-    read: boolean;
-    createdAt: Timestamp;
-}
+    

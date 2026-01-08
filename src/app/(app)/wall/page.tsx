@@ -57,12 +57,6 @@ function CommentSheet({ post, open, onOpenChange }: { post: Post | null; open: b
     const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
     const coupleId = userProfile?.coupleId;
 
-    const coupleDocRef = useMemoFirebase(() => {
-        if (!firestore || !coupleId) return null;
-        return doc(firestore, 'couples', coupleId);
-    }, [firestore, coupleId]);
-    const { data: coupleDetails } = useDoc<any>(coupleDocRef);
-
     const commentsRef = useMemoFirebase(() => {
         if (!firestore || !coupleId || !post) return null;
         return collection(firestore, 'couples', coupleId, 'posts', post.id, 'comments');
@@ -75,20 +69,6 @@ function CommentSheet({ post, open, onOpenChange }: { post: Post | null; open: b
         return [...comments].sort((a, b) => (a.dateTime?.toDate?.().getTime() || 0) - (b.dateTime?.toDate?.().getTime() || 0));
     }, [comments]);
     
-    const createNotification = async (partnerId: string, commentText: string) => {
-        if (!firestore || !coupleId || !user || !user.displayName) return;
-        const notificationsRef = collection(firestore, `couples/${coupleId}/notifications`);
-        await addDoc(notificationsRef, {
-            recipientId: partnerId,
-            actor: { uid: user.uid, displayName: user.displayName, photoURL: user.photoURL || null },
-            type: 'comment',
-            text: `${user.displayName} comentou: "${commentText.substring(0, 50)}${commentText.length > 50 ? '...' : ''}"`,
-            link: `/wall#post-${post?.id}`,
-            read: false,
-            createdAt: serverTimestamp(),
-        });
-    };
-
     const handleAddComment = async () => {
         if (!newComment.trim() || !commentsRef || !user || !user.displayName || !post) return;
 
@@ -108,13 +88,6 @@ function CommentSheet({ post, open, onOpenChange }: { post: Post | null; open: b
         const postRef = doc(firestore!, 'couples', coupleId!, 'posts', post.id);
         await updateDoc(postRef, { comments: increment(1) });
         
-        const partnerId = coupleDetails?.memberIds?.find((id: string) => id !== user.uid);
-        if(partnerId && user.uid !== post.author.uid) {
-            await createNotification(post.author.uid, newComment);
-        } else if (partnerId) {
-             await createNotification(partnerId, newComment);
-        }
-
         setNewComment('');
     };
 
@@ -195,12 +168,6 @@ export default function WallPage() {
     const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
     const coupleId = userProfile?.coupleId;
 
-    const coupleDocRef = useMemoFirebase(() => {
-        if (!firestore || !coupleId) return null;
-        return doc(firestore, 'couples', coupleId);
-    }, [firestore, coupleId]);
-    const { data: coupleDetails } = useDoc<any>(coupleDocRef);
-
     const postsRef = useMemoFirebase(() => {
         if (!firestore || !coupleId) return null;
         return collection(firestore, 'couples', coupleId, 'posts');
@@ -239,20 +206,6 @@ export default function WallPage() {
         await updateDoc(postDoc, { text: content });
         handleClosePostDialog();
     };
-
-    const createNotification = async (partnerId: string, text: string) => {
-        if (!firestore || !coupleId || !user || !user.displayName) return;
-        const notificationsRef = collection(firestore, `couples/${coupleId}/notifications`);
-        await addDoc(notificationsRef, {
-            recipientId: partnerId,
-            actor: { uid: user.uid, displayName: user.displayName, photoURL: user.photoURL || null },
-            type: 'post',
-            text: text,
-            link: `/wall`,
-            read: false,
-            createdAt: serverTimestamp(),
-        });
-    };
     
     const handlePublish = async () => {
         if (newPostContent.trim() && postsRef && user && user.displayName) {
@@ -269,11 +222,6 @@ export default function WallPage() {
                 }
             });
 
-            const partnerId = coupleDetails?.memberIds?.find((id: string) => id !== user.uid);
-            if (partnerId) {
-                await createNotification(partnerId, `${user.displayName} fez uma nova publicação.`);
-            }
-
             setNewPostContent('');
         }
     };
@@ -286,27 +234,13 @@ export default function WallPage() {
     };
 
     const handleLike = async (post: Post) => {
-        if (!postsRef || !user || !user.displayName) return;
+        if (!postsRef || !user) return;
         const postDoc = doc(postsRef, post.id);
         const hasLiked = post.likes.includes(user.uid);
         
         await updateDoc(postDoc, {
             likes: hasLiked ? arrayRemove(user.uid) : arrayUnion(user.uid)
         });
-
-        if (!hasLiked && post.author.uid !== user.uid) {
-            const partnerId = post.author.uid;
-            const notificationsRef = collection(firestore!, `couples/${coupleId}/notifications`);
-            await addDoc(notificationsRef, {
-                recipientId: partnerId,
-                actor: { uid: user.uid, displayName: user.displayName, photoURL: user.photoURL || null },
-                type: 'like',
-                text: `${user.displayName} curtiu sua publicação.`,
-                link: `/wall#post-${post.id}`,
-                read: false,
-                createdAt: serverTimestamp(),
-            });
-        }
     }
 
   return (
@@ -407,3 +341,5 @@ export default function WallPage() {
     </div>
   );
 }
+
+    
