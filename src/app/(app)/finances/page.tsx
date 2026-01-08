@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlusCircle, MoreHorizontal, TrendingDown, CircleDollarSign } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 import { PieChart, Pie, Cell } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -363,7 +363,7 @@ export default function FinancesPage() {
             <CardTitle>Despesas por Categoria</CardTitle>
             <CardDescription>Mês Atual</CardDescription>
           </CardHeader>
-          <CardContent className="flex items-center justify-center">
+          <CardContent className="flex flex-col items-center justify-center">
              {chartData.length > 0 ? (
                 <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[250px]">
                     <PieChart>
@@ -373,6 +373,7 @@ export default function FinancesPage() {
                                 <Cell key={`cell-${entry.name}`} fill={entry.fill} />
                             ))}
                         </Pie>
+                        <ChartLegend content={<ChartLegendContent />} />
                     </PieChart>
                 </ChartContainer>
              ) : (
