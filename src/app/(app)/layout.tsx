@@ -15,6 +15,7 @@ import {
   Users,
   User,
   Gamepad2,
+  Heart,
 } from "lucide-react"
 
 import {
@@ -29,7 +30,6 @@ import {
   SidebarTrigger,
   SidebarInset,
 } from "@/components/ui/sidebar"
-import { Icons } from "@/components/icons"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { useAuth, useUser } from "@/firebase"
@@ -93,7 +93,7 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
         <Sidebar>
           <SidebarHeader>
             <div className="flex items-center gap-2">
-              <Icons.logo className="size-7 text-primary" />
+              <Heart className="size-7 text-primary" />
               <span className="text-lg font-semibold font-headline">It Takes Two</span>
             </div>
           </SidebarHeader>
@@ -103,8 +103,8 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton asChild tooltip={item.label} isActive={pathname === item.href}>
                     <Link href={item.href}>
-                        <item.icon />
-                        <span>{item.label}</span>
+                      <item.icon />
+                      <span>{item.label}</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
