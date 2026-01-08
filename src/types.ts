@@ -91,6 +91,15 @@ export interface Post {
     author: Author;
 }
 
+export interface Comment {
+    id: string;
+    postId: string;
+    text: string;
+    dateTime: Timestamp;
+    author: Author;
+}
+
+
 export interface MovieSeries {
     id: string;
     name: string;

@@ -44,8 +44,9 @@ service cloud.firestore {
 
         match /comments/{commentId} {
           allow read, list: if isMemberOfCouple(coupleId);
-          allow create: if isMemberOfCouple(coupleId) && request.resource.data.userId == request.auth.uid;
-          allow update, delete: if isMemberOfCouple(coupleId) && resource.data.userId == request.auth.uid;
+          allow create: if isMemberOfCouple(coupleId) && request.resource.data.author.uid == request.auth.uid;
+          allow delete: if isMemberOfCouple(coupleId) && resource.data.author.uid == request.auth.uid;
+          allow update: if false;
         }
       }
 
