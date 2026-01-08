@@ -236,9 +236,6 @@ export default function DatesPage() {
   const handleCloseDialog = () => {
     setEditingDate(null);
     setIsDialogOpen(false);
-    if (editingDate) {
-        window.location.reload();
-    }
   }
 
   const handleSaveDate = async (data: Partial<ImportantDate>) => {
