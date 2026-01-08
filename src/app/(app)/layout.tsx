@@ -101,8 +101,10 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton asChild tooltip={item.label}>
                     <Link href={item.href}>
-                      <item.icon />
-                      <span>{item.label}</span>
+                      <div className="flex gap-2 items-center">
+                        <item.icon />
+                        <span>{item.label}</span>
+                      </div>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
