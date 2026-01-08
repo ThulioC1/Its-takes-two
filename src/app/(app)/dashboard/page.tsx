@@ -165,7 +165,6 @@ function CoupleLinker() {
 export default function DashboardPage() {
   const firestore = useFirestore();
   const { user } = useUser();
-  const [coupleMembers, setCoupleMembers] = useState<UserProfile[]>([]);
   
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -183,32 +182,6 @@ export default function DashboardPage() {
     return doc(firestore, 'couples', coupleId);
   }, [firestore, coupleId]);
   const { data: coupleDetails } = useDoc<CoupleDetails>(coupleDocRef);
-
-   useEffect(() => {
-    if (userProfile && !isLinked) {
-      setCoupleMembers([userProfile]);
-    }
-    
-    const fetchCoupleMembers = async () => {
-      if (!firestore || !coupleDetails || !coupleDetails.memberIds) {
-          if (userProfile) setCoupleMembers([userProfile]);
-          return;
-      }
-      
-      try {
-        const memberIds = coupleDetails.memberIds;
-        const memberPromises = memberIds.map(id => getDoc(doc(firestore, 'users', id)));
-        const memberDocs = await Promise.all(memberPromises);
-        const members = memberDocs.map(snap => snap.data() as UserProfile).filter(Boolean);
-        setCoupleMembers(members);
-      } catch (error) {
-        console.error("Error fetching couple members:", error);
-        if (userProfile) setCoupleMembers([userProfile]); // Fallback on error
-      }
-    };
-
-    fetchCoupleMembers();
-  }, [firestore, coupleDetails, userProfile, isLinked]);
 
   const datesRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
@@ -336,7 +309,7 @@ export default function DashboardPage() {
           <div className="p-6 rounded-xl bg-card border shadow-sm">
             <div className="text-center">
               <h1 className="text-3xl md:text-4xl font-bold font-headline">
-                {coupleMembers.map(m => m.displayName).join(' & ')}
+                Bem vindo, {user?.displayName}
               </h1>
               {daysTogether !== null && (
                 <div className="mt-4">
