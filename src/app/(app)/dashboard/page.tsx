@@ -309,7 +309,7 @@ export default function DashboardPage() {
           <div className="p-6 rounded-xl bg-card border shadow-sm">
             <div className="text-center">
               <h1 className="text-3xl md:text-4xl font-bold font-headline">
-                Bem vindo, {user?.displayName}
+                Bem vindo, {user?.displayName}!
               </h1>
               {daysTogether !== null && (
                 <div className="mt-4">
