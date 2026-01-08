@@ -1,6 +1,6 @@
 'use client';
 import { useState, useMemo, useEffect } from 'react';
-import { isValid, format } from 'date-fns';
+import { isValid, format, isPast, startOfToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import type { ImportantDate, UserProfile } from "@/types";
@@ -32,7 +33,7 @@ const repeatOptions = {
     'yearly': 'Anualmente'
 }
 
-function Countdown({ date }: { date: string }) {
+function Countdown({ date, repeat }: { date: string, repeat?: 'none' | 'monthly' | 'yearly' }) {
     const [countdownText, setCountdownText] = useState('');
 
     const daysLeft = useMemo(() => {
@@ -41,13 +42,27 @@ function Countdown({ date }: { date: string }) {
         const targetDate = new Date(date + 'T00:00:00');
         if (!isValid(targetDate)) return null;
         
-        const today = new Date();
-        targetDate.setHours(0,0,0,0);
-        today.setHours(0,0,0,0);
+        const today = startOfToday();
         
-        const diffTime = targetDate.getTime() - today.getTime();
+        let nextOccurrence = new Date(targetDate);
+        if (repeat === 'yearly') {
+            nextOccurrence.setFullYear(today.getFullYear());
+            if (nextOccurrence < today) {
+                nextOccurrence.setFullYear(today.getFullYear() + 1);
+            }
+        } else if (repeat === 'monthly') {
+            const currentDay = targetDate.getDate();
+            nextOccurrence = new Date(today.getFullYear(), today.getMonth(), currentDay);
+            if (nextOccurrence < today) {
+                nextOccurrence.setMonth(today.getMonth() + 1);
+            }
+        }
+        
+        const diffTime = nextOccurrence.getTime() - today.getTime();
+        if (diffTime < 0 && repeat === 'none') return -1;
+
         return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    }, [date]);
+    }, [date, repeat]);
 
     useEffect(() => {
         if (daysLeft === null) {
@@ -176,16 +191,41 @@ export default function DatesPage() {
 
   const { data: importantDates, isLoading } = useCollection<ImportantDate>(datesRef);
 
-  const sortedDates = useMemo(() => {
-    if (!importantDates) return [];
-    return [...importantDates].sort((a, b) => {
-        if (!a.date || !b.date) return 0;
-        // The date is 'YYYY-MM-DD'. Add T00:00:00 to treat it as local time.
-        const dateA = new Date(a.date + 'T00:00:00');
-        const dateB = new Date(b.date + 'T00:00:00');
-        if (!isValid(dateA) || !isValid(dateB)) return 0;
-        return dateA.getTime() - dateB.getTime();
-    });
+  const { upcomingDates, pastDates } = useMemo(() => {
+    if (!importantDates) return { upcomingDates: [], pastDates: [] };
+    const today = startOfToday();
+    
+    const allDates = importantDates.map(d => {
+        if (!d.date) return null;
+        const baseDate = new Date(d.date + 'T00:00:00');
+        if (!isValid(baseDate)) return null;
+
+        let nextOccurrence = new Date(baseDate);
+        if (d.repeat === 'yearly') {
+            nextOccurrence.setFullYear(today.getFullYear());
+            if (nextOccurrence < today) {
+                nextOccurrence.setFullYear(today.getFullYear() + 1);
+            }
+        } else if (d.repeat === 'monthly') {
+            const currentDay = baseDate.getDate();
+            nextOccurrence = new Date(today.getFullYear(), today.getMonth(), currentDay);
+            if (nextOccurrence < today) {
+                nextOccurrence.setMonth(today.getMonth() + 1);
+            }
+        }
+        
+        return { ...d, nextOccurrence, originalDate: baseDate };
+    }).filter((d): d is ImportantDate & { nextOccurrence: Date, originalDate: Date } => d !== null);
+
+    const upcoming = allDates
+        .filter(d => d.repeat !== 'none' || d.nextOccurrence >= today)
+        .sort((a, b) => a.nextOccurrence.getTime() - b.nextOccurrence.getTime());
+
+    const past = allDates
+        .filter(d => d.repeat === 'none' && d.nextOccurrence < today)
+        .sort((a, b) => b.originalDate.getTime() - a.originalDate.getTime());
+
+    return { upcomingDates: upcoming, pastDates: past };
   }, [importantDates]);
 
   const handleOpenDialog = (date: ImportantDate | null = null) => {
@@ -222,42 +262,16 @@ export default function DatesPage() {
     const dateDoc = doc(datesRef, id);
     await deleteDoc(dateDoc);
   };
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold font-headline">Datas Importantes</h1>
-          <p className="text-muted-foreground">Nunca mais esqueçam uma data especial.</p>
-        </div>
-        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog(null)} disabled={!coupleId}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Adicionar Data
-        </Button>
-      </div>
-      
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>{editingDate ? 'Editar Data' : 'Nova Data'}</DialogTitle>
-            </DialogHeader>
-            <DateForm 
-              date={editingDate}
-              onSave={handleSaveDate}
-              onCancel={handleCloseDialog}
-            />
-          </DialogContent>
-        </Dialog>
-      
-      {isLoading && <p className="text-center text-muted-foreground">Carregando datas...</p>}
-      {!isLoading && sortedDates?.length === 0 && <p className="text-center text-muted-foreground">Nenhuma data adicionada ainda.</p>}
-      <TooltipProvider>
+  
+  const renderDateList = (dates: (ImportantDate & { nextOccurrence?: Date, originalDate?: Date })[]) => {
+      if (dates.length === 0) {
+          return <p className="text-center text-muted-foreground pt-10">Nenhuma data aqui.</p>
+      }
+      return (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {sortedDates?.map(d => {
-            if (!d.date) return null;
-            // The date is 'YYYY-MM-DD'. Add T00:00:00 to treat it as local time.
-            const parsedDate = new Date(d.date + 'T00:00:00');
-            if (!isValid(parsedDate)) return null;
+          {dates.map(d => {
+            const parsedDate = d.originalDate ? d.originalDate : (d.date ? new Date(d.date + 'T00:00:00') : null);
+            if (!parsedDate || !isValid(parsedDate)) return null;
 
             return (
               <Card key={d.id} className="flex flex-col">
@@ -285,7 +299,11 @@ export default function DatesPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="flex-grow">
-                  <Countdown date={d.date} />
+                   {isPast(parsedDate) && d.repeat === 'none' ? (
+                       <p className="text-sm text-muted-foreground">Esta data já passou.</p>
+                   ) : (
+                       <Countdown date={d.date} repeat={d.repeat} />
+                   )}
                   {d.observation && (
                     <p className="text-sm text-foreground mt-2 pt-2 border-t">{d.observation}</p>
                   )}
@@ -317,7 +335,51 @@ export default function DatesPage() {
             );
           })}
         </div>
-      </TooltipProvider>
+      )
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold font-headline">Datas Importantes</h1>
+          <p className="text-muted-foreground">Nunca mais esqueçam uma data especial.</p>
+        </div>
+        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog(null)} disabled={!coupleId}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Adicionar Data
+        </Button>
+      </div>
+      
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editingDate ? 'Editar Data' : 'Nova Data'}</DialogTitle>
+            </DialogHeader>
+            <DateForm 
+              date={editingDate}
+              onSave={handleSaveDate}
+              onCancel={handleCloseDialog}
+            />
+          </DialogContent>
+        </Dialog>
+      
+      <Tabs defaultValue="upcoming">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="upcoming">Próximas</TabsTrigger>
+            <TabsTrigger value="history">Histórico</TabsTrigger>
+          </TabsList>
+          <TabsContent value="upcoming" className="mt-6">
+            <TooltipProvider>
+                {isLoading ? <p className="text-center text-muted-foreground">Carregando datas...</p> : renderDateList(upcomingDates)}
+            </TooltipProvider>
+          </TabsContent>
+          <TabsContent value="history" className="mt-6">
+            <TooltipProvider>
+                {isLoading ? <p className="text-center text-muted-foreground">Carregando histórico...</p> : renderDateList(pastDates)}
+            </TooltipProvider>
+          </TabsContent>
+      </Tabs>
     </div>
   );
 }
