@@ -18,8 +18,16 @@ import type { Expense, UserProfile, CoupleDetails } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import React from 'react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const categories = ['Alimentação', 'Lazer', 'Moradia', 'Transporte', 'Outros'];
+
+const months: { [key: string]: string } = {
+  '1': 'Janeiro', '2': 'Fevereiro', '3': 'Março', '4': 'Abril', '5': 'Maio', '6': 'Junho',
+  '7': 'Julho', '8': 'Agosto', '9': 'Setembro', '10': 'Outubro', '11': 'Novembro', '12': 'Dezembro'
+};
+
 
 const chartConfig = {
   value: { label: "Valor" },
@@ -34,7 +42,6 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
   
   const [payer, setPayer] = useState(() => {
     if (!expense?.payer) return '';
-    // Check if the payer is a UID, and if so, find the display name
     const member = coupleMembers.find(m => m.uid === expense.payer);
     return member ? member.displayName : expense.payer;
   });
@@ -55,7 +62,7 @@ function ExpenseForm({ expense, onSave, onCancel, coupleMembers }: { expense?: E
     const data: Partial<Expense> = {
       category: formData.get('category') as string,
       value: valueInput ? parseFloat(valueInput.replace(',', '.')) : 0,
-      payer: payer, // The state `payer` now holds the display name
+      payer: payer,
       observation: formData.get('observation') as string,
     };
     onSave(data);
@@ -98,6 +105,8 @@ export default function FinancesPage() {
   const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [coupleMembers, setCoupleMembers] = useState<UserProfile[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState<string>('all');
+  const [selectedYear, setSelectedYear] = useState<string>('all');
   
   const firestore = useFirestore();
   const { user } = useUser();
@@ -153,15 +162,32 @@ export default function FinancesPage() {
     }, {} as Record<string, string>);
   }, [coupleMembers]);
 
+  const availableYears = useMemo(() => {
+    if (!expenses) return [];
+    const years = new Set(expenses.map(e => format(e.date.toDate(), 'yyyy')));
+    return Array.from(years).sort((a,b) => b.localeCompare(a));
+  }, [expenses]);
+  
+  const filteredExpenses = useMemo(() => {
+    if (!expenses) return [];
+    return expenses.filter(expense => {
+      const date = expense.date.toDate();
+      const month = (date.getMonth() + 1).toString();
+      const year = date.getFullYear().toString();
+      const isMonthMatch = selectedMonth === 'all' || month === selectedMonth;
+      const isYearMatch = selectedYear === 'all' || year === selectedYear;
+      return isMonthMatch && isYearMatch;
+    });
+  }, [expenses, selectedMonth, selectedYear]);
 
   const sortedExpenses = useMemo(() => {
-    if (!expenses) return [];
-    return [...expenses].sort((a, b) => {
+    if (!filteredExpenses) return [];
+    return [...filteredExpenses].sort((a, b) => {
         const timeA = a.date?.toDate?.()?.getTime() || 0;
         const timeB = b.date?.toDate?.()?.getTime() || 0;
         return timeB - timeA;
     });
-  }, [expenses]);
+  }, [filteredExpenses]);
 
   const totalExpenses = useMemo(() => sortedExpenses.reduce((acc, expense) => acc + expense.value, 0), [sortedExpenses]);
 
@@ -211,7 +237,6 @@ export default function FinancesPage() {
   const handleSaveExpense = async (data: Partial<Expense>) => {
     if (!expensesRef || !user || !user.displayName) return;
     
-    // Check if payer name matches a couple member, if so, use UID
     const payerName = data.payer || '';
     const payingMember = coupleMembers.find(m => m.displayName.toLowerCase() === payerName.toLowerCase());
     const payerValue = payingMember ? payingMember.uid : payerName;
@@ -248,10 +273,34 @@ export default function FinancesPage() {
           <h1 className="text-3xl font-bold font-headline">Finanças do Casal</h1>
           <p className="text-muted-foreground">Controle de despesas compartilhadas.</p>
         </div>
-        <Button className="w-full sm:w-auto" onClick={() => handleOpenExpenseDialog(null)} disabled={!coupleId}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Adicionar Despesa
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <Select value={selectedYear} onValueChange={setSelectedYear}>
+              <SelectTrigger className="w-full sm:w-[120px]">
+                  <SelectValue placeholder="Ano" />
+              </SelectTrigger>
+              <SelectContent>
+                  <SelectItem value="all">Todos os anos</SelectItem>
+                  {availableYears.map(year => (
+                    <SelectItem key={year} value={year}>{year}</SelectItem>
+                  ))}
+              </SelectContent>
+          </Select>
+          <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger className="w-full sm:w-[160px]">
+                  <SelectValue placeholder="Mês" />
+              </SelectTrigger>
+              <SelectContent>
+                  <SelectItem value="all">Todos os meses</SelectItem>
+                  {Object.entries(months).map(([num, name]) => (
+                    <SelectItem key={num} value={num}>{name}</SelectItem>
+                  ))}
+              </SelectContent>
+          </Select>
+          <Button className="w-full sm:w-auto" onClick={() => handleOpenExpenseDialog(null)} disabled={!coupleId}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Adicionar Despesa
+          </Button>
+        </div>
       </div>
 
       <Dialog open={isExpenseDialogOpen} onOpenChange={setIsExpenseDialogOpen}>
@@ -271,17 +320,21 @@ export default function FinancesPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total de Despesas (Mês)</CardTitle>
+                <CardTitle className="text-sm font-medium">Total de Despesas (Período)</CardTitle>
                 <TrendingDown className="h-4 w-4 text-destructive" />
             </CardHeader>
             <CardContent>
                 <div className="text-2xl font-bold">R$ {totalExpenses.toFixed(2).replace('.', ',')}</div>
-                <p className="text-xs text-muted-foreground">Atualizado agora</p>
+                <p className="text-xs text-muted-foreground">
+                  {selectedMonth === 'all' && selectedYear === 'all' ? 'Total' : 
+                   `Período de ${selectedMonth !== 'all' ? months[selectedMonth] + ' ' : ''}${selectedYear !== 'all' ? selectedYear : ''}`.trim()
+                  }
+                </p>
             </CardContent>
         </Card>
         <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Quem pagou mais</CardTitle>
+                <CardTitle className="text-sm font-medium">Quem mais gastou (Período)</CardTitle>
                  <CircleDollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -294,11 +347,11 @@ export default function FinancesPage() {
       <div className="grid gap-6 lg:grid-cols-5">
         <Card className="lg:col-span-3">
           <CardHeader>
-            <CardTitle>Despesas Recentes</CardTitle>
+            <CardTitle>Histórico de Despesas</CardTitle>
           </CardHeader>
           <CardContent className="overflow-x-auto">
             {isLoading && <p className="text-center text-muted-foreground py-4">Carregando despesas...</p>}
-            {!isLoading && sortedExpenses?.length === 0 && <p className="text-center text-muted-foreground py-4">Nenhuma despesa adicionada.</p>}
+            {!isLoading && sortedExpenses?.length === 0 && <p className="text-center text-muted-foreground py-4">Nenhuma despesa encontrada para este período.</p>}
             {sortedExpenses.length > 0 && (
                 <TooltipProvider>
                 <Table>
@@ -361,7 +414,11 @@ export default function FinancesPage() {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Despesas por Categoria</CardTitle>
-            <CardDescription>Mês Atual</CardDescription>
+            <CardDescription>
+                {selectedMonth === 'all' && selectedYear === 'all' ? 'Total' : 
+                   `Período de ${selectedMonth !== 'all' ? months[selectedMonth] + ' ' : ''}${selectedYear !== 'all' ? selectedYear : ''}`.trim()
+                }
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center">
              {chartData.length > 0 ? (
