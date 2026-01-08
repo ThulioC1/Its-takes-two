@@ -8,23 +8,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useFirestore, useUser, useDoc, useMemoFirebase } from "@/firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, writeBatch, getDoc, deleteDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { updateProfile } from 'firebase/auth';
-import type { UserProfile } from '@/types';
+import type { UserProfile, CoupleDetails } from '@/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 
 const profileSchema = z.object({
   displayName: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
   photoURL: z.string().url("Por favor, insira uma URL válida.").or(z.literal('')),
   gender: z.enum(['Masculino', 'Feminino', 'Prefiro não informar']),
+  relationshipStartDate: z.string().optional(),
 });
 
 export default function ProfilePage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const [isUnlinking, setIsUnlinking] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -32,12 +35,22 @@ export default function ProfilePage() {
   }, [user, firestore]);
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
 
+  const coupleId = userProfile?.coupleId;
+  const isLinked = userProfile && user && userProfile.coupleId !== user.uid;
+
+  const coupleDocRef = useMemoFirebase(() => {
+    if (!firestore || !coupleId) return null;
+    return doc(firestore, 'couples', coupleId);
+  }, [firestore, coupleId]);
+  const { data: coupleDetails } = useDoc<CoupleDetails>(coupleDocRef);
+
   const form = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       displayName: '',
       photoURL: '',
       gender: 'Prefiro não informar',
+      relationshipStartDate: '',
     },
   });
 
@@ -47,9 +60,10 @@ export default function ProfilePage() {
         displayName: userProfile?.displayName || user?.displayName || '',
         photoURL: userProfile?.photoURL || user?.photoURL || '',
         gender: userProfile?.gender || 'Prefiro não informar',
+        relationshipStartDate: coupleDetails?.relationshipStartDate || '',
       });
     }
-  }, [user, userProfile, form]);
+  }, [user, userProfile, coupleDetails, form]);
 
 
   const onSubmit = async (values: z.infer<typeof profileSchema>) => {
@@ -70,12 +84,23 @@ export default function ProfilePage() {
       });
 
       // Update Firestore user profile document
+      const batch = writeBatch(firestore);
+      
       const userDocRef = doc(firestore, 'users', user.uid);
-      await updateDoc(userDocRef, {
+      batch.update(userDocRef, {
         displayName: values.displayName,
         photoURL: values.photoURL,
         gender: values.gender,
       });
+
+      // Update relationship start date in couple document
+      if (coupleDocRef && values.relationshipStartDate) {
+        batch.update(coupleDocRef, {
+            relationshipStartDate: values.relationshipStartDate,
+        });
+      }
+      
+      await batch.commit();
       
       toast({
         title: "Perfil atualizado!",
@@ -91,6 +116,48 @@ export default function ProfilePage() {
       });
     }
   };
+
+  const handleUnlink = async () => {
+    if (!isLinked || !user || !firestore || !coupleId || !coupleDetails) return;
+
+    setIsUnlinking(true);
+    try {
+      const batch = writeBatch(firestore);
+
+      // Reset current user's coupleId
+      const currentUserRef = doc(firestore, 'users', user.uid);
+      batch.update(currentUserRef, { coupleId: user.uid });
+
+      // Find and reset partner's coupleId
+      const partnerId = coupleDetails.memberIds.find(id => id !== user.uid);
+      if (partnerId) {
+        const partnerRef = doc(firestore, 'users', partnerId);
+        batch.update(partnerRef, { coupleId: partnerId });
+      }
+
+      // Delete the couple document
+      const coupleDocToDeleteRef = doc(firestore, 'couples', coupleId);
+      batch.delete(coupleDocToDeleteRef);
+
+      await batch.commit();
+
+      toast({
+        title: "Contas desvinculadas",
+        description: "A conexão foi removida. A página será recarregada.",
+      });
+
+      setTimeout(() => window.location.reload(), 2000);
+
+    } catch (error: any) {
+      console.error("Error unlinking accounts: ", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao desvincular",
+        description: error.message || "Não foi possível remover a conexão.",
+      });
+      setIsUnlinking(false);
+    }
+  }
   
   const photoUrl = form.watch('photoURL');
 
@@ -152,7 +219,7 @@ export default function ProfilePage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Gênero</FormLabel>
-                     <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione seu gênero" />
@@ -168,6 +235,21 @@ export default function ProfilePage() {
                   </FormItem>
                 )}
               />
+                
+              <FormField
+                  control={form.control}
+                  name="relationshipStartDate"
+                  render={({ field }) => (
+                      <FormItem>
+                          <FormLabel>Início do Relacionamento</FormLabel>
+                          <FormControl>
+                              <Input type="date" {...field} disabled={!isLinked} />
+                          </FormControl>
+                           <FormMessage />
+                      </FormItem>
+                  )}
+              />
+
 
               <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
@@ -176,6 +258,38 @@ export default function ProfilePage() {
           </Form>
         </CardContent>
       </Card>
+      {isLinked && (
+          <Card className="max-w-2xl border-destructive">
+            <CardHeader>
+                <CardTitle>Zona de Perigo</CardTitle>
+                <CardDescription>Ações irreversíveis que afetam sua conta de casal.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="destructive" disabled={isUnlinking}>
+                            {isUnlinking ? 'Desvinculando...' : 'Desvincular do parceiro(a)'}
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Você tem certeza absoluta?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Esta ação é irreversível. Isso irá desvincular permanentemente sua conta da do seu parceiro e deletar todos os dados compartilhados (tarefas, finanças, memórias, etc.).
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleUnlink}>Sim, desvincular</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+                <p className="text-sm text-muted-foreground mt-2">
+                    Ao desvincular, todos os dados compartilhados serão perdidos. Suas contas individuais serão preservadas, mas a conexão entre elas será removida.
+                </p>
+            </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
