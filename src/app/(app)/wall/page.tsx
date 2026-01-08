@@ -123,7 +123,7 @@ function CommentSheet({ post, open, onOpenChange }: { post: Post | null; open: b
                                         <div className="flex items-center justify-between">
                                             <p className="font-semibold text-sm">{comment.author.displayName}</p>
                                             <span className="text-xs text-muted-foreground">
-                                                {formatDistanceToNow(comment.dateTime.toDate(), { locale: ptBR, addSuffix: true })}
+                                                {comment.dateTime ? formatDistanceToNow(comment.dateTime.toDate(), { locale: ptBR, addSuffix: true }) : 'agora mesmo'}
                                             </span>
                                         </div>
                                         <p className="text-sm">{comment.text}</p>
