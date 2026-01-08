@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Card,
@@ -241,7 +241,8 @@ export default function DashboardPage() {
         const startDate = new Date(coupleDetails.relationshipStartDate + 'T00:00:00');
         today.setHours(0, 0, 0, 0);
         startDate.setHours(0, 0, 0, 0);
-        const diffDays = differenceInCalendarDays(today, startDate);
+        const diffTime = today.getTime() - startDate.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         return diffDays;
     } catch {
       return null;
@@ -467,5 +468,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    

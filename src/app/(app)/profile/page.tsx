@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useFirestore, useUser, useDoc, useMemoFirebase } from "@/firebase";
-import { doc, updateDoc, writeBatch, getDoc, deleteDoc } from "firebase/firestore";
+import { doc, updateDoc, writeBatch, deleteDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { updateProfile } from 'firebase/auth';
 import type { UserProfile, CoupleDetails } from '@/types';
@@ -20,7 +20,6 @@ const profileSchema = z.object({
   displayName: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
   photoURL: z.string().url("Por favor, insira uma URL válida.").or(z.literal('')),
   gender: z.enum(['Masculino', 'Feminino', 'Prefiro não informar']),
-  relationshipStartDate: z.string().optional(),
 });
 
 export default function ProfilePage() {
@@ -50,7 +49,6 @@ export default function ProfilePage() {
       displayName: '',
       photoURL: '',
       gender: 'Prefiro não informar',
-      relationshipStartDate: '',
     },
   });
 
@@ -60,10 +58,9 @@ export default function ProfilePage() {
         displayName: userProfile?.displayName || user?.displayName || '',
         photoURL: userProfile?.photoURL || user?.photoURL || '',
         gender: userProfile?.gender || 'Prefiro não informar',
-        relationshipStartDate: coupleDetails?.relationshipStartDate || '',
       });
     }
-  }, [user, userProfile, coupleDetails, form]);
+  }, [user, userProfile, form]);
 
 
   const onSubmit = async (values: z.infer<typeof profileSchema>) => {
@@ -92,13 +89,6 @@ export default function ProfilePage() {
         photoURL: values.photoURL,
         gender: values.gender,
       });
-
-      // Update relationship start date in couple document
-      if (coupleDocRef && values.relationshipStartDate) {
-        batch.update(coupleDocRef, {
-            relationshipStartDate: values.relationshipStartDate,
-        });
-      }
       
       await batch.commit();
       
@@ -235,21 +225,6 @@ export default function ProfilePage() {
                   </FormItem>
                 )}
               />
-                
-              <FormField
-                  control={form.control}
-                  name="relationshipStartDate"
-                  render={({ field }) => (
-                      <FormItem>
-                          <FormLabel>Início do Relacionamento</FormLabel>
-                          <FormControl>
-                              <Input type="date" {...field} disabled={!isLinked} />
-                          </FormControl>
-                           <FormMessage />
-                      </FormItem>
-                  )}
-              />
-
 
               <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? 'Salvando...' : 'Salvar Alterações'}
