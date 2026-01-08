@@ -17,13 +17,13 @@ import type { ToDoItem, UserProfile } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { format, isPast } from 'date-fns';
+import { format, isPast, isToday } from 'date-fns';
 
 function TodoForm({ todo, onSave, onCancel }: { todo?: ToDoItem; onSave: (data: Partial<ToDoItem & { dueDateString?: string }>) => void; onCancel: () => void; }) {
   const [dueDate, setDueDate] = useState<string>('');
 
   useEffect(() => {
-    if (todo?.dueDate) {
+    if (todo?.dueDate && todo.dueDate.toDate) {
       setDueDate(format(todo.dueDate.toDate(), 'yyyy-MM-dd'));
     } else {
       setDueDate('');
@@ -172,8 +172,14 @@ export default function TodosPage() {
     if (todo.status === 'Concluído') {
       return { label: 'Concluído', variant: 'secondary' as const, className: '' };
     }
-    if (todo.dueDate && isPast(todo.dueDate.toDate())) {
-      return { label: 'Vencido', variant: 'destructive' as const, className: '' };
+    if (todo.dueDate && todo.dueDate.toDate) {
+      const dueDate = todo.dueDate.toDate();
+      if (isToday(dueDate)) {
+        return { label: 'Vence hoje', variant: 'default' as const, className: 'bg-amber-500/20 text-amber-600 border-amber-500/20 hover:bg-amber-500/30' };
+      }
+      if (isPast(dueDate)) {
+        return { label: 'Vencido', variant: 'destructive' as const, className: '' };
+      }
     }
     return { label: 'No prazo', variant: 'default' as const, className: 'bg-primary/20 text-primary-foreground border-primary/20' };
   };
@@ -220,7 +226,7 @@ export default function TodosPage() {
                         {todo.title}
                       </label>
                       {todo.description && <p className="text-sm text-muted-foreground">{todo.description}</p>}
-                      {todo.dueDate && (
+                      {todo.dueDate && todo.dueDate.toDate && (
                         <p className={cn("text-xs", statusInfo.variant === 'destructive' ? 'text-destructive' : 'text-muted-foreground')}>
                           Vence em: {format(todo.dueDate.toDate(), 'dd/MM/yyyy')}
                         </p>
@@ -264,3 +270,5 @@ export default function TodosPage() {
     </div>
   );
 }
+
+    

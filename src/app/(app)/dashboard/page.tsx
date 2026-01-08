@@ -262,7 +262,8 @@ export default function DashboardPage() {
             
             if (parsedDate < today) return null;
 
-            const diffDays = differenceInCalendarDays(parsedDate, today);
+            const diffTime = parsedDate.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
             return {...d, daysLeft: diffDays};
         } catch (error) {
@@ -331,7 +332,7 @@ export default function DashboardPage() {
         </>
       )}
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Link href="/dates" className="flex">
             <Card className="lg:col-span-1 w-full hover:border-primary/50 transition-colors">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -392,7 +393,7 @@ export default function DashboardPage() {
         </Link>
         
         <Link href="/wall" className="flex">
-            <Card className="lg:col-span-1 w-full hover:border-primary/50 transition-colors">
+            <Card className="md:col-span-2 lg:col-span-1 w-full hover:border-primary/50 transition-colors">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-lg font-medium font-headline">
                 Mural do Casal
@@ -466,3 +467,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
