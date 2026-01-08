@@ -27,7 +27,6 @@ import {
   SidebarFooter,
   SidebarTrigger,
   SidebarInset,
-  useSidebar,
 } from "@/components/ui/sidebar"
 import { Icons } from "@/components/icons"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -35,18 +34,19 @@ import { Button } from "@/components/ui/button"
 import { useAuth, useUser } from "@/firebase"
 import { signOut } from "firebase/auth"
 import { Separator } from "@/components/ui/separator"
+import { BottomNavigation } from "@/components/ui/bottom-navigation"
 
-const navItems = [
+export const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Painel" },
-  { href: "/todos", icon: ListTodo, label: "Lista de Tarefas" },
-  { href: "/finances", icon: CircleDollarSign, label: "Finanças do Casal" },
-  { href: "/watchlist", icon: Clapperboard, label: "Filmes & Séries" },
+  { href: "/todos", icon: ListTodo, label: "Tarefas" },
+  { href: "/finances", icon: CircleDollarSign, label: "Finanças" },
+  { href: "/watchlist", icon: Clapperboard, label: "Filmes" },
   { href: "/games", icon: Gamepad2, label: "Jogos" },
-  { href: "/dates", icon: CalendarHeart, label: "Datas Importantes" },
-  { href: "/wall", icon: Users, label: "Mural do Casal" },
-  { href: "/memories", icon: ImageIcon, label: "Álbum de Memórias" },
-  { href: "/messages", icon: Mail, label: "Cartas de Amor" },
-  { href: "/goals", icon: Goal, label: "Metas do Casal" },
+  { href: "/dates", icon: CalendarHeart, label: "Datas" },
+  { href: "/wall", icon: Users, label: "Mural" },
+  { href: "/memories", icon: ImageIcon, label: "Memórias" },
+  { href: "/messages", icon: Mail, label: "Cartas" },
+  { href: "/goals", icon: Goal, label: "Metas" },
   { href: "/profile", icon: User, label: "Perfil" },
 ]
 
@@ -87,42 +87,45 @@ function UserProfile() {
 export default function AppLayout({ children }: { children: React.React.Node }) {  
   return (
     <SidebarProvider>
-      <Sidebar>
-        <SidebarHeader>
-          <div className="flex items-center gap-2">
-            <Icons.logo className="size-7 text-primary" />
-            <span className="text-lg font-semibold font-headline">It Takes Two</span>
-          </div>
-        </SidebarHeader>
-        <SidebarContent>
-          <SidebarMenu>
-            {navItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton asChild tooltip={item.label}>
-                  <Link href={item.href}>
-                    <item.icon />
-                    <span>{item.label}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
-          </SidebarMenu>
-        </SidebarContent>
-        <SidebarFooter>
-            <UserProfile />
-        </SidebarFooter>
-      </Sidebar>
-      <SidebarInset>
-        <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6">
-            <SidebarTrigger className="md:hidden"/>
-            <div className="flex-1">
-                {/* Header content can go here, like a search bar */}
+      <div className="relative min-h-screen md:flex">
+        <Sidebar>
+          <SidebarHeader>
+            <div className="flex items-center gap-2">
+              <Icons.logo className="size-7 text-primary" />
+              <span className="text-lg font-semibold font-headline">It Takes Two</span>
             </div>
-        </header>
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
-            {children}
-        </main>
-      </SidebarInset>
+          </SidebarHeader>
+          <SidebarContent>
+            <SidebarMenu>
+              {navItems.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton asChild tooltip={item.label}>
+                    <Link href={item.href}>
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarContent>
+          <SidebarFooter>
+              <UserProfile />
+          </SidebarFooter>
+        </Sidebar>
+        <div className="flex-1">
+          <header className="sticky top-0 z-10 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm sm:h-16 sm:px-6 md:hidden">
+              <SidebarTrigger className="md:hidden"/>
+              <div className="flex-1">
+                  {/* Header content can go here, like a search bar */}
+              </div>
+          </header>
+          <main className="flex-1 overflow-y-auto p-4 sm:p-6 pb-24 md:pb-6">
+              {children}
+          </main>
+        </div>
+        <BottomNavigation navItems={navItems} />
+      </div>
     </SidebarProvider>
   )
 }
