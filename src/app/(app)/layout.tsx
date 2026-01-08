@@ -1,6 +1,7 @@
 'use client'
 
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import {
   CalendarHeart,
   CircleDollarSign,
@@ -85,6 +86,7 @@ function UserProfile() {
 }
 
 export default function AppLayout({ children }: { children: React.React.Node }) {  
+  const pathname = usePathname()
   return (
     <SidebarProvider>
       <div className="relative min-h-screen md:flex">
@@ -99,7 +101,7 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
             <SidebarMenu>
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild tooltip={item.label}>
+                  <SidebarMenuButton asChild tooltip={item.label} isActive={pathname === item.href}>
                     <Link href={item.href}>
                         <item.icon />
                         <span>{item.label}</span>

@@ -542,35 +542,38 @@ const SidebarMenuButton = React.forwardRef<
     const { isMobile, state } = useSidebar()
 
     const buttonContent = (
-      <div className="flex items-center gap-2">
-        {React.Children.map(children, (child, index) => {
-          if (React.isValidElement(child) && typeof child.type !== 'string' && child.type.displayName === 'Link') {
+      <>
+        {React.Children.map(children, (child) => {
+          if (!React.isValidElement(child)) return child
+          
+          // For Link component
+          if (typeof child.type !== 'string' && child.type.displayName?.includes('Link')) {
             const linkChildren = React.Children.toArray((child.props as any).children);
-            const icon = linkChildren.find((c: any) => c.props.lucideIcon);
-            const label = linkChildren.find((c: any) => !c.props.lucideIcon);
-            
-            return React.cloneElement(child, child.props, 
+            const icon = linkChildren.find((c: any) => c && c.props && Object.keys(c.props).length > 0 && !c.props.children);
+            const label = linkChildren.find((c: any) => c && c.props && c.props.children);
+             return React.cloneElement(child, child.props, (
               <>
                 {icon}
-                {state === 'expanded' && label}
+                <div className="group-data-[state=collapsed]:hidden">{label}</div>
               </>
-            );
+            ));
           }
-          if (React.isValidElement(child)) {
-             const grandChildren = React.Children.toArray((child.props as any).children);
-             const icon = grandChildren[0];
-             const label = grandChildren[1];
 
+          const grandChildren = React.Children.toArray((child.props as any).children);
+          if (grandChildren.length > 1) {
+            const icon = grandChildren[0];
+            const label = grandChildren[1];
             return (
               <>
                 {icon}
-                {state === 'expanded' && label}
+                <div className="group-data-[state=collapsed]:hidden">{label}</div>
               </>
             )
           }
-          return child;
+
+          return child
         })}
-      </div>
+      </>
     );
      
     const button = (
@@ -582,7 +585,7 @@ const SidebarMenuButton = React.forwardRef<
         className={cn(sidebarMenuButtonVariants({ variant, size, className }))}
         {...props}
       >
-        {buttonContent}
+        {children}
       </Comp>
     )
 
@@ -716,7 +719,7 @@ const SidebarMenuSub = React.forwardRef<
     ref={ref}
     data-sidebar="menu-sub"
     className={cn(
-      "mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border px-2.5 py-0.5",
+      "mx-3.5 flex min-w-0 -translate-x-px flex-col gap-1 border-l border-sidebar-border px-2.5 py-0.5",
       "group-data-[state=collapsed]:hidden",
       className
     )}
