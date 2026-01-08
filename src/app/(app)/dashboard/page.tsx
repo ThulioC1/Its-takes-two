@@ -86,7 +86,7 @@ function CoupleLinker() {
       batch.update(currentUserProfileRef, currentUserData);
 
       const coupleDocRef = doc(firestore, "couples", newCoupleId);
-      batch.set(coupleDocRef, { memberIds: [user.uid, partnerId], createdAt: new Date() }, { merge: true });
+      batch.update(coupleDocRef, { memberIds: [user.uid, partnerId] });
   
       await batch.commit();
       
@@ -176,7 +176,7 @@ export default function DashboardPage() {
   
   const coupleId = userProfile?.coupleId;
 
-  const isLinked = userProfile && user && userProfile.coupleId !== user.uid;
+  const isLinked = useMemo(() => userProfile && user && userProfile.coupleId !== user.uid, [user, userProfile]);
 
   const coupleDocRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
@@ -186,13 +186,15 @@ export default function DashboardPage() {
 
    useEffect(() => {
     const fetchCoupleMembers = async () => {
-        if (!firestore || !coupleId || !coupleDetails?.memberIds) {
-          if (userProfile) setCoupleMembers([userProfile]);
-          return;
+        // We need both the user profile and the couple details to proceed.
+        if (!firestore || !coupleDetails || !userProfile) {
+            // If not linked yet, just show the current user.
+            if (userProfile && !isLinked) setCoupleMembers([userProfile]);
+            return;
         };
 
         const memberIds = coupleDetails.memberIds;
-        if (memberIds.length > 0) {
+        if (memberIds && memberIds.length > 0) {
           try {
             const memberPromises = memberIds.map((id: string) => getDoc(doc(firestore, 'users', id)));
             const memberDocs = await Promise.all(memberPromises);
@@ -200,15 +202,17 @@ export default function DashboardPage() {
             setCoupleMembers(members);
           } catch (error) {
              console.error("Error fetching couple members:", error);
+             // Fallback to current user on error
              if(userProfile) setCoupleMembers([userProfile]);
           }
         } else if (userProfile) {
+           // Fallback for cases where memberIds might be empty
            setCoupleMembers([userProfile]);
         }
     };
 
     fetchCoupleMembers();
-  }, [firestore, coupleId, coupleDetails, userProfile]);
+  }, [firestore, coupleDetails, userProfile, isLinked]);
 
   const datesRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
@@ -235,19 +239,21 @@ export default function DashboardPage() {
   const { data: expenses } = useCollection<Expense>(expensesRef);
 
   const daysTogether = useMemo(() => {
-    if (!coupleDetails?.relationshipStartDate) return null;
+    if (!userProfile?.relationshipStartDate) return null;
     try {
         const today = new Date();
-        const startDate = new Date(coupleDetails.relationshipStartDate + 'T00:00:00');
+        const startDate = new Date(userProfile.relationshipStartDate + 'T00:00:00');
         today.setHours(0, 0, 0, 0);
         startDate.setHours(0, 0, 0, 0);
+        
+        if (isNaN(startDate.getTime())) return null;
+
         const diffTime = today.getTime() - startDate.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        return diffDays;
+        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     } catch {
       return null;
     }
-  }, [coupleDetails]);
+  }, [userProfile]);
   
   const upcomingDates = useMemo(() => {
     if (!dates) return [];
@@ -258,20 +264,35 @@ export default function DashboardPage() {
       .map(d => {
         try {
             const parsedDate = new Date(d.date + 'T00:00:00');
-             if (isNaN(parsedDate.getTime())) return null;
+            if (isNaN(parsedDate.getTime())) return null;
             parsedDate.setHours(0, 0, 0, 0);
             
-            if (parsedDate < today) return null;
+            let nextOccurrence = parsedDate;
+            if (nextOccurrence < today) {
+              if (d.repeat === 'yearly') {
+                  nextOccurrence.setFullYear(today.getFullYear());
+                  if (nextOccurrence < today) {
+                      nextOccurrence.setFullYear(today.getFullYear() + 1);
+                  }
+              } else if (d.repeat === 'monthly') {
+                  nextOccurrence.setFullYear(today.getFullYear());
+                  nextOccurrence.setMonth(today.getMonth());
+                   if (nextOccurrence < today) {
+                      nextOccurrence.setMonth(today.getMonth() + 1);
+                  }
+              } else {
+                return null;
+              }
+            }
 
-            const diffTime = parsedDate.getTime() - today.getTime();
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-            return {...d, daysLeft: diffDays};
+            const diffDays = differenceInCalendarDays(nextOccurrence, today);
+            
+            return {...d, daysLeft: diffDays, nextOccurrence};
         } catch (error) {
             return null;
         }
       })
-      .filter((d): d is ImportantDate & { daysLeft: number } => d !== null)
+      .filter((d): d is ImportantDate & { daysLeft: number, nextOccurrence: Date } => d !== null)
       .sort((a, b) => a.daysLeft - b.daysLeft)
       .slice(0, 2);
   }, [dates]);
@@ -345,15 +366,13 @@ export default function DashboardPage() {
             <CardContent>
                 <div className="space-y-4">
                 {upcomingDates.length > 0 ? upcomingDates.map(d => {
-                    if (!d.date) return null;
+                    if (!d.nextOccurrence) return null;
                     try {
-                        const parsedDate = new Date(d.date + 'T00:00:00'); // Treat as local date
-                         if (isNaN(parsedDate.getTime())) return null;
                         return (
                             <div key={d.id} className="flex items-center">
                                 <div className="flex flex-col h-10 w-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
-                                    <span className="text-xs font-bold uppercase">{format(parsedDate, 'MMM')}</span>
-                                    <span className="text-lg font-bold">{format(parsedDate, 'dd')}</span>
+                                    <span className="text-xs font-bold uppercase">{format(d.nextOccurrence, 'MMM')}</span>
+                                    <span className="text-lg font-bold">{format(d.nextOccurrence, 'dd')}</span>
                                 </div>
                                 <div className="ml-4 space-y-1">
                                     <p className="text-sm font-medium leading-none">

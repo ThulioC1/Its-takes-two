@@ -14,11 +14,11 @@ export interface UserProfile {
     coupleId: string;
     photoURL?: string;
     gender?: 'Masculino' | 'Feminino' | 'Prefiro não informar';
+    relationshipStartDate?: string; // Stored as 'YYYY-MM-DD'
 }
 
 export interface CoupleDetails {
     memberIds: string[];
-    relationshipStartDate?: string; // Stored as 'YYYY-MM-DD'
     bannerUrl?: string;
 }
 

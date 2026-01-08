@@ -20,6 +20,7 @@ const profileSchema = z.object({
   displayName: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
   photoURL: z.string().url("Por favor, insira uma URL válida.").or(z.literal('')),
   gender: z.enum(['Masculino', 'Feminino', 'Prefiro não informar']),
+  relationshipStartDate: z.string().optional(),
 });
 
 export default function ProfilePage() {
@@ -49,6 +50,7 @@ export default function ProfilePage() {
       displayName: '',
       photoURL: '',
       gender: 'Prefiro não informar',
+      relationshipStartDate: '',
     },
   });
 
@@ -58,6 +60,7 @@ export default function ProfilePage() {
         displayName: userProfile?.displayName || user?.displayName || '',
         photoURL: userProfile?.photoURL || user?.photoURL || '',
         gender: userProfile?.gender || 'Prefiro não informar',
+        relationshipStartDate: userProfile?.relationshipStartDate || '',
       });
     }
   }, [user, userProfile, form]);
@@ -88,6 +91,7 @@ export default function ProfilePage() {
         displayName: values.displayName,
         photoURL: values.photoURL,
         gender: values.gender,
+        relationshipStartDate: values.relationshipStartDate || null,
       });
       
       await batch.commit();
@@ -221,6 +225,19 @@ export default function ProfilePage() {
                         <SelectItem value="Prefiro não informar">Prefiro não informar</SelectItem>
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="relationshipStartDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Início do Relacionamento</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
