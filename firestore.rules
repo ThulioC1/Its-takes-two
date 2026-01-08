@@ -63,6 +63,12 @@ service cloud.firestore {
       match /goals/{goalId} {
         allow read, write: if isMemberOfCouple(coupleId);
       }
+      
+      match /notifications/{notificationId} {
+        allow read, list, update: if isMemberOfCouple(coupleId) && request.auth.uid == resource.data.recipientId;
+        allow create: if isMemberOfCouple(coupleId) && request.resource.data.actor.uid == request.auth.uid;
+        allow delete: if false;
+      }
     }
   }
 }

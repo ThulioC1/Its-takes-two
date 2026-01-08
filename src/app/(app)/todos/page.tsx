@@ -94,6 +94,12 @@ export default function TodosPage() {
 
   const coupleId = userProfile?.coupleId;
 
+   const coupleDocRef = useMemoFirebase(() => {
+        if (!firestore || !coupleId) return null;
+        return doc(firestore, 'couples', coupleId);
+    }, [firestore, coupleId]);
+    const { data: coupleDetails } = useDoc<any>(coupleDocRef);
+
   const todosRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return collection(firestore, 'couples', coupleId, 'todos');
@@ -111,6 +117,28 @@ export default function TodosPage() {
     setEditingTodo(null);
     setTodoToEdit(null);
     setIsDialogOpen(false);
+  }
+
+  const createNotification = async (data: Partial<ToDoItem>) => {
+    if (!firestore || !coupleId || !user || !user.displayName || !coupleDetails) return;
+    
+    const partnerId = coupleDetails.memberIds?.find((id: string) => id !== user.uid);
+    if (!partnerId) return;
+
+    const notificationsRef = collection(firestore, `couples/${coupleId}/notifications`);
+    await addDoc(notificationsRef, {
+        recipientId: partnerId,
+        actor: {
+            uid: user.uid,
+            displayName: user.displayName,
+            photoURL: user.photoURL || null
+        },
+        type: 'todo',
+        text: `${user.displayName} adicionou uma nova tarefa: "${data.title}"`,
+        link: `/todos`,
+        read: false,
+        createdAt: serverTimestamp(),
+    });
   }
 
   const handleSaveTodo = async (data: Partial<ToDoItem & { dueDateString?: string }>) => {
@@ -137,6 +165,7 @@ export default function TodosPage() {
           photoURL: user.photoURL,
         }
       });
+      await createNotification(data);
     }
     handleCloseDialog();
   };
@@ -270,5 +299,3 @@ export default function TodosPage() {
     </div>
   );
 }
-
-    

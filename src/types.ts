@@ -20,6 +20,7 @@ export interface UserProfile {
 export interface CoupleDetails {
     memberIds: string[];
     bannerUrl?: string;
+    partnerId?: string; // Add this
 }
 
 export interface ToDoItem {
@@ -122,4 +123,15 @@ export interface Game {
     startDate?: Timestamp | null;
     completionDate?: Timestamp | null;
     author: Author;
+}
+
+export interface Notification {
+    id: string;
+    recipientId: string;
+    actor: Author;
+    type: 'like' | 'comment' | 'post' | 'todo';
+    text: string;
+    link: string;
+    read: boolean;
+    createdAt: Timestamp;
 }

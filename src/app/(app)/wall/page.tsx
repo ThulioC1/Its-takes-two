@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, arrayUnion, arrayRemove, increment } from "firebase/firestore";
 import type { Post, UserProfile, Comment } from "@/types";
-import { formatDistanceToNow, format } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -55,8 +55,13 @@ function CommentSheet({ post, open, onOpenChange }: { post: Post | null; open: b
         return doc(firestore, 'users', user.uid);
     }, [firestore, user]);
     const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
-
     const coupleId = userProfile?.coupleId;
+
+    const coupleDocRef = useMemoFirebase(() => {
+        if (!firestore || !coupleId) return null;
+        return doc(firestore, 'couples', coupleId);
+    }, [firestore, coupleId]);
+    const { data: coupleDetails } = useDoc<any>(coupleDocRef);
 
     const commentsRef = useMemoFirebase(() => {
         if (!firestore || !coupleId || !post) return null;
@@ -70,6 +75,20 @@ function CommentSheet({ post, open, onOpenChange }: { post: Post | null; open: b
         return [...comments].sort((a, b) => (a.dateTime?.toDate?.().getTime() || 0) - (b.dateTime?.toDate?.().getTime() || 0));
     }, [comments]);
     
+    const createNotification = async (partnerId: string, commentText: string) => {
+        if (!firestore || !coupleId || !user || !user.displayName) return;
+        const notificationsRef = collection(firestore, `couples/${coupleId}/notifications`);
+        await addDoc(notificationsRef, {
+            recipientId: partnerId,
+            actor: { uid: user.uid, displayName: user.displayName, photoURL: user.photoURL || null },
+            type: 'comment',
+            text: `${user.displayName} comentou: "${commentText.substring(0, 50)}${commentText.length > 50 ? '...' : ''}"`,
+            link: `/wall#post-${post?.id}`,
+            read: false,
+            createdAt: serverTimestamp(),
+        });
+    };
+
     const handleAddComment = async () => {
         if (!newComment.trim() || !commentsRef || !user || !user.displayName || !post) return;
 
@@ -88,6 +107,13 @@ function CommentSheet({ post, open, onOpenChange }: { post: Post | null; open: b
         // Increment comment count
         const postRef = doc(firestore!, 'couples', coupleId!, 'posts', post.id);
         await updateDoc(postRef, { comments: increment(1) });
+        
+        const partnerId = coupleDetails?.memberIds?.find((id: string) => id !== user.uid);
+        if(partnerId && user.uid !== post.author.uid) {
+            await createNotification(post.author.uid, newComment);
+        } else if (partnerId) {
+             await createNotification(partnerId, newComment);
+        }
 
         setNewComment('');
     };
@@ -169,6 +195,12 @@ export default function WallPage() {
     const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
     const coupleId = userProfile?.coupleId;
 
+    const coupleDocRef = useMemoFirebase(() => {
+        if (!firestore || !coupleId) return null;
+        return doc(firestore, 'couples', coupleId);
+    }, [firestore, coupleId]);
+    const { data: coupleDetails } = useDoc<any>(coupleDocRef);
+
     const postsRef = useMemoFirebase(() => {
         if (!firestore || !coupleId) return null;
         return collection(firestore, 'couples', coupleId, 'posts');
@@ -180,8 +212,8 @@ export default function WallPage() {
     const sortedPosts = useMemo(() => {
         if (!posts) return [];
         return [...posts].sort((a, b) => {
-            const timeA = a.dateTime?.toDate?.().getTime() || 0;
-            const timeB = b.dateTime?.toDate?.().getTime() || 0;
+            const timeA = a.dateTime?.toDate?.()?.getTime() || 0;
+            const timeB = b.dateTime?.toDate?.()?.getTime() || 0;
             return timeB - timeA;
         });
     }, [posts]);
@@ -207,6 +239,20 @@ export default function WallPage() {
         await updateDoc(postDoc, { text: content });
         handleClosePostDialog();
     };
+
+    const createNotification = async (partnerId: string, text: string) => {
+        if (!firestore || !coupleId || !user || !user.displayName) return;
+        const notificationsRef = collection(firestore, `couples/${coupleId}/notifications`);
+        await addDoc(notificationsRef, {
+            recipientId: partnerId,
+            actor: { uid: user.uid, displayName: user.displayName, photoURL: user.photoURL || null },
+            type: 'post',
+            text: text,
+            link: `/wall`,
+            read: false,
+            createdAt: serverTimestamp(),
+        });
+    };
     
     const handlePublish = async () => {
         if (newPostContent.trim() && postsRef && user && user.displayName) {
@@ -222,6 +268,12 @@ export default function WallPage() {
                   gender: userProfile?.gender || 'Prefiro não informar'
                 }
             });
+
+            const partnerId = coupleDetails?.memberIds?.find((id: string) => id !== user.uid);
+            if (partnerId) {
+                await createNotification(partnerId, `${user.displayName} fez uma nova publicação.`);
+            }
+
             setNewPostContent('');
         }
     };
@@ -234,12 +286,27 @@ export default function WallPage() {
     };
 
     const handleLike = async (post: Post) => {
-        if (!postsRef || !user) return;
+        if (!postsRef || !user || !user.displayName) return;
         const postDoc = doc(postsRef, post.id);
         const hasLiked = post.likes.includes(user.uid);
+        
         await updateDoc(postDoc, {
             likes: hasLiked ? arrayRemove(user.uid) : arrayUnion(user.uid)
         });
+
+        if (!hasLiked && post.author.uid !== user.uid) {
+            const partnerId = post.author.uid;
+            const notificationsRef = collection(firestore!, `couples/${coupleId}/notifications`);
+            await addDoc(notificationsRef, {
+                recipientId: partnerId,
+                actor: { uid: user.uid, displayName: user.displayName, photoURL: user.photoURL || null },
+                type: 'like',
+                text: `${user.displayName} curtiu sua publicação.`,
+                link: `/wall#post-${post.id}`,
+                read: false,
+                createdAt: serverTimestamp(),
+            });
+        }
     }
 
   return (
@@ -294,7 +361,7 @@ export default function WallPage() {
         {sortedPosts.map(post => {
           const isMasculino = post.author?.gender === 'Masculino';
           return (
-            <Card key={post.id} className={cn(isMasculino ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-pink-50 dark:bg-pink-900/20')}>
+            <Card key={post.id} id={`post-${post.id}`} className={cn(isMasculino ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-pink-50 dark:bg-pink-900/20')}>
                 <CardHeader className="flex-row gap-4 items-center">
                     <Avatar>
                         <AvatarImage src={post.author?.photoURL || ''} />

@@ -519,6 +519,22 @@
             "format": "uri"
         }
       }
+    },
+    "Notification": {
+        "title": "Notification",
+        "type": "object",
+        "description": "Represents a notification for a user.",
+        "properties": {
+            "id": { "type": "string" },
+            "recipientId": { "type": "string" },
+            "actor": { "$ref": "#/entities/Author" },
+            "type": { "type": "string", "enum": ["like", "comment", "post", "todo"] },
+            "text": { "type": "string" },
+            "link": { "type": "string" },
+            "read": { "type": "boolean" },
+            "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["id", "recipientId", "actor", "type", "text", "link", "read", "createdAt"]
     }
   },
   "auth": {
@@ -763,6 +779,18 @@
               "description": "Unique identifier for the couple goal."
             }
           ]
+        }
+      },
+      {
+        "path": "/couples/{coupleId}/notifications/{notificationId}",
+        "definition": {
+            "entityName": "Notification",
+            "schema": { "$ref": "#/entities/Notification" },
+            "description": "Stores notifications for users within a couple.",
+            "params": [
+                { "name": "coupleId", "description": "Unique identifier for the couple." },
+                { "name": "notificationId", "description": "Unique identifier for the notification." }
+            ]
         }
       }
     ]
