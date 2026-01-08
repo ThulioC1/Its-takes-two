@@ -33,6 +33,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const chartConfig = {
   expenses: {
@@ -53,7 +54,7 @@ function CoupleLinker() {
     if (!firestore || !user) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
-  const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
   const isLinked = userProfile && user && userProfile.coupleId !== user.uid;
 
@@ -126,6 +127,10 @@ function CoupleLinker() {
     }
   };
   
+  if (isProfileLoading) {
+    return <Skeleton className="h-48 w-full" />;
+  }
+
   if (isLinked) {
     return null;
   }
@@ -293,7 +298,7 @@ export default function DashboardPage() {
   return (
     <div className="flex flex-col gap-8">
       <CoupleLinker />
-      {!isLinked && (
+      {!isLinked && !userProfile && (
           <Card>
             <CardHeader>
               <CardTitle className="text-xl font-headline">Bem-vindo(a) de volta!</CardTitle>
