@@ -24,7 +24,7 @@ import {
   ChartConfig,
 } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
-import { format, differenceInCalendarDays } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { doc, collection, writeBatch, getDoc } from 'firebase/firestore';
 import type { ToDoItem, ImportantDate, Post, Expense, UserProfile, CoupleDetails } from "@/types";
@@ -185,30 +185,26 @@ export default function DashboardPage() {
   const { data: coupleDetails } = useDoc<CoupleDetails>(coupleDocRef);
 
    useEffect(() => {
+    if (userProfile && !isLinked) {
+      setCoupleMembers([userProfile]);
+    }
+    
     const fetchCoupleMembers = async () => {
-        // We need both the user profile and the couple details to proceed.
-        if (!firestore || !coupleDetails || !userProfile) {
-            // If not linked yet, just show the current user.
-            if (userProfile && !isLinked) setCoupleMembers([userProfile]);
-            return;
-        };
-
+      if (!firestore || !coupleDetails || !coupleDetails.memberIds) {
+          if (userProfile) setCoupleMembers([userProfile]);
+          return;
+      }
+      
+      try {
         const memberIds = coupleDetails.memberIds;
-        if (memberIds && memberIds.length > 0) {
-          try {
-            const memberPromises = memberIds.map((id: string) => getDoc(doc(firestore, 'users', id)));
-            const memberDocs = await Promise.all(memberPromises);
-            const members = memberDocs.map(snap => snap.data() as UserProfile).filter(Boolean);
-            setCoupleMembers(members);
-          } catch (error) {
-             console.error("Error fetching couple members:", error);
-             // Fallback to current user on error
-             if(userProfile) setCoupleMembers([userProfile]);
-          }
-        } else if (userProfile) {
-           // Fallback for cases where memberIds might be empty
-           setCoupleMembers([userProfile]);
-        }
+        const memberPromises = memberIds.map(id => getDoc(doc(firestore, 'users', id)));
+        const memberDocs = await Promise.all(memberPromises);
+        const members = memberDocs.map(snap => snap.data() as UserProfile).filter(Boolean);
+        setCoupleMembers(members);
+      } catch (error) {
+        console.error("Error fetching couple members:", error);
+        if (userProfile) setCoupleMembers([userProfile]); // Fallback on error
+      }
     };
 
     fetchCoupleMembers();
@@ -267,25 +263,24 @@ export default function DashboardPage() {
             if (isNaN(parsedDate.getTime())) return null;
             parsedDate.setHours(0, 0, 0, 0);
             
-            let nextOccurrence = parsedDate;
-            if (nextOccurrence < today) {
-              if (d.repeat === 'yearly') {
-                  nextOccurrence.setFullYear(today.getFullYear());
-                  if (nextOccurrence < today) {
-                      nextOccurrence.setFullYear(today.getFullYear() + 1);
-                  }
-              } else if (d.repeat === 'monthly') {
-                  nextOccurrence.setFullYear(today.getFullYear());
-                  nextOccurrence.setMonth(today.getMonth());
-                   if (nextOccurrence < today) {
-                      nextOccurrence.setMonth(today.getMonth() + 1);
-                  }
-              } else {
-                return null;
-              }
+            let nextOccurrence = new Date(parsedDate);
+            if (d.repeat === 'yearly') {
+                nextOccurrence.setFullYear(today.getFullYear());
+                if (nextOccurrence < today) {
+                    nextOccurrence.setFullYear(today.getFullYear() + 1);
+                }
+            } else if (d.repeat === 'monthly') {
+                const currentDay = parsedDate.getDate();
+                nextOccurrence = new Date(today.getFullYear(), today.getMonth(), currentDay);
+                if (nextOccurrence < today) {
+                    nextOccurrence.setMonth(today.getMonth() + 1);
+                }
             }
+            
+            const diffTime = nextOccurrence.getTime() - today.getTime();
+            if (diffTime < 0 && d.repeat === 'none') return null;
 
-            const diffDays = differenceInCalendarDays(nextOccurrence, today);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             
             return {...d, daysLeft: diffDays, nextOccurrence};
         } catch (error) {
