@@ -65,8 +65,13 @@ service cloud.firestore {
       }
       
       match /notifications/{notificationId} {
-        allow read, list, update: if isMemberOfCouple(coupleId) && request.auth.uid == resource.data.recipientId;
+        // User can read/update their own notification
+        allow get, update: if isMemberOfCouple(coupleId) && request.auth.uid == resource.data.recipientId;
+        // User can list their own notifications, required for the bell dropdown
+        allow list: if isMemberOfCouple(coupleId) && request.query.where.recipientId == request.auth.uid;
+        // A user can create a notification for their partner
         allow create: if isMemberOfCouple(coupleId) && request.resource.data.actor.uid == request.auth.uid;
+        // Notifications cannot be deleted by clients
         allow delete: if false;
       }
     }
