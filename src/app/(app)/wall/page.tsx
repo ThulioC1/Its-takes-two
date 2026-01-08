@@ -193,6 +193,9 @@ export default function WallPage() {
     const handleClosePostDialog = () => {
         setEditingPost(null);
         setIsPostDialogOpen(false);
+        if (editingPost) {
+            window.location.reload();
+        }
     };
     
     const handleOpenCommentSheet = (post: Post) => {
@@ -341,5 +344,3 @@ export default function WallPage() {
     </div>
   );
 }
-
-    

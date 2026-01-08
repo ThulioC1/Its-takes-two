@@ -232,6 +232,9 @@ export default function FinancesPage() {
   const handleCloseExpenseDialog = () => {
     setEditingExpense(null);
     setIsExpenseDialogOpen(false);
+    if (editingExpense) {
+        window.location.reload();
+    }
   }
   
   const handleSaveExpense = async (data: Partial<Expense>) => {

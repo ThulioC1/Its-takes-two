@@ -100,6 +100,9 @@ export default function MessagesPage() {
   const handleCloseDialog = () => {
     setEditingMessage(null);
     setIsDialogOpen(false);
+    if (editingMessage) {
+        window.location.reload();
+    }
   };
 
   const handleSaveMessage = async (content: string) => {

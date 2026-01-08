@@ -140,6 +140,9 @@ export default function GoalsPage() {
   const handleCloseDialog = () => {
     setEditingGoal(null);
     setIsDialogOpen(false);
+    if (editingGoal) {
+        window.location.reload();
+    }
   }
 
   const handleSaveGoal = async (data: Partial<CoupleGoal & { completionDateString?: string }>) => {

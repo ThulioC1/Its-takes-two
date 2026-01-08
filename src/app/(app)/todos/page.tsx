@@ -117,6 +117,9 @@ export default function TodosPage() {
     setEditingTodo(null);
     setTodoToEdit(null);
     setIsDialogOpen(false);
+    if (editingTodo) {
+        window.location.reload();
+    }
   }
 
   const handleSaveTodo = async (data: Partial<ToDoItem & { dueDateString?: string }>) => {
@@ -276,5 +279,4 @@ export default function TodosPage() {
     </div>
   );
 }
-
     

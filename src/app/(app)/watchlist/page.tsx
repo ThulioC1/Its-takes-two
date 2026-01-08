@@ -138,6 +138,9 @@ export default function WatchlistPage() {
   const handleCloseDialog = () => {
     setEditingItem(null);
     setIsDialogOpen(false);
+    if (editingItem) {
+        window.location.reload();
+    }
   }
 
   const moveItem = async (id: string, newStatus: "To Watch" | "Watching" | "Watched") => {

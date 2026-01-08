@@ -120,6 +120,9 @@ export default function MemoriesPage() {
     setEditingMemory(null);
     setMemoryToEdit(null);
     setIsDialogOpen(false);
+    if (editingMemory) {
+        window.location.reload();
+    }
   }
   
   const handleSaveMemory = async (data: Partial<Memory & { dateString?: string }>) => {
