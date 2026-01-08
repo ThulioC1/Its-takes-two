@@ -107,6 +107,9 @@ export default function TodosPage() {
   const handleCloseDialog = () => {
     setEditingTodo(null);
     setIsDialogOpen(false);
+    if (editingTodo) {
+        window.location.reload();
+    }
   }
 
   const handleSaveTodo = async (data: Partial<ToDoItem & { dueDateString?: string }>) => {
