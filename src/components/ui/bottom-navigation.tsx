@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import type { LucideIcon } from 'lucide-react'
 import React from 'react'
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase'
-import { collection, query, orderBy, limit } from 'firebase/firestore'
+import { collection, query, orderBy, limit, doc } from 'firebase/firestore'
 import type { Post, UserProfile } from '@/types'
 
 interface NavItem {
