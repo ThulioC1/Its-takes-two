@@ -37,7 +37,7 @@ import { useAuth, useUser, useFirestore, useCollection, useDoc, useMemoFirebase 
 import { signOut } from "firebase/auth"
 import { Separator } from "@/components/ui/separator"
 import { BottomNavigation } from "@/components/ui/bottom-navigation"
-import { collection, query, orderBy, limit } from 'firebase/firestore';
+import { collection, query, orderBy, limit, doc } from 'firebase/firestore';
 import type { Post, UserProfile } from '@/types';
 import { cn } from "@/lib/utils"
 
