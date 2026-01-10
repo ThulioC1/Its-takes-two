@@ -47,7 +47,7 @@ export interface Expense {
 export interface ImportantDate {
     id: string;
     title: string;
-    date: string; // Storing as 'YYYY-MM-DD' string
+    date: string; // Storing as 'YYYY-MM-DD'
     type: string;
     observation?: string;
     repeat?: 'none' | 'monthly' | 'yearly';
@@ -128,3 +128,5 @@ export interface Game {
     rating: number;
     review?: string;
 }
+
+    
