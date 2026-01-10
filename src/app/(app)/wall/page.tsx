@@ -247,7 +247,7 @@ export default function WallPage() {
     }
 
   return (
-    <div className="max-w-2xl mx-auto flex flex-col gap-8">
+    <div className="max-w-2xl mx-auto flex flex-col gap-8 h-full">
       <div>
         <h1 className="text-3xl font-bold font-headline">Mural do Casal</h1>
         <p className="text-muted-foreground">Um espaço privado para compartilhar momentos e pensamentos.</p>
@@ -292,54 +292,58 @@ export default function WallPage() {
         
         <CommentSheet post={selectedPostForComments} open={isCommentSheetOpen} onOpenChange={setIsCommentSheetOpen} />
 
-      <div className="flex flex-col gap-6">
-        {isLoading && <p className="text-center text-muted-foreground">Carregando mural...</p>}
-        {!isLoading && sortedPosts.length === 0 && <p className="text-center text-muted-foreground">Nenhuma publicação ainda.</p>}
-        {sortedPosts.map(post => {
-          const isMasculino = post.author?.gender === 'Masculino';
-          return (
-            <Card key={post.id} id={`post-${post.id}`} className={cn(isMasculino ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-pink-50 dark:bg-pink-900/20')}>
-                <CardHeader className="flex-row gap-4 items-center">
-                    <Avatar>
-                        <AvatarImage src={post.author?.photoURL || ''} />
-                        <AvatarFallback>{post.author?.displayName?.charAt(0) || 'U'}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                        <p className="font-semibold">{post.author?.displayName}</p>
-                        <p className="text-xs text-muted-foreground">
-                            {post.dateTime ? formatDistanceToNow(post.dateTime.toDate(), { addSuffix: true, locale: ptBR }) : 'agora'}
-                        </p>
-                    </div>
-                    {user?.uid === post.author?.uid && (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0 ml-auto">
-                                    <span className="sr-only">Abrir menu</span>
-                                    <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onSelect={() => handleOpenPostDialog(post)}>Editar</DropdownMenuItem>
-                                <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(post.id)}>Deletar</DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    )}
-                </CardHeader>
-                <CardContent>
-                    <p>{post.text}</p>
-                </CardContent>
-                <CardFooter className="gap-4">
-                    <Button variant="ghost" size="sm" className="flex items-center gap-2" onClick={() => handleLike(post)}>
-                        <Heart className={cn("h-4 w-4", post.likes && post.likes.includes(user?.uid || '') && "fill-destructive text-destructive")}/>
-                        <span>{post.likes?.length || 0} Curtir</span>
-                    </Button>
-                     <Button variant="ghost" size="sm" className="flex items-center gap-2" onClick={() => handleOpenCommentSheet(post)}>
-                        <MessageSquare className="h-4 w-4"/>
-                        <span>{post.comments || 0} Comentar</span>
-                    </Button>
-                </CardFooter>
-            </Card>
-        )})}
+      <div className="flex flex-col gap-6 flex-1 min-h-0">
+        <ScrollArea className="h-full">
+            <div className="flex flex-col gap-6 pr-4">
+                {isLoading && <p className="text-center text-muted-foreground">Carregando mural...</p>}
+                {!isLoading && sortedPosts.length === 0 && <p className="text-center text-muted-foreground">Nenhuma publicação ainda.</p>}
+                {sortedPosts.map(post => {
+                const isMasculino = post.author?.gender === 'Masculino';
+                return (
+                    <Card key={post.id} id={`post-${post.id}`} className={cn(isMasculino ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-pink-50 dark:bg-pink-900/20')}>
+                        <CardHeader className="flex-row gap-4 items-center">
+                            <Avatar>
+                                <AvatarImage src={post.author?.photoURL || ''} />
+                                <AvatarFallback>{post.author?.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                                <p className="font-semibold">{post.author?.displayName}</p>
+                                <p className="text-xs text-muted-foreground">
+                                    {post.dateTime ? formatDistanceToNow(post.dateTime.toDate(), { addSuffix: true, locale: ptBR }) : 'agora'}
+                                </p>
+                            </div>
+                            {user?.uid === post.author?.uid && (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" className="h-8 w-8 p-0 ml-auto">
+                                            <span className="sr-only">Abrir menu</span>
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onSelect={() => handleOpenPostDialog(post)}>Editar</DropdownMenuItem>
+                                        <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(post.id)}>Deletar</DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
+                        </CardHeader>
+                        <CardContent>
+                            <p>{post.text}</p>
+                        </CardContent>
+                        <CardFooter className="gap-4">
+                            <Button variant="ghost" size="sm" className="flex items-center gap-2" onClick={() => handleLike(post)}>
+                                <Heart className={cn("h-4 w-4", post.likes && post.likes.includes(user?.uid || '') && "fill-destructive text-destructive")}/>
+                                <span>{post.likes?.length || 0} Curtir</span>
+                            </Button>
+                            <Button variant="ghost" size="sm" className="flex items-center gap-2" onClick={() => handleOpenCommentSheet(post)}>
+                                <MessageSquare className="h-4 w-4"/>
+                                <span>{post.comments || 0} Comentar</span>
+                            </Button>
+                        </CardFooter>
+                    </Card>
+                )})}
+            </div>
+        </ScrollArea>
       </div>
     </div>
   );
