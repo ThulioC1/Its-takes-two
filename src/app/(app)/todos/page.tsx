@@ -83,14 +83,18 @@ export default function TodosPage() {
   }, [firestore, user]);
 
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
-
   const coupleId = userProfile?.coupleId;
 
-   const coupleDocRef = useMemoFirebase(() => {
-        if (!firestore || !coupleId) return null;
-        return doc(firestore, 'couples', coupleId);
-    }, [firestore, coupleId]);
-    const { data: coupleDetails } = useDoc<any>(coupleDocRef);
+   useEffect(() => {
+        if (userProfileRef && userProfile) {
+            updateDoc(userProfileRef, { 
+                lastViewed: {
+                    ...userProfile.lastViewed,
+                    todos: serverTimestamp()
+                }
+            });
+        }
+    }, [userProfileRef, userProfile]);
 
   const todosRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
@@ -107,9 +111,6 @@ export default function TodosPage() {
   const handleCloseDialog = () => {
     setEditingTodo(null);
     setIsDialogOpen(false);
-    if (editingTodo) {
-        window.location.reload();
-    }
   }
 
   const handleSaveTodo = async (data: Partial<ToDoItem & { dueDateString?: string }>) => {
@@ -269,4 +270,3 @@ export default function TodosPage() {
     </div>
   );
 }
-    

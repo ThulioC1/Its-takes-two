@@ -15,7 +15,9 @@ export interface UserProfile {
     photoURL?: string;
     gender?: 'Masculino' | 'Feminino' | 'Prefiro não informar';
     relationshipStartDate?: string; // Stored as 'YYYY-MM-DD'
-    lastWallView?: Timestamp;
+    lastViewed?: {
+        [key: string]: Timestamp;
+    };
 }
 
 export interface CoupleDetails {
@@ -64,6 +66,7 @@ export interface CoupleGoal {
     type: string;
     author: Author;
     completionDate?: Timestamp | null;
+    creationDate: Timestamp;
 }
 
 export interface Memory {
@@ -119,6 +122,7 @@ export interface MovieSeries {
     episode?: number | null;
     author: Author;
     reviews?: Review[];
+    creationDate: Timestamp;
 }
 
 export interface Game {
@@ -131,4 +135,5 @@ export interface Game {
     completionDate?: Timestamp | null;
     author: Author;
     reviews?: Review[];
+    creationDate: Timestamp;
 }

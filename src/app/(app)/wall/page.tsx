@@ -171,9 +171,14 @@ export default function WallPage() {
     // Update lastWallView when the component mounts
     useEffect(() => {
         if (userProfileRef) {
-            updateDoc(userProfileRef, { lastWallView: serverTimestamp() });
+            updateDoc(userProfileRef, { 
+                lastViewed: {
+                    ...userProfile?.lastViewed,
+                    posts: serverTimestamp()
+                }
+            });
         }
-    }, [userProfileRef]);
+    }, [userProfileRef, userProfile]);
 
     const postsRef = useMemoFirebase(() => {
         if (!firestore || !coupleId) return null;
@@ -200,9 +205,6 @@ export default function WallPage() {
     const handleClosePostDialog = () => {
         setEditingPost(null);
         setIsPostDialogOpen(false);
-        if (editingPost) {
-            window.location.reload();
-        }
     };
     
     const handleOpenCommentSheet = (post: Post) => {
@@ -289,11 +291,11 @@ export default function WallPage() {
                 <DialogHeader>
                     <DialogTitle>Editar Publicação</DialogTitle>
                 </DialogHeader>
-                <PostForm 
-                  post={editingPost ?? undefined}
+                {editingPost && <PostForm 
+                  post={editingPost}
                   onSave={handleSavePost}
                   onCancel={handleClosePostDialog}
-                />
+                />}
             </DialogContent>
         </Dialog>
         

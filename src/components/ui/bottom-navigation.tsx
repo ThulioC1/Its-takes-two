@@ -7,7 +7,10 @@ import type { LucideIcon } from 'lucide-react'
 import React from 'react'
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase'
 import { collection, query, orderBy, limit, doc } from 'firebase/firestore'
-import type { Post, UserProfile } from '@/types'
+import type { Post, UserProfile, ToDoItem, Expense, MovieSeries, Game, ImportantDate, Memory, LoveLetter, CoupleGoal } from '@/types';
+
+type CollectionName = 'todos' | 'expenses' | 'movies' | 'games' | 'dates' | 'posts' | 'memories' | 'loveLetters' | 'goals';
+type CollectionItem = ToDoItem | Expense | MovieSeries | Game | ImportantDate | Post | Memory | LoveLetter | CoupleGoal;
 
 interface NavItem {
   href: string
@@ -28,25 +31,38 @@ function NotificationIndicator({ notificationKey }: { notificationKey: string })
 
     const coupleId = userProfile?.coupleId;
 
-    const lastPostQuery = useMemoFirebase(() => {
-        if (!firestore || !coupleId || notificationKey !== 'wall') return null;
-        return query(collection(firestore, 'couples', coupleId, 'posts'), orderBy('dateTime', 'desc'), limit(1));
+    const lastItemQuery = useMemoFirebase(() => {
+        if (!firestore || !coupleId || !notificationKey) return null;
+        
+        const collectionName = notificationKey as CollectionName;
+        const dateField = (notificationKey === 'posts' || notificationKey === 'loveLetters') ? 'dateTime' : 
+                          (notificationKey === 'expenses' || notificationKey === 'dates' || notificationKey === 'memories') ? 'date' : 
+                          'creationDate';
+
+        return query(collection(firestore, 'couples', coupleId, collectionName), orderBy(dateField, 'desc'), limit(1));
     }, [firestore, coupleId, notificationKey]);
 
-    const { data: lastPostData } = useCollection<Post>(lastPostQuery);
+    const { data: lastItemData } = useCollection<CollectionItem>(lastItemQuery);
 
     const hasNewContent = React.useMemo(() => {
-        if (notificationKey === 'wall') {
-            if (!lastPostData || lastPostData.length === 0) return false;
-            if (!userProfile?.lastWallView) return true; // If never viewed, show notification
-            
-            const lastPostDate = lastPostData[0].dateTime?.toDate();
-            const lastViewDate = userProfile.lastWallView.toDate();
-            
-            return lastPostDate > lastViewDate;
+        if (!lastItemData || lastItemData.length === 0) return false;
+
+        const lastViewDate = userProfile?.lastViewed?.[notificationKey]?.toDate();
+        if (!lastViewDate) return true;
+        
+        const lastItem = lastItemData[0];
+        let lastItemDate: Date | undefined;
+
+        if ('dateTime' in lastItem && lastItem.dateTime) {
+            lastItemDate = lastItem.dateTime.toDate();
+        } else if ('date' in lastItem && lastItem.date) {
+             lastItemDate = (lastItem as Expense).date.toDate();
+        } else if ('creationDate' in lastItem && lastItem.creationDate) {
+            lastItemDate = lastItem.creationDate.toDate();
         }
-        return false;
-    }, [lastPostData, userProfile, notificationKey]);
+        
+        return lastItemDate && lastItemDate > lastViewDate;
+    }, [lastItemData, userProfile, notificationKey]);
 
     if (!hasNewContent) return null;
 

@@ -119,6 +119,17 @@ export default function FinancesPage() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
 
+   useEffect(() => {
+        if (userProfileRef && userProfile) {
+            updateDoc(userProfileRef, { 
+                lastViewed: {
+                    ...userProfile.lastViewed,
+                    expenses: serverTimestamp()
+                }
+            });
+        }
+    }, [userProfileRef, userProfile]);
+
   const coupleDocRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return doc(firestore, 'couples', coupleId);
@@ -232,9 +243,6 @@ export default function FinancesPage() {
   const handleCloseExpenseDialog = () => {
     setEditingExpense(null);
     setIsExpenseDialogOpen(false);
-    if (editingExpense) {
-        window.location.reload();
-    }
   }
   
   const handleSaveExpense = async (data: Partial<Expense>) => {

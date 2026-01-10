@@ -207,6 +207,17 @@ export default function GamesPage() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
 
+   useEffect(() => {
+        if (userProfileRef && userProfile) {
+            updateDoc(userProfileRef, { 
+                lastViewed: {
+                    ...userProfile.lastViewed,
+                    games: serverTimestamp()
+                }
+            });
+        }
+    }, [userProfileRef, userProfile]);
+
   const gamesRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return collection(firestore, 'couples', coupleId, 'games');
@@ -222,9 +233,6 @@ export default function GamesPage() {
   const handleCloseForm = () => {
     setSelectedItem(null);
     setIsFormOpen(false);
-     if (selectedItem) {
-        window.location.reload();
-    }
   }
   
   const handleOpenDetails = (item: Game) => {
@@ -285,6 +293,7 @@ export default function GamesPage() {
         ...dataToSave,
         status: 'Para Jogar',
         reviews: [],
+        creationDate: serverTimestamp(),
         author: {
             uid: user.uid,
             displayName: user.displayName,
@@ -450,31 +459,36 @@ export default function GamesPage() {
             <DialogHeader>
                 <DialogTitle>{selectedItem ? 'Editar Jogo' : 'Adicionar à Lista'}</DialogTitle>
             </DialogHeader>
-            <GameForm 
+            {isFormOpen && <GameForm 
               item={selectedItem ?? undefined}
               onSave={handleSaveItem}
               onCancel={handleCloseForm}
-            />
+            />}
           </DialogContent>
         </Dialog>
         
        <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
           <DialogContent className="max-w-md">
-            <DialogHeader>
-                <div className="relative aspect-[3/4] w-full rounded-lg overflow-hidden mb-4">
-                    <Image src={selectedItem?.link || `https://picsum.photos/seed/${selectedItem?.id}/300/450`} alt={selectedItem?.name || ''} layout="fill" objectFit="cover" />
-                </div>
-                <DialogTitle className="font-headline text-2xl">{selectedItem?.name}</DialogTitle>
-                <DialogDescription>{selectedItem?.platform}</DialogDescription>
-            </DialogHeader>
-            {selectedItem?.status === 'Zerado' && (
-                <ReviewSection 
-                    item={selectedItem} 
-                    onReviewSubmit={(review) => handleReviewSubmit(selectedItem.id, review)}
-                    onReviewDelete={() => handleReviewDelete(selectedItem.id)} 
-                />
+            {selectedItem && (
+            <>
+              <DialogHeader>
+                  <div className="relative aspect-[3/4] w-full rounded-lg overflow-hidden mb-4">
+                      <Image src={selectedItem.link || `https://picsum.photos/seed/${selectedItem.id}/300/450`} alt={selectedItem.name || ''} layout="fill" objectFit="cover" />
+                  </div>
+                  <DialogTitle className="font-headline text-2xl">{selectedItem.name}</DialogTitle>
+                  <DialogDescription>{selectedItem.platform}</DialogDescription>
+              </DialogHeader>
+              {selectedItem.status === 'Zerado' ? (
+                  <ReviewSection 
+                      item={selectedItem} 
+                      onReviewSubmit={(review) => handleReviewSubmit(selectedItem.id, review)}
+                      onReviewDelete={() => handleReviewDelete(selectedItem.id)} 
+                  />
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">Você pode adicionar uma avaliação quando o jogo for zerado.</p>
+              )}
+            </>
             )}
-            {selectedItem?.status !== 'Zerado' && <p className="text-sm text-muted-foreground text-center py-4">Você pode adicionar uma avaliação quando o jogo for zerado.</p>}
           </DialogContent>
         </Dialog>
 

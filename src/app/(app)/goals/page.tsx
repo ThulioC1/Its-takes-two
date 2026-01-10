@@ -16,7 +16,7 @@ import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@
 import { collection, doc, addDoc, updateDoc, deleteDoc, Timestamp, serverTimestamp } from "firebase/firestore";
 import type { CoupleGoal, UserProfile } from "@/types";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -120,6 +120,17 @@ export default function GoalsPage() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
 
+  useEffect(() => {
+        if (userProfileRef && userProfile) {
+            updateDoc(userProfileRef, { 
+                lastViewed: {
+                    ...userProfile.lastViewed,
+                    goals: serverTimestamp()
+                }
+            });
+        }
+    }, [userProfileRef, userProfile]);
+
   const goalsRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return collection(firestore, 'couples', coupleId, 'goals');
@@ -152,9 +163,6 @@ export default function GoalsPage() {
   const handleCloseDialog = () => {
     setEditingGoal(null);
     setIsDialogOpen(false);
-    if (editingGoal) {
-        window.location.reload();
-    }
   }
 
   const handleSaveGoal = async (data: Partial<CoupleGoal & { completionDateString?: string }>) => {
@@ -184,6 +192,7 @@ export default function GoalsPage() {
     } else {
       await addDoc(goalsRef, {
         ...dataToSave,
+        creationDate: serverTimestamp(),
         author: {
             uid: user.uid,
             displayName: user.displayName,
@@ -237,11 +246,11 @@ export default function GoalsPage() {
             <DialogHeader>
               <DialogTitle>{editingGoal ? 'Editar Meta' : 'Nova Meta'}</DialogTitle>
             </DialogHeader>
-            <GoalForm 
+            {isDialogOpen && <GoalForm 
               goal={editingGoal ?? undefined}
               onSave={handleSaveGoal}
               onCancel={handleCloseDialog}
-            />
+            />}
           </DialogContent>
         </Dialog>
 
@@ -307,5 +316,3 @@ export default function GoalsPage() {
     </div>
   );
 }
-
-    

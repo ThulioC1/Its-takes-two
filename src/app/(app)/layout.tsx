@@ -38,20 +38,23 @@ import { signOut } from "firebase/auth"
 import { Separator } from "@/components/ui/separator"
 import { BottomNavigation } from "@/components/ui/bottom-navigation"
 import { collection, query, orderBy, limit, doc } from 'firebase/firestore';
-import type { Post, UserProfile } from '@/types';
+import type { Post, UserProfile, ToDoItem, Expense, MovieSeries, Game, ImportantDate, Memory, LoveLetter, CoupleGoal } from '@/types';
 import { cn } from "@/lib/utils"
+
+type CollectionName = 'todos' | 'expenses' | 'movies' | 'games' | 'dates' | 'posts' | 'memories' | 'loveLetters' | 'goals';
+type CollectionItem = ToDoItem | Expense | MovieSeries | Game | ImportantDate | Post | Memory | LoveLetter | CoupleGoal;
 
 export const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Painel" },
-  { href: "/todos", icon: ListTodo, label: "Tarefas" },
-  { href: "/finances", icon: CircleDollarSign, label: "Finanças" },
-  { href: "/watchlist", icon: Clapperboard, label: "Filmes" },
-  { href: "/games", icon: Gamepad2, label: "Jogos" },
-  { href: "/dates", icon: CalendarHeart, label: "Datas" },
-  { href: "/wall", icon: Users, label: "Mural", notificationKey: "wall" },
-  { href: "/memories", icon: ImageIcon, label: "Memórias" },
-  { href: "/messages", icon: Mail, label: "Cartas" },
-  { href: "/goals", icon: Goal, label: "Metas" },
+  { href: "/todos", icon: ListTodo, label: "Tarefas", notificationKey: "todos" },
+  { href: "/finances", icon: CircleDollarSign, label: "Finanças", notificationKey: "expenses" },
+  { href: "/watchlist", icon: Clapperboard, label: "Filmes", notificationKey: "movies" },
+  { href: "/games", icon: Gamepad2, label: "Jogos", notificationKey: "games" },
+  { href: "/dates", icon: CalendarHeart, label: "Datas", notificationKey: "dates" },
+  { href: "/wall", icon: Users, label: "Mural", notificationKey: "posts" },
+  { href: "/memories", icon: ImageIcon, label: "Memórias", notificationKey: "memories" },
+  { href: "/messages", icon: Mail, label: "Cartas", notificationKey: "loveLetters" },
+  { href: "/goals", icon: Goal, label: "Metas", notificationKey: "goals" },
   { href: "/profile", icon: User, label: "Perfil" },
 ]
 
@@ -103,25 +106,39 @@ function NotificationIndicator({ notificationKey }: { notificationKey: string })
 
     const coupleId = userProfile?.coupleId;
 
-    const lastPostQuery = useMemoFirebase(() => {
-        if (!firestore || !coupleId || notificationKey !== 'wall') return null;
-        return query(collection(firestore, 'couples', coupleId, 'posts'), orderBy('dateTime', 'desc'), limit(1));
+    const lastItemQuery = useMemoFirebase(() => {
+        if (!firestore || !coupleId || !notificationKey) return null;
+
+        const collectionName = notificationKey as CollectionName;
+        // The date field varies across collections
+        const dateField = (notificationKey === 'posts' || notificationKey === 'loveLetters') ? 'dateTime' : 
+                          (notificationKey === 'expenses' || notificationKey === 'dates' || notificationKey === 'memories') ? 'date' : 
+                          'creationDate';
+
+        return query(collection(firestore, 'couples', coupleId, collectionName), orderBy(dateField, 'desc'), limit(1));
     }, [firestore, coupleId, notificationKey]);
 
-    const { data: lastPostData } = useCollection<Post>(lastPostQuery);
+    const { data: lastItemData } = useCollection<CollectionItem>(lastItemQuery);
 
     const hasNewContent = React.useMemo(() => {
-        if (notificationKey === 'wall') {
-            if (!lastPostData || lastPostData.length === 0 || !userProfile?.lastWallView) {
-                // If there's a post but user has never viewed the wall, show notification
-                return lastPostData && lastPostData.length > 0 && !userProfile?.lastWallView;
-            }
-            const lastPostDate = lastPostData[0].dateTime?.toDate();
-            const lastViewDate = userProfile.lastWallView.toDate();
-            return lastPostDate > lastViewDate;
+        if (!lastItemData || lastItemData.length === 0) return false;
+
+        const lastViewDate = userProfile?.lastViewed?.[notificationKey]?.toDate();
+        if (!lastViewDate) return true; // If never viewed, show notification
+
+        const lastItem = lastItemData[0];
+        let lastItemDate: Date | undefined;
+
+        if ('dateTime' in lastItem && lastItem.dateTime) {
+            lastItemDate = lastItem.dateTime.toDate();
+        } else if ('date' in lastItem && lastItem.date) {
+            lastItemDate = (lastItem as Expense).date.toDate();
+        } else if ('creationDate' in lastItem && lastItem.creationDate) {
+            lastItemDate = lastItem.creationDate.toDate();
         }
-        return false;
-    }, [lastPostData, userProfile, notificationKey]);
+        
+        return lastItemDate && lastItemDate > lastViewDate;
+    }, [lastItemData, userProfile, notificationKey]);
 
     if (!hasNewContent) return null;
 

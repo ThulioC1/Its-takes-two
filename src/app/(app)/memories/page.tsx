@@ -85,6 +85,17 @@ export default function MemoriesPage() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
 
+  useEffect(() => {
+        if (userProfileRef && userProfile) {
+            updateDoc(userProfileRef, { 
+                lastViewed: {
+                    ...userProfile.lastViewed,
+                    memories: serverTimestamp()
+                }
+            });
+        }
+    }, [userProfileRef, userProfile]);
+
   const memoriesRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return collection(firestore, 'couples', coupleId, 'memories');
@@ -109,9 +120,6 @@ export default function MemoriesPage() {
   const handleCloseDialog = () => {
     setEditingMemory(null);
     setIsDialogOpen(false);
-    if (editingMemory) {
-        window.location.reload();
-    }
   }
   
   const handleSaveMemory = async (data: Partial<Memory & { dateString?: string }>) => {
@@ -172,11 +180,11 @@ export default function MemoriesPage() {
           <DialogHeader>
             <DialogTitle>{editingMemory ? 'Editar Memória' : 'Nova Memória'}</DialogTitle>
           </DialogHeader>
-          <MemoryForm 
+          {isDialogOpen && <MemoryForm 
             memory={editingMemory}
             onSave={handleSaveMemory}
             onCancel={handleCloseDialog}
-          />
+          />}
         </DialogContent>
       </Dialog>
       

@@ -223,6 +223,17 @@ export default function WatchlistPage() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
 
+   useEffect(() => {
+        if (userProfileRef && userProfile) {
+            updateDoc(userProfileRef, { 
+                lastViewed: {
+                    ...userProfile.lastViewed,
+                    movies: serverTimestamp()
+                }
+            });
+        }
+    }, [userProfileRef, userProfile]);
+
   const watchlistRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return collection(firestore, 'couples', coupleId, 'movies');
@@ -258,9 +269,6 @@ export default function WatchlistPage() {
   const handleCloseForm = () => {
     setSelectedItem(null);
     setIsFormOpen(false);
-    if (selectedItem) {
-        window.location.reload();
-    }
   };
 
   const handleOpenDetails = (item: MovieSeries) => {
@@ -324,6 +332,7 @@ export default function WatchlistPage() {
         ...dataToSave,
         status: 'To Watch',
         reviews: [],
+        creationDate: serverTimestamp(),
         author: {
             uid: user.uid,
             displayName: user.displayName,
@@ -520,31 +529,36 @@ export default function WatchlistPage() {
             <DialogHeader>
                 <DialogTitle>{selectedItem ? 'Editar Item' : 'Adicionar à Lista'}</DialogTitle>
             </DialogHeader>
-            <WatchlistForm 
+            {isFormOpen && <WatchlistForm 
               item={selectedItem ?? undefined}
               onSave={handleSaveItem}
               onCancel={handleCloseForm}
-            />
+            />}
           </DialogContent>
         </Dialog>
 
        <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
           <DialogContent className="max-w-md">
-            <DialogHeader>
-                <div className="relative aspect-[2/3] w-full rounded-lg overflow-hidden mb-4">
-                    <Image src={selectedItem?.link || `https://picsum.photos/seed/${selectedItem?.id}/300/450`} alt={selectedItem?.name || ''} layout="fill" objectFit="cover" />
-                </div>
-                <DialogTitle className="font-headline text-2xl">{selectedItem?.name}</DialogTitle>
-                <DialogDescription>{selectedItem?.platform}</DialogDescription>
-            </DialogHeader>
-            {selectedItem?.status === 'Watched' && (
-              <ReviewSection 
-                item={selectedItem} 
-                onReviewSubmit={(review) => handleReviewSubmit(selectedItem.id, review)} 
-                onReviewDelete={() => handleReviewDelete(selectedItem.id)}
-              />
+            {selectedItem && (
+            <>
+              <DialogHeader>
+                  <div className="relative aspect-[2/3] w-full rounded-lg overflow-hidden mb-4">
+                      <Image src={selectedItem.link || `https://picsum.photos/seed/${selectedItem.id}/300/450`} alt={selectedItem.name || ''} layout="fill" objectFit="cover" />
+                  </div>
+                  <DialogTitle className="font-headline text-2xl">{selectedItem.name}</DialogTitle>
+                  <DialogDescription>{selectedItem.platform}</DialogDescription>
+              </DialogHeader>
+              {selectedItem.status === 'Watched' ? (
+                <ReviewSection 
+                  item={selectedItem} 
+                  onReviewSubmit={(review) => handleReviewSubmit(selectedItem.id, review)} 
+                  onReviewDelete={() => handleReviewDelete(selectedItem.id)}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">Você pode adicionar uma avaliação quando o item for assistido.</p>
+              )}
+            </>
             )}
-            {selectedItem?.status !== 'Watched' && <p className="text-sm text-muted-foreground text-center py-4">Você pode adicionar uma avaliação quando o item for assistido.</p>}
           </DialogContent>
         </Dialog>
 
