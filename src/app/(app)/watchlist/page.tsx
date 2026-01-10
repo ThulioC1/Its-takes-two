@@ -3,12 +3,12 @@
 import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { PlusCircle, Film, Tv, MoreHorizontal, Star, ArrowDownUp } from "lucide-react";
+import { PlusCircle, Film, Tv, MoreHorizontal, Star, ArrowDownUp, MessageSquare } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -121,7 +121,7 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
   );
 }
 
-function ReviewSection({ item, onReviewSubmit }: { item: MovieSeries; onReviewSubmit: (review: Omit<Review, 'author'>) => void }) {
+function ReviewSection({ item, onReviewSubmit, onReviewDelete }: { item: MovieSeries; onReviewSubmit: (review: Omit<Review, 'author'>) => void; onReviewDelete: () => void; }) {
     const { user } = useUser();
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
@@ -146,10 +146,17 @@ function ReviewSection({ item, onReviewSubmit }: { item: MovieSeries; onReviewSu
         setIsEditing(false);
     }
 
+    const handleDelete = () => {
+        onReviewDelete();
+        setRating(0);
+        setComment('');
+        setIsEditing(true);
+    }
+
     return (
         <div className="mt-4 pt-4 border-t">
             <h4 className="font-semibold mb-3">Avaliações</h4>
-             <div className="space-y-4">
+            <div className="space-y-4 max-h-48 overflow-y-auto pr-2">
                 {item.reviews?.filter(r => r.author.uid !== user?.uid).map(review => (
                     <div key={review.author.uid} className="flex gap-3">
                          <Avatar className="h-8 w-8">
@@ -180,7 +187,10 @@ function ReviewSection({ item, onReviewSubmit }: { item: MovieSeries; onReviewSu
                                 <StarRating rating={userReview.rating} readOnly />
                             </div>
                             <p className="text-sm text-muted-foreground italic">"{userReview.comment}"</p>
-                            <Button variant="link" size="sm" className="p-0 h-auto" onClick={() => setIsEditing(true)}>Editar</Button>
+                             <div className="flex gap-2">
+                                <Button variant="link" size="sm" className="p-0 h-auto" onClick={() => setIsEditing(true)}>Editar</Button>
+                                <Button variant="link" size="sm" className="p-0 h-auto text-destructive" onClick={handleDelete}>Excluir</Button>
+                            </div>
                         </div>
                     </div>
                 ) : (
@@ -188,7 +198,7 @@ function ReviewSection({ item, onReviewSubmit }: { item: MovieSeries; onReviewSu
                         <Label>Sua avaliação</Label>
                         <StarRating rating={rating} onRatingChange={setRating} />
                         <Textarea placeholder="O que você achou?" value={comment} onChange={e => setComment(e.target.value)} />
-                        <Button onClick={handleSubmit} size="sm">Salvar Avaliação</Button>
+                        <Button onClick={handleSubmit} size="sm" disabled={rating === 0}>Salvar Avaliação</Button>
                     </div>
                 )}
             </div>
@@ -196,10 +206,10 @@ function ReviewSection({ item, onReviewSubmit }: { item: MovieSeries; onReviewSu
     )
 }
 
-
 export default function WatchlistPage() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<MovieSeries | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<MovieSeries | null>(null);
   const [sortOrder, setSortOrder] = useState('dateWatched');
 
   const firestore = useFirestore();
@@ -240,18 +250,25 @@ export default function WatchlistPage() {
     });
   }, [watchlist, sortOrder]);
 
-  const handleOpenDialog = (item: MovieSeries | null = null) => {
-    setEditingItem(item);
-    setIsDialogOpen(true);
+  const handleOpenForm = (item: MovieSeries | null = null) => {
+    setSelectedItem(item);
+    setIsFormOpen(true);
   };
   
-  const handleCloseDialog = () => {
-    setEditingItem(null);
-    setIsDialogOpen(false);
-    if (editingItem) {
-        window.location.reload();
-    }
-  }
+  const handleCloseForm = () => {
+    setSelectedItem(null);
+    setIsFormOpen(false);
+  };
+
+  const handleOpenDetails = (item: MovieSeries) => {
+    setSelectedItem(item);
+    setIsDetailsOpen(true);
+  };
+
+  const handleCloseDetails = () => {
+    setSelectedItem(null);
+    setIsDetailsOpen(false);
+  };
 
   const moveItem = async (id: string, newStatus: "To Watch" | "Watching" | "Watched") => {
     if(!watchlistRef) return;
@@ -282,23 +299,23 @@ export default function WatchlistPage() {
     };
 
     if (data.type === 'Series') {
-      dataToSave.season = !isNaN(data.season as number) ? data.season : null;
-      dataToSave.episode = !isNaN(data.episode as number) ? data.episode : null;
+      dataToSave.season = !isNaN(data.season as number) ? data.season : undefined;
+      dataToSave.episode = !isNaN(data.episode as number) ? data.episode : undefined;
     } else {
-      dataToSave.season = null;
-      dataToSave.episode = null;
+      dataToSave.season = undefined;
+      dataToSave.episode = undefined;
     }
 
     if (dateWatchedString) {
       dataToSave.dateWatched = Timestamp.fromDate(new Date(dateWatchedString + 'T00:00:00'));
-    } else if (editingItem && editingItem.status === 'Watched') {
+    } else if (selectedItem && selectedItem.status === 'Watched') {
        // do nothing to keep the existing date if field is cleared
     } else {
        dataToSave.dateWatched = null;
     }
 
-    if (editingItem) {
-      await updateDoc(doc(watchlistRef, editingItem.id), dataToSave as any);
+    if (selectedItem) {
+      await updateDoc(doc(watchlistRef, selectedItem.id), dataToSave as any);
     } else {
       await addDoc(watchlistRef, {
         ...dataToSave,
@@ -313,7 +330,7 @@ export default function WatchlistPage() {
       });
     }
 
-    handleCloseDialog();
+    handleCloseForm();
   };
 
   const handleReviewSubmit = async (itemId: string, review: Omit<Review, 'author'>) => {
@@ -338,13 +355,26 @@ export default function WatchlistPage() {
       await updateDoc(itemDoc, {
         reviews: arrayRemove(existingReview)
       });
-       await updateDoc(itemDoc, {
-        reviews: arrayUnion(newReview)
+    }
+     await updateDoc(itemDoc, {
+      reviews: arrayUnion(newReview)
+    });
+    
+    // Manually update local state to show instant feedback
+    setSelectedItem(prev => prev ? { ...prev, reviews: [...(prev.reviews?.filter(r => r.author.uid !== user.uid) || []), newReview] } : null);
+  };
+  
+  const handleReviewDelete = async (itemId: string) => {
+    if (!watchlistRef || !user) return;
+    const itemDoc = doc(watchlistRef, itemId);
+    const currentItem = watchlist?.find(i => i.id === itemId);
+    const existingReview = currentItem?.reviews?.find(r => r.author.uid === user.uid);
+    if (existingReview) {
+      await updateDoc(itemDoc, {
+        reviews: arrayRemove(existingReview)
       });
-    } else {
-       await updateDoc(itemDoc, {
-        reviews: arrayUnion(newReview)
-      });
+      // Manually update local state
+      setSelectedItem(prev => prev ? { ...prev, reviews: prev.reviews?.filter(r => r.author.uid !== user.uid) } : null);
     }
   };
 
@@ -367,8 +397,8 @@ export default function WatchlistPage() {
     return filteredList.map(item => {
         const averageRating = getAverageRating(item.reviews);
         return (
-        <Card key={item.id} className="overflow-hidden w-full group">
-            <div className="relative aspect-[2/3]">
+        <Card key={item.id} className="overflow-hidden w-full group flex flex-col">
+            <div className="relative aspect-[2/3] cursor-pointer" onClick={() => handleOpenDetails(item)}>
                 <Image src={item.link || `https://picsum.photos/seed/${item.id}/300/450`} alt={item.name} fill objectFit="cover" data-ai-hint="movie poster" />
                  <div className="absolute top-2 left-2 right-2 flex justify-between items-start">
                     {item.platform && <Badge variant="secondary">{item.platform}</Badge>}
@@ -383,12 +413,12 @@ export default function WatchlistPage() {
                  <div className="absolute top-1 right-1">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-white bg-black/20 hover:bg-black/50 hover:text-white">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-white bg-black/20 hover:bg-black/50 hover:text-white" onClick={(e) => e.stopPropagation()}>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                         <DropdownMenuItem onSelect={() => handleOpenDialog(item)}>Editar</DropdownMenuItem>
+                         <DropdownMenuItem onSelect={() => handleOpenForm(item)}>Editar</DropdownMenuItem>
                          <DropdownMenuSub>
                             <DropdownMenuSubTrigger>Mover para</DropdownMenuSubTrigger>
                             <DropdownMenuPortal>
@@ -404,33 +434,28 @@ export default function WatchlistPage() {
                     </DropdownMenu>
                  </div>
             </div>
-            <CardContent className="p-3">
+            <CardContent className="p-3 flex-grow cursor-pointer" onClick={() => handleOpenDetails(item)}>
                 <h3 className="font-semibold font-headline truncate text-sm">{item.name}</h3>
                 <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
                     <div className="flex items-center">
                         {item.type === 'Movie' ? <Film className="w-3 h-3 mr-1"/> : <Tv className="w-3 h-3 mr-1"/>}
                         <span>{item.type}</span>
                     </div>
-                    {averageRating > 0 && (
-                        <div className="flex items-center gap-1">
-                            <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                            <span>{averageRating.toFixed(1)} ({item.reviews?.length})</span>
-                        </div>
-                    )}
-                </div>
-                 {item.status === 'Watched' && item.reviews?.length && (
-                    <div className="text-xs text-muted-foreground mt-2 border-t pt-2 space-y-2">
-                        {item.reviews.map(r => (
-                           <div key={r.author.uid} className="flex gap-2 items-start">
-                               <Avatar className="h-5 w-5">
-                                   <AvatarImage src={r.author.photoURL || ''} />
-                                   <AvatarFallback className="text-[10px]">{r.author.displayName.charAt(0)}</AvatarFallback>
-                               </Avatar>
-                               <p className="italic flex-1">"{r.comment}"</p>
-                           </div>
-                        ))}
+                     <div className="flex items-center gap-2">
+                        {averageRating > 0 && (
+                            <div className="flex items-center gap-1">
+                                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                                <span className="font-semibold">{averageRating.toFixed(1)}</span>
+                            </div>
+                        )}
+                        {item.reviews && item.reviews.length > 0 && (
+                             <div className="flex items-center gap-1">
+                                <MessageSquare className="w-4 h-4" />
+                                <span>{item.reviews.length}</span>
+                            </div>
+                        )}
                     </div>
-                )}
+                </div>
             </CardContent>
             
             <CardFooter className="p-3 pt-0 text-xs text-muted-foreground flex justify-between items-center">
@@ -480,31 +505,46 @@ export default function WatchlistPage() {
                     </DropdownMenuRadioGroup>
                 </DropdownMenuContent>
             </DropdownMenu>
-            <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()} disabled={!coupleId}>
+            <Button className="w-full sm:w-auto" onClick={() => handleOpenForm()} disabled={!coupleId}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Adicionar Item
             </Button>
         </div>
       </div>
 
-       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
           <DialogContent>
             <DialogHeader>
-                <DialogTitle>{editingItem ? 'Editar Item' : 'Adicionar à Lista'}</DialogTitle>
+                <DialogTitle>{selectedItem ? 'Editar Item' : 'Adicionar à Lista'}</DialogTitle>
             </DialogHeader>
             <WatchlistForm 
-              item={editingItem ?? undefined}
+              item={selectedItem ?? undefined}
               onSave={handleSaveItem}
-              onCancel={handleCloseDialog}
+              onCancel={handleCloseForm}
             />
-            {editingItem?.status === 'Watched' && (
-              <ReviewSection 
-                item={editingItem} 
-                onReviewSubmit={(review) => handleReviewSubmit(editingItem.id, review)} 
-              />
-            )}
           </DialogContent>
         </Dialog>
+
+       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+                <div className="relative aspect-[2/3] w-full rounded-lg overflow-hidden mb-4">
+                    <Image src={selectedItem?.link || `https://picsum.photos/seed/${selectedItem?.id}/300/450`} alt={selectedItem?.name || ''} layout="fill" objectFit="cover" />
+                </div>
+                <DialogTitle className="font-headline text-2xl">{selectedItem?.name}</DialogTitle>
+                <DialogDescription>{selectedItem?.platform}</DialogDescription>
+            </DialogHeader>
+            {selectedItem?.status === 'Watched' && (
+              <ReviewSection 
+                item={selectedItem} 
+                onReviewSubmit={(review) => handleReviewSubmit(selectedItem.id, review)} 
+                onReviewDelete={() => handleReviewDelete(selectedItem.id)}
+              />
+            )}
+            {selectedItem?.status !== 'Watched' && <p className="text-sm text-muted-foreground text-center py-4">Você pode adicionar uma avaliação quando o item for assistido.</p>}
+          </DialogContent>
+        </Dialog>
+
     <TooltipProvider>
       <Tabs defaultValue="To Watch">
         <TabsList className="grid w-full grid-cols-3">
