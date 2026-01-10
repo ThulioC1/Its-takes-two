@@ -222,6 +222,9 @@ export default function GamesPage() {
   const handleCloseForm = () => {
     setSelectedItem(null);
     setIsFormOpen(false);
+     if (selectedItem) {
+        window.location.reload();
+    }
   }
   
   const handleOpenDetails = (item: Game) => {
