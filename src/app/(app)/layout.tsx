@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
+import React from 'react'
 import {
   CalendarHeart,
   CircleDollarSign,
@@ -36,6 +37,9 @@ import { useAuth, useUser, useFirestore, useCollection, useDoc, useMemoFirebase 
 import { signOut } from "firebase/auth"
 import { Separator } from "@/components/ui/separator"
 import { BottomNavigation } from "@/components/ui/bottom-navigation"
+import { collection, query, orderBy, limit } from 'firebase/firestore';
+import type { Post, UserProfile } from '@/types';
+import { cn } from "@/lib/utils"
 
 export const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Painel" },
@@ -44,7 +48,7 @@ export const navItems = [
   { href: "/watchlist", icon: Clapperboard, label: "Filmes" },
   { href: "/games", icon: Gamepad2, label: "Jogos" },
   { href: "/dates", icon: CalendarHeart, label: "Datas" },
-  { href: "/wall", icon: Users, label: "Mural" },
+  { href: "/wall", icon: Users, label: "Mural", notificationKey: "wall" },
   { href: "/memories", icon: ImageIcon, label: "Memórias" },
   { href: "/messages", icon: Mail, label: "Cartas" },
   { href: "/goals", icon: Goal, label: "Metas" },
@@ -87,6 +91,45 @@ function UserProfile() {
     )
 }
 
+function NotificationIndicator({ notificationKey }: { notificationKey: string }) {
+    const { user } = useUser();
+    const firestore = useFirestore();
+
+    const userProfileRef = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return doc(firestore, 'users', user.uid);
+    }, [user, firestore]);
+    const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
+
+    const coupleId = userProfile?.coupleId;
+
+    const lastPostQuery = useMemoFirebase(() => {
+        if (!firestore || !coupleId || notificationKey !== 'wall') return null;
+        return query(collection(firestore, 'couples', coupleId, 'posts'), orderBy('dateTime', 'desc'), limit(1));
+    }, [firestore, coupleId, notificationKey]);
+
+    const { data: lastPostData } = useCollection<Post>(lastPostQuery);
+
+    const hasNewContent = React.useMemo(() => {
+        if (notificationKey === 'wall') {
+            if (!lastPostData || lastPostData.length === 0 || !userProfile?.lastWallView) {
+                // If there's a post but user has never viewed the wall, show notification
+                return lastPostData && lastPostData.length > 0 && !userProfile?.lastWallView;
+            }
+            const lastPostDate = lastPostData[0].dateTime?.toDate();
+            const lastViewDate = userProfile.lastWallView.toDate();
+            return lastPostDate > lastViewDate;
+        }
+        return false;
+    }, [lastPostData, userProfile, notificationKey]);
+
+    if (!hasNewContent) return null;
+
+    return (
+        <span className="absolute top-1.5 right-1.5 block h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
+    );
+}
+
 export default function AppLayout({ children }: { children: React.React.Node }) {  
   const pathname = usePathname()
   return (
@@ -104,9 +147,10 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton asChild tooltip={item.label} isActive={pathname === item.href}>
-                    <Link href={item.href}>
+                    <Link href={item.href} className="relative">
                         <item.icon />
                         <span>{item.label}</span>
+                        {item.notificationKey && <NotificationIndicator notificationKey={item.notificationKey} />}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -134,5 +178,3 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
     </SidebarProvider>
   )
 }
-
-    

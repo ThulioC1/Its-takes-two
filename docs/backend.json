@@ -478,6 +478,11 @@
             "type": "string",
             "description": "The user's selected gender.",
             "enum": ["Masculino", "Feminino", "Prefiro não informar"]
+        },
+        "lastWallView": {
+          "type": "string",
+          "description": "Timestamp of the last time the user viewed the wall.",
+          "format": "date-time"
         }
       },
       "required": [

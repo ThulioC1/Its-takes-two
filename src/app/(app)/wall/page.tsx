@@ -168,6 +168,13 @@ export default function WallPage() {
     const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
     const coupleId = userProfile?.coupleId;
 
+    // Update lastWallView when the component mounts
+    useEffect(() => {
+        if (userProfileRef) {
+            updateDoc(userProfileRef, { lastWallView: serverTimestamp() });
+        }
+    }, [userProfileRef]);
+
     const postsRef = useMemoFirebase(() => {
         if (!firestore || !coupleId) return null;
         return collection(firestore, 'couples', coupleId, 'posts');
