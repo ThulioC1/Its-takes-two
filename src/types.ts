@@ -100,6 +100,11 @@ export interface Comment {
     author: Author;
 }
 
+export interface Review {
+    author: Author;
+    rating: number;
+    comment: string;
+}
 
 export interface MovieSeries {
     id: string;
@@ -112,8 +117,7 @@ export interface MovieSeries {
     season?: number | null;
     episode?: number | null;
     author: Author;
-    rating: number;
-    review?: string;
+    reviews?: Review[];
 }
 
 export interface Game {
@@ -125,8 +129,5 @@ export interface Game {
     startDate?: Timestamp | null;
     completionDate?: Timestamp | null;
     author: Author;
-    rating: number;
-    review?: string;
+    reviews?: Review[];
 }
-
-    

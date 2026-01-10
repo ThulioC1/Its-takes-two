@@ -137,13 +137,12 @@
         "author": {
           "$ref": "#/entities/Author"
         },
-        "rating": {
-          "type": "number",
-          "description": "Rating from 1 to 5."
-        },
-        "review": {
-          "type": "string",
-          "description": "A review or comment."
+        "reviews": {
+          "type": "array",
+          "description": "List of reviews from users.",
+          "items": {
+            "$ref": "#/entities/Review"
+          }
         }
       },
       "required": [
@@ -194,13 +193,12 @@
         "author": {
           "$ref": "#/entities/Author"
         },
-        "rating": {
-          "type": "number",
-          "description": "Rating from 1 to 5."
-        },
-        "review": {
-          "type": "string",
-          "description": "A review or comment."
+        "reviews": {
+          "type": "array",
+          "description": "List of reviews from users.",
+          "items": {
+            "$ref": "#/entities/Review"
+          }
         }
       },
       "required": [
@@ -535,6 +533,25 @@
             "format": "uri"
         }
       }
+    },
+    "Review": {
+        "title": "Review",
+        "type": "object",
+        "description": "Represents an individual user's review for a game or movie.",
+        "properties": {
+            "author": {
+                "$ref": "#/entities/Author"
+            },
+            "rating": {
+                "type": "number",
+                "description": "Rating from 1 to 5."
+            },
+            "comment": {
+                "type": "string",
+                "description": "The user's comment."
+            }
+        },
+        "required": ["author", "rating", "comment"]
     }
   },
   "auth": {
@@ -784,4 +801,3 @@
     ]
   }
 }
-    

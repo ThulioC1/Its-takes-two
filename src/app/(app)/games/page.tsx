@@ -12,21 +12,21 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from "firebase/firestore";
-import type { Game, UserProfile } from "@/types";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp, arrayUnion, arrayRemove } from "firebase/firestore";
+import type { Game, UserProfile, Review } from "@/types";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from 'date-fns';
 import { Textarea } from "@/components/ui/textarea";
 
-const StarRating = ({ rating, onRatingChange }: { rating: number; onRatingChange?: (rating: number) => void }) => {
+const StarRating = ({ rating, onRatingChange, readOnly = false }: { rating: number; onRatingChange?: (rating: number) => void; readOnly?: boolean }) => {
     return (
         <div className="flex gap-1">
             {[1, 2, 3, 4, 5].map((star) => (
                 <Star
                     key={star}
-                    className={`h-5 w-5 ${rating >= star ? 'text-amber-400 fill-amber-400' : 'text-gray-300'} ${onRatingChange ? 'cursor-pointer' : ''}`}
-                    onClick={() => onRatingChange?.(star)}
+                    className={`h-5 w-5 ${rating >= star ? 'text-amber-400 fill-amber-400' : 'text-gray-300'} ${!readOnly && onRatingChange ? 'cursor-pointer' : ''}`}
+                    onClick={() => !readOnly && onRatingChange?.(star)}
                 />
             ))}
         </div>
@@ -35,13 +35,11 @@ const StarRating = ({ rating, onRatingChange }: { rating: number; onRatingChange
 
 function GameForm({ item, onSave, onCancel }: { item?: Game; onSave: (data: Partial<Game>) => void; onCancel: () => void; }) {
   const [startDate, setStartDate] = useState<string>('');
-   const [completionDate, setCompletionDate] = useState<string>('');
-  const [rating, setRating] = useState(0);
+  const [completionDate, setCompletionDate] = useState<string>('');
 
   useEffect(() => {
     setStartDate(item?.startDate && item.startDate.toDate ? format(item.startDate.toDate(), 'yyyy-MM-dd') : '');
     setCompletionDate(item?.completionDate && item.completionDate.toDate ? format(item.completionDate.toDate(), 'yyyy-MM-dd') : '');
-    setRating(item?.rating || 0);
   }, [item]);
   
   const handleItemSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -53,8 +51,6 @@ function GameForm({ item, onSave, onCancel }: { item?: Game; onSave: (data: Part
       link: formData.get('image') as string,
       startDateString: startDate,
       completionDateString: completionDate,
-      rating: rating,
-      review: formData.get('review') as string,
     };
     onSave(data);
   };
@@ -89,7 +85,6 @@ function GameForm({ item, onSave, onCancel }: { item?: Game; onSave: (data: Part
       )}
 
       {item?.status === 'Zerado' && (
-        <>
         <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="completionDate" className="text-right">Data de Zeramento</Label>
           <Input 
@@ -101,17 +96,6 @@ function GameForm({ item, onSave, onCancel }: { item?: Game; onSave: (data: Part
             onChange={(e) => setCompletionDate(e.target.value)} 
           />
         </div>
-        <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right">Nota</Label>
-            <div className="col-span-3">
-                <StarRating rating={rating} onRatingChange={setRating} />
-            </div>
-        </div>
-        <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="review" className="text-right">Comentário</Label>
-            <Textarea id="review" name="review" className="col-span-3" defaultValue={item?.review}/>
-        </div>
-        </>
       )}
 
       <DialogFooter>
@@ -120,6 +104,81 @@ function GameForm({ item, onSave, onCancel }: { item?: Game; onSave: (data: Part
       </DialogFooter>
     </form>
   );
+}
+
+function ReviewSection({ item, onReviewSubmit }: { item: Game; onReviewSubmit: (review: Omit<Review, 'author'>) => void }) {
+    const { user } = useUser();
+    const [rating, setRating] = useState(0);
+    const [comment, setComment] = useState('');
+    const [isEditing, setIsEditing] = useState(true);
+
+    const userReview = useMemo(() => item.reviews?.find(r => r.author.uid === user?.uid), [item.reviews, user]);
+
+    useEffect(() => {
+        if (userReview) {
+            setRating(userReview.rating);
+            setComment(userReview.comment);
+            setIsEditing(false);
+        } else {
+            setRating(0);
+            setComment('');
+            setIsEditing(true);
+        }
+    }, [userReview]);
+
+    const handleSubmit = () => {
+        onReviewSubmit({ rating, comment });
+        setIsEditing(false);
+    }
+
+    return (
+        <div className="mt-4 pt-4 border-t">
+            <h4 className="font-semibold mb-3">Avaliações</h4>
+             <div className="space-y-4">
+                {item.reviews?.filter(r => r.author.uid !== user?.uid).map(review => (
+                    <div key={review.author.uid} className="flex gap-3">
+                         <Avatar className="h-8 w-8">
+                            <AvatarImage src={review.author.photoURL || ''} />
+                            <AvatarFallback>{review.author.displayName.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <p className="font-semibold text-sm">{review.author.displayName}</p>
+                                <StarRating rating={review.rating} readOnly />
+                            </div>
+                            <p className="text-sm text-muted-foreground italic">"{review.comment}"</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="mt-4 pt-4 border-t">
+                {userReview && !isEditing ? (
+                     <div className="flex gap-3">
+                         <Avatar className="h-8 w-8">
+                            <AvatarImage src={userReview.author.photoURL || ''} />
+                            <AvatarFallback>{userReview.author.displayName.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <p className="font-semibold text-sm">Sua avaliação</p>
+                                <StarRating rating={userReview.rating} readOnly />
+                            </div>
+                            <p className="text-sm text-muted-foreground italic">"{userReview.comment}"</p>
+                            <Button variant="link" size="sm" className="p-0 h-auto" onClick={() => setIsEditing(true)}>Editar</Button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        <Label>Sua avaliação</Label>
+                        <StarRating rating={rating} onRatingChange={setRating} />
+                        <Textarea placeholder="O que você achou do jogo?" value={comment} onChange={e => setComment(e.target.value)} />
+                        <Button onClick={handleSubmit} size="sm">Salvar Avaliação</Button>
+                    </div>
+                )}
+            </div>
+        </div>
+    )
 }
 
 
@@ -205,8 +264,7 @@ export default function GamesPage() {
       await addDoc(gamesRef, {
         ...dataToSave,
         status: 'Para Jogar',
-        rating: data.rating || 0,
-        review: data.review || '',
+        reviews: [],
         author: {
             uid: user.uid,
             displayName: user.displayName,
@@ -219,6 +277,45 @@ export default function GamesPage() {
     handleCloseDialog();
   };
 
+  const handleReviewSubmit = async (gameId: string, review: Omit<Review, 'author'>) => {
+    if (!gamesRef || !user || !userProfile) return;
+
+    const gameDoc = doc(gamesRef, gameId);
+    const currentGame = games?.find(g => g.id === gameId);
+    const existingReview = currentGame?.reviews?.find(r => r.author.uid === user.uid);
+
+    const newReview: Review = {
+      author: {
+        uid: user.uid,
+        displayName: user.displayName || 'Usuário',
+        photoURL: user.photoURL || '',
+        gender: userProfile.gender,
+      },
+      rating: review.rating,
+      comment: review.comment,
+    };
+    
+    if (existingReview) {
+      // Atomically remove the old review and add the new one
+      await updateDoc(gameDoc, {
+        reviews: arrayRemove(existingReview)
+      });
+       await updateDoc(gameDoc, {
+        reviews: arrayUnion(newReview)
+      });
+    } else {
+       await updateDoc(gameDoc, {
+        reviews: arrayUnion(newReview)
+      });
+    }
+  };
+
+  const getAverageRating = (reviews?: Review[]) => {
+    if (!reviews || reviews.length === 0) return 0;
+    const total = reviews.reduce((acc, r) => acc + r.rating, 0);
+    return total / reviews.length;
+  }
+
   const renderList = (status: "Para Jogar" | "Jogando" | "Zerado") => {
     if (isLoading) return <div className="col-span-full text-center text-muted-foreground py-10">Carregando...</div>;
     
@@ -228,7 +325,9 @@ export default function GamesPage() {
         return <div className="col-span-full text-center text-muted-foreground py-10">Nenhum jogo aqui.</div>;
     }
 
-    return filteredList.map(item => (
+    return filteredList.map(item => {
+        const averageRating = getAverageRating(item.reviews);
+        return (
         <Card key={item.id} className="overflow-hidden w-full group">
             <div className="relative aspect-[3/4]">
                 <Image src={item.link || `https://picsum.photos/seed/${item.id}/300/450`} alt={item.name} fill objectFit="cover" data-ai-hint="game cover" />
@@ -261,13 +360,24 @@ export default function GamesPage() {
             </div>
             <CardContent className="p-3">
                 <h3 className="font-semibold font-headline truncate text-sm">{item.name}</h3>
-                 {item.rating > 0 && (
+                 {averageRating > 0 && (
                     <div className="flex items-center gap-1 mt-1">
-                        <StarRating rating={item.rating} />
+                        <StarRating rating={averageRating} readOnly />
+                         <span className="text-xs text-muted-foreground">({item.reviews?.length})</span>
                     </div>
                 )}
-                {item.status === 'Zerado' && item.review && (
-                    <p className="text-xs text-muted-foreground mt-2 border-t pt-2 italic">"{item.review}"</p>
+                 {item.status === 'Zerado' && item.reviews?.length && (
+                    <div className="text-xs text-muted-foreground mt-2 border-t pt-2 space-y-2">
+                        {item.reviews.map(r => (
+                           <div key={r.author.uid} className="flex gap-2 items-start">
+                               <Avatar className="h-5 w-5">
+                                   <AvatarImage src={r.author.photoURL || ''} />
+                                   <AvatarFallback className="text-[10px]">{r.author.displayName.charAt(0)}</AvatarFallback>
+                               </Avatar>
+                               <p className="italic flex-1">"{r.comment}"</p>
+                           </div>
+                        ))}
+                    </div>
                 )}
             </CardContent>
             
@@ -283,6 +393,7 @@ export default function GamesPage() {
                     <Tooltip>
                         <TooltipTrigger>
                             <Avatar className="h-5 w-5">
+                                 <AvatarImage src={item.author.photoURL || ''} />
                                 <AvatarFallback className="text-[10px]">{item.author.displayName?.charAt(0) || '?'}</AvatarFallback>
                             </Avatar>
                         </TooltipTrigger>
@@ -293,7 +404,7 @@ export default function GamesPage() {
                 )}
             </CardFooter>
         </Card>
-    ));
+    )});
 }
 
   return (
@@ -319,6 +430,12 @@ export default function GamesPage() {
               onSave={handleSaveItem}
               onCancel={handleCloseDialog}
             />
+            {editingItem?.status === 'Zerado' && (
+                <ReviewSection 
+                    item={editingItem} 
+                    onReviewSubmit={(review) => handleReviewSubmit(editingItem.id, review)} 
+                />
+            )}
           </DialogContent>
         </Dialog>
     <TooltipProvider>

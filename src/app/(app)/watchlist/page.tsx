@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { PlusCircle, Clapperboard, Film, Tv, MoreHorizontal, Star, ArrowDownUp } from "lucide-react";
+import { PlusCircle, Film, Tv, MoreHorizontal, Star, ArrowDownUp } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
@@ -13,36 +13,35 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from "firebase/firestore";
-import type { MovieSeries, UserProfile } from "@/types";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp, arrayUnion, arrayRemove } from "firebase/firestore";
+import type { MovieSeries, UserProfile, Review } from "@/types";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from 'date-fns';
 import { Textarea } from "@/components/ui/textarea";
 
-const StarRating = ({ rating, onRatingChange }: { rating: number; onRatingChange?: (rating: number) => void }) => {
+const StarRating = ({ rating, onRatingChange, readOnly = false }: { rating: number; onRatingChange?: (rating: number) => void; readOnly?: boolean }) => {
     return (
         <div className="flex gap-1">
             {[1, 2, 3, 4, 5].map((star) => (
                 <Star
                     key={star}
-                    className={`h-5 w-5 ${rating >= star ? 'text-amber-400 fill-amber-400' : 'text-gray-300'} ${onRatingChange ? 'cursor-pointer' : ''}`}
-                    onClick={() => onRatingChange?.(star)}
+                    className={`h-5 w-5 ${rating >= star ? 'text-amber-400 fill-amber-400' : 'text-gray-300'} ${!readOnly && onRatingChange ? 'cursor-pointer' : ''}`}
+                    onClick={() => !readOnly && onRatingChange?.(star)}
                 />
             ))}
         </div>
     );
 };
 
+
 function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave: (data: Partial<MovieSeries>) => void; onCancel: () => void; }) {
   const [itemType, setItemType] = useState(item?.type);
   const [watchedDate, setWatchedDate] = useState<string>('');
-  const [rating, setRating] = useState(0);
 
   useEffect(() => {
     setItemType(item?.type);
     setWatchedDate(item?.dateWatched && item.dateWatched.toDate ? format(item.dateWatched.toDate(), 'yyyy-MM-dd') : '');
-    setRating(item?.rating || 0);
   }, [item]);
   
   const handleItemSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -56,8 +55,6 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
       season: itemType === 'Series' ? parseInt(formData.get('season') as string, 10) : undefined,
       episode: itemType === 'Series' ? parseInt(formData.get('episode') as string, 10) : undefined,
       dateWatchedString: watchedDate,
-      rating: rating,
-      review: formData.get('review') as string,
     };
     onSave(data);
   };
@@ -95,7 +92,6 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
       )}
 
       {item?.status === 'Watched' && (
-        <>
         <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="dateWatched" className="text-right">Data Assistido</Label>
           <Input 
@@ -107,17 +103,6 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
             onChange={(e) => setWatchedDate(e.target.value)} 
           />
         </div>
-        <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right">Nota</Label>
-            <div className="col-span-3">
-                <StarRating rating={rating} onRatingChange={setRating} />
-            </div>
-        </div>
-        <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="review" className="text-right">Comentário</Label>
-            <Textarea id="review" name="review" className="col-span-3" defaultValue={item?.review}/>
-        </div>
-        </>
       )}
 
       <div className="grid grid-cols-4 items-center gap-4">
@@ -134,6 +119,81 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
       </DialogFooter>
     </form>
   );
+}
+
+function ReviewSection({ item, onReviewSubmit }: { item: MovieSeries; onReviewSubmit: (review: Omit<Review, 'author'>) => void }) {
+    const { user } = useUser();
+    const [rating, setRating] = useState(0);
+    const [comment, setComment] = useState('');
+    const [isEditing, setIsEditing] = useState(true);
+
+    const userReview = useMemo(() => item.reviews?.find(r => r.author.uid === user?.uid), [item.reviews, user]);
+
+    useEffect(() => {
+        if (userReview) {
+            setRating(userReview.rating);
+            setComment(userReview.comment);
+            setIsEditing(false);
+        } else {
+            setRating(0);
+            setComment('');
+            setIsEditing(true);
+        }
+    }, [userReview]);
+
+    const handleSubmit = () => {
+        onReviewSubmit({ rating, comment });
+        setIsEditing(false);
+    }
+
+    return (
+        <div className="mt-4 pt-4 border-t">
+            <h4 className="font-semibold mb-3">Avaliações</h4>
+             <div className="space-y-4">
+                {item.reviews?.filter(r => r.author.uid !== user?.uid).map(review => (
+                    <div key={review.author.uid} className="flex gap-3">
+                         <Avatar className="h-8 w-8">
+                            <AvatarImage src={review.author.photoURL || ''} />
+                            <AvatarFallback>{review.author.displayName.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <p className="font-semibold text-sm">{review.author.displayName}</p>
+                                <StarRating rating={review.rating} readOnly />
+                            </div>
+                            <p className="text-sm text-muted-foreground italic">"{review.comment}"</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="mt-4 pt-4 border-t">
+                {userReview && !isEditing ? (
+                     <div className="flex gap-3">
+                         <Avatar className="h-8 w-8">
+                            <AvatarImage src={userReview.author.photoURL || ''} />
+                            <AvatarFallback>{userReview.author.displayName.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <p className="font-semibold text-sm">Sua avaliação</p>
+                                <StarRating rating={userReview.rating} readOnly />
+                            </div>
+                            <p className="text-sm text-muted-foreground italic">"{userReview.comment}"</p>
+                            <Button variant="link" size="sm" className="p-0 h-auto" onClick={() => setIsEditing(true)}>Editar</Button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        <Label>Sua avaliação</Label>
+                        <StarRating rating={rating} onRatingChange={setRating} />
+                        <Textarea placeholder="O que você achou?" value={comment} onChange={e => setComment(e.target.value)} />
+                        <Button onClick={handleSubmit} size="sm">Salvar Avaliação</Button>
+                    </div>
+                )}
+            </div>
+        </div>
+    )
 }
 
 
@@ -172,7 +232,9 @@ export default function WatchlistPage() {
             return a.name.localeCompare(b.name);
         }
         if (sortOrder === 'rating') {
-            return (b.rating || 0) - (a.rating || 0); // Higher rating first
+            const ratingA = a.reviews?.length ? a.reviews.reduce((acc, r) => acc + r.rating, 0) / a.reviews.length : 0;
+            const ratingB = b.reviews?.length ? b.reviews.reduce((acc, r) => acc + r.rating, 0) / b.reviews.length : 0;
+            return ratingB - ratingA; // Higher rating first
         }
         return 0;
     });
@@ -236,14 +298,12 @@ export default function WatchlistPage() {
     }
 
     if (editingItem) {
-      const itemDoc = doc(watchlistRef, editingItem.id);
-      await updateDoc(itemDoc, dataToSave as any);
+      await updateDoc(doc(watchlistRef, editingItem.id), dataToSave as any);
     } else {
       await addDoc(watchlistRef, {
         ...dataToSave,
         status: 'To Watch',
-        rating: data.rating || 0,
-        review: data.review || '',
+        reviews: [],
         author: {
             uid: user.uid,
             displayName: user.displayName,
@@ -256,6 +316,45 @@ export default function WatchlistPage() {
     handleCloseDialog();
   };
 
+  const handleReviewSubmit = async (itemId: string, review: Omit<Review, 'author'>) => {
+    if (!watchlistRef || !user || !userProfile) return;
+
+    const itemDoc = doc(watchlistRef, itemId);
+    const currentItem = watchlist?.find(i => i.id === itemId);
+    const existingReview = currentItem?.reviews?.find(r => r.author.uid === user.uid);
+
+    const newReview: Review = {
+      author: {
+        uid: user.uid,
+        displayName: user.displayName || 'Usuário',
+        photoURL: user.photoURL || '',
+        gender: userProfile.gender,
+      },
+      rating: review.rating,
+      comment: review.comment,
+    };
+    
+    if (existingReview) {
+      await updateDoc(itemDoc, {
+        reviews: arrayRemove(existingReview)
+      });
+       await updateDoc(itemDoc, {
+        reviews: arrayUnion(newReview)
+      });
+    } else {
+       await updateDoc(itemDoc, {
+        reviews: arrayUnion(newReview)
+      });
+    }
+  };
+
+  const getAverageRating = (reviews?: Review[]) => {
+    if (!reviews || reviews.length === 0) return 0;
+    const total = reviews.reduce((acc, r) => acc + r.rating, 0);
+    return total / reviews.length;
+  }
+
+
   const renderList = (status: "To Watch" | "Watching" | "Watched") => {
     if (isLoading) return <div className="col-span-full text-center text-muted-foreground py-10">Carregando...</div>;
     
@@ -265,7 +364,9 @@ export default function WatchlistPage() {
         return <div className="col-span-full text-center text-muted-foreground py-10">Nenhum item aqui.</div>;
     }
 
-    return filteredList.map(item => (
+    return filteredList.map(item => {
+        const averageRating = getAverageRating(item.reviews);
+        return (
         <Card key={item.id} className="overflow-hidden w-full group">
             <div className="relative aspect-[2/3]">
                 <Image src={item.link || `https://picsum.photos/seed/${item.id}/300/450`} alt={item.name} fill objectFit="cover" data-ai-hint="movie poster" />
@@ -310,26 +411,37 @@ export default function WatchlistPage() {
                         {item.type === 'Movie' ? <Film className="w-3 h-3 mr-1"/> : <Tv className="w-3 h-3 mr-1"/>}
                         <span>{item.type}</span>
                     </div>
-                    {item.rating > 0 && (
+                    {averageRating > 0 && (
                         <div className="flex items-center gap-1">
                             <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                            <span>{item.rating}</span>
+                            <span>{averageRating.toFixed(1)} ({item.reviews?.length})</span>
                         </div>
                     )}
                 </div>
-                 {item.status === 'Watched' && item.review && (
-                    <p className="text-xs text-muted-foreground mt-2 border-t pt-2 italic">"{item.review}"</p>
+                 {item.status === 'Watched' && item.reviews?.length && (
+                    <div className="text-xs text-muted-foreground mt-2 border-t pt-2 space-y-2">
+                        {item.reviews.map(r => (
+                           <div key={r.author.uid} className="flex gap-2 items-start">
+                               <Avatar className="h-5 w-5">
+                                   <AvatarImage src={r.author.photoURL || ''} />
+                                   <AvatarFallback className="text-[10px]">{r.author.displayName.charAt(0)}</AvatarFallback>
+                               </Avatar>
+                               <p className="italic flex-1">"{r.comment}"</p>
+                           </div>
+                        ))}
+                    </div>
                 )}
             </CardContent>
             
             <CardFooter className="p-3 pt-0 text-xs text-muted-foreground flex justify-between items-center">
                 {item.status === 'Watched' && item.dateWatched && item.dateWatched.toDate ? (
-                    <span>Assistido em {format(item.dateWatched.toDate(), 'dd/MM/yy')}</span>
+                    <span>Visto em {format(item.dateWatched.toDate(), 'dd/MM/yy')}</span>
                 ) : <span />}
                  {item.author && (
                     <Tooltip>
                         <TooltipTrigger>
                             <Avatar className="h-5 w-5">
+                                <AvatarImage src={item.author.photoURL || ''} />
                                 <AvatarFallback className="text-[10px]">{item.author.displayName?.charAt(0) || '?'}</AvatarFallback>
                             </Avatar>
                         </TooltipTrigger>
@@ -340,7 +452,7 @@ export default function WatchlistPage() {
                 )}
             </CardFooter>
         </Card>
-    ));
+    )});
 }
 
   return (
@@ -385,6 +497,12 @@ export default function WatchlistPage() {
               onSave={handleSaveItem}
               onCancel={handleCloseDialog}
             />
+            {editingItem?.status === 'Watched' && (
+              <ReviewSection 
+                item={editingItem} 
+                onReviewSubmit={(review) => handleReviewSubmit(editingItem.id, review)} 
+              />
+            )}
           </DialogContent>
         </Dialog>
     <TooltipProvider>
