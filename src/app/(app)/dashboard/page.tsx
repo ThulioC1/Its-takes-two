@@ -297,7 +297,6 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <CoupleLinker />
       {!isLinked && !userProfile && (
           <Card>
             <CardHeader>
@@ -457,6 +456,7 @@ export default function DashboardPage() {
             </Card>
         </Link>
       </div>
+      <CoupleLinker />
     </div>
   );
 }
