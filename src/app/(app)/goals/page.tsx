@@ -3,9 +3,9 @@ import { useState, useMemo, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { PlusCircle, PiggyBank, HeartHandshake, User, MoreHorizontal, CheckCircle2 } from "lucide-react";
+import { PlusCircle, PiggyBank, HeartHandshake, User, MoreHorizontal, CheckCircle2, ArrowDownUp } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -107,6 +107,7 @@ function GoalForm({ goal, onSave, onCancel }: { goal?: CoupleGoal; onSave: (data
 export default function GoalsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<CoupleGoal | null>(null);
+  const [sortOrder, setSortOrder] = useState('progress');
   
   const firestore = useFirestore();
   const { user } = useUser();
@@ -128,8 +129,19 @@ export default function GoalsPage() {
 
   const sortedGoals = useMemo(() => {
     if (!goals) return [];
-    return [...goals].sort((a, b) => a.progress - b.progress);
-  }, [goals]);
+    return [...goals].sort((a, b) => {
+        if (sortOrder === 'completionDate') {
+            const dateA = a.completionDate?.toDate()?.getTime() || 0;
+            const dateB = b.completionDate?.toDate()?.getTime() || 0;
+            return dateB - dateA; // Most recent first
+        }
+        if (sortOrder === 'alphabetical') {
+            return a.title.localeCompare(b.title);
+        }
+        // Default sort by progress
+        return a.progress - b.progress;
+    });
+  }, [goals, sortOrder]);
 
 
   const handleOpenDialog = (goal: CoupleGoal | null = null) => {
@@ -195,10 +207,29 @@ export default function GoalsPage() {
           <h1 className="text-3xl font-bold font-headline">Metas do Casal</h1>
           <p className="text-muted-foreground">Sonhos e objetivos para conquistarem juntos.</p>
         </div>
-        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()} disabled={!coupleId}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Adicionar Meta
-        </Button>
+        <div className="flex gap-2">
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                        <ArrowDownUp className="mr-2 h-4 w-4" />
+                        Ordenar
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                    <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuRadioGroup value={sortOrder} onValueChange={setSortOrder}>
+                        <DropdownMenuRadioItem value="progress">Progresso</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="completionDate">Data de Conclusão</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="alphabetical">Ordem Alfabética</DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+            </DropdownMenu>
+            <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()} disabled={!coupleId}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Adicionar Meta
+            </Button>
+        </div>
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

@@ -3,11 +3,11 @@
 import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { PlusCircle, Clapperboard, Film, Tv, MoreHorizontal } from "lucide-react";
+import { PlusCircle, Clapperboard, Film, Tv, MoreHorizontal, Star, ArrowDownUp } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuPortal, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,16 +18,33 @@ import type { MovieSeries, UserProfile } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from 'date-fns';
+import { Textarea } from "@/components/ui/textarea";
+
+const StarRating = ({ rating, onRatingChange }: { rating: number; onRatingChange?: (rating: number) => void }) => {
+    return (
+        <div className="flex gap-1">
+            {[1, 2, 3, 4, 5].map((star) => (
+                <Star
+                    key={star}
+                    className={`h-5 w-5 ${rating >= star ? 'text-amber-400 fill-amber-400' : 'text-gray-300'} ${onRatingChange ? 'cursor-pointer' : ''}`}
+                    onClick={() => onRatingChange?.(star)}
+                />
+            ))}
+        </div>
+    );
+};
 
 function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave: (data: Partial<MovieSeries>) => void; onCancel: () => void; }) {
   const [itemType, setItemType] = useState(item?.type);
   const [watchedDate, setWatchedDate] = useState<string>(
     item?.dateWatched && item.dateWatched.toDate ? format(item.dateWatched.toDate(), 'yyyy-MM-dd') : ''
   );
+  const [rating, setRating] = useState(item?.rating || 0);
 
   useEffect(() => {
     setItemType(item?.type);
     setWatchedDate(item?.dateWatched && item.dateWatched.toDate ? format(item.dateWatched.toDate(), 'yyyy-MM-dd') : '');
+    setRating(item?.rating || 0);
   }, [item]);
   
   const handleItemSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -41,6 +58,8 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
       season: itemType === 'Series' ? parseInt(formData.get('season') as string, 10) : undefined,
       episode: itemType === 'Series' ? parseInt(formData.get('episode') as string, 10) : undefined,
       dateWatchedString: watchedDate,
+      rating: rating,
+      review: formData.get('review') as string,
     };
     onSave(data);
   };
@@ -78,6 +97,7 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
       )}
 
       {item?.status === 'Watched' && (
+        <>
         <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="dateWatched" className="text-right">Data Assistido</Label>
           <Input 
@@ -89,6 +109,17 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
             onChange={(e) => setWatchedDate(e.target.value)} 
           />
         </div>
+        <div className="grid grid-cols-4 items-center gap-4">
+            <Label className="text-right">Nota</Label>
+            <div className="col-span-3">
+                <StarRating rating={rating} onRatingChange={setRating} />
+            </div>
+        </div>
+        <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="review" className="text-right">Comentário</Label>
+            <Textarea id="review" name="review" className="col-span-3" defaultValue={item?.review}/>
+        </div>
+        </>
       )}
 
       <div className="grid grid-cols-4 items-center gap-4">
@@ -111,6 +142,7 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
 export default function WatchlistPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MovieSeries | null>(null);
+  const [sortOrder, setSortOrder] = useState('dateWatched');
 
   const firestore = useFirestore();
   const { user } = useUser();
@@ -130,6 +162,24 @@ export default function WatchlistPage() {
 
   const { data: watchlist, isLoading } = useCollection<MovieSeries>(watchlistRef);
   
+  const sortedWatchlist = useMemo(() => {
+    if (!watchlist) return [];
+    return [...watchlist].sort((a, b) => {
+        if (sortOrder === 'dateWatched') {
+            const dateA = a.dateWatched?.toDate()?.getTime() || 0;
+            const dateB = b.dateWatched?.toDate()?.getTime() || 0;
+            return dateB - dateA; // Most recent first
+        }
+        if (sortOrder === 'alphabetical') {
+            return a.name.localeCompare(b.name);
+        }
+        if (sortOrder === 'rating') {
+            return (b.rating || 0) - (a.rating || 0); // Higher rating first
+        }
+        return 0;
+    });
+  }, [watchlist, sortOrder]);
+
   const handleOpenDialog = (item: MovieSeries | null = null) => {
     setEditingItem(item);
     setIsDialogOpen(true);
@@ -194,6 +244,8 @@ export default function WatchlistPage() {
       await addDoc(watchlistRef, {
         ...dataToSave,
         status: 'To Watch',
+        rating: data.rating || 0,
+        review: data.review || '',
         author: {
             uid: user.uid,
             displayName: user.displayName,
@@ -209,7 +261,7 @@ export default function WatchlistPage() {
   const renderList = (status: "To Watch" | "Watching" | "Watched") => {
     if (isLoading) return <div className="col-span-full text-center text-muted-foreground py-10">Carregando...</div>;
     
-    const filteredList = watchlist?.filter(item => item.status === status) || [];
+    const filteredList = sortedWatchlist?.filter(item => item.status === status) || [];
     
     if (filteredList.length === 0) {
         return <div className="col-span-full text-center text-muted-foreground py-10">Nenhum item aqui.</div>;
@@ -255,10 +307,21 @@ export default function WatchlistPage() {
             </div>
             <CardContent className="p-3">
                 <h3 className="font-semibold font-headline truncate text-sm">{item.name}</h3>
-                <div className="flex items-center text-xs text-muted-foreground mt-1">
-                    {item.type === 'Movie' ? <Film className="w-3 h-3 mr-1"/> : <Tv className="w-3 h-3 mr-1"/>}
-                    <span>{item.type}</span>
+                <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
+                    <div className="flex items-center">
+                        {item.type === 'Movie' ? <Film className="w-3 h-3 mr-1"/> : <Tv className="w-3 h-3 mr-1"/>}
+                        <span>{item.type}</span>
+                    </div>
+                    {item.rating > 0 && (
+                        <div className="flex items-center gap-1">
+                            <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                            <span>{item.rating}</span>
+                        </div>
+                    )}
                 </div>
+                 {item.status === 'Watched' && item.review && (
+                    <p className="text-xs text-muted-foreground mt-2 border-t pt-2 italic">"{item.review}"</p>
+                )}
             </CardContent>
             
             <CardFooter className="p-3 pt-0 text-xs text-muted-foreground flex justify-between items-center">
@@ -289,10 +352,29 @@ export default function WatchlistPage() {
           <h1 className="text-3xl font-bold font-headline">Filmes & Séries</h1>
           <p className="text-muted-foreground">A lista de entretenimento do casal.</p>
         </div>
-        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()} disabled={!coupleId}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Adicionar Item
-        </Button>
+        <div className="flex gap-2">
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                        <ArrowDownUp className="mr-2 h-4 w-4" />
+                        Ordenar
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                    <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuRadioGroup value={sortOrder} onValueChange={setSortOrder}>
+                        <DropdownMenuRadioItem value="dateWatched">Data (Mais recentes)</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="alphabetical">Ordem Alfabética</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="rating">Nota (Maior)</DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+            </DropdownMenu>
+            <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()} disabled={!coupleId}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Adicionar Item
+            </Button>
+        </div>
       </div>
 
        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

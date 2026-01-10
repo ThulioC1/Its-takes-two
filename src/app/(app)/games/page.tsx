@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { PlusCircle, Gamepad2, MoreHorizontal } from "lucide-react";
+import { PlusCircle, Gamepad2, MoreHorizontal, Star } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
@@ -17,6 +17,21 @@ import type { Game, UserProfile } from "@/types";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { format } from 'date-fns';
+import { Textarea } from "@/components/ui/textarea";
+
+const StarRating = ({ rating, onRatingChange }: { rating: number; onRatingChange?: (rating: number) => void }) => {
+    return (
+        <div className="flex gap-1">
+            {[1, 2, 3, 4, 5].map((star) => (
+                <Star
+                    key={star}
+                    className={`h-5 w-5 ${rating >= star ? 'text-amber-400 fill-amber-400' : 'text-gray-300'} ${onRatingChange ? 'cursor-pointer' : ''}`}
+                    onClick={() => onRatingChange?.(star)}
+                />
+            ))}
+        </div>
+    );
+};
 
 function GameForm({ item, onSave, onCancel }: { item?: Game; onSave: (data: Partial<Game>) => void; onCancel: () => void; }) {
   const [startDate, setStartDate] = useState<string>(
@@ -25,10 +40,12 @@ function GameForm({ item, onSave, onCancel }: { item?: Game; onSave: (data: Part
    const [completionDate, setCompletionDate] = useState<string>(
     item?.completionDate ? format(item.completionDate.toDate(), 'yyyy-MM-dd') : ''
   );
+  const [rating, setRating] = useState(item?.rating || 0);
 
   useEffect(() => {
     setStartDate(item?.startDate ? format(item.startDate.toDate(), 'yyyy-MM-dd') : '');
     setCompletionDate(item?.completionDate ? format(item.completionDate.toDate(), 'yyyy-MM-dd') : '');
+    setRating(item?.rating || 0);
   }, [item]);
   
   const handleItemSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -40,6 +57,8 @@ function GameForm({ item, onSave, onCancel }: { item?: Game; onSave: (data: Part
       link: formData.get('image') as string,
       startDateString: startDate,
       completionDateString: completionDate,
+      rating: rating,
+      review: formData.get('review') as string,
     };
     onSave(data);
   };
@@ -74,6 +93,7 @@ function GameForm({ item, onSave, onCancel }: { item?: Game; onSave: (data: Part
       )}
 
       {item?.status === 'Zerado' && (
+        <>
         <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="completionDate" className="text-right">Data de Zeramento</Label>
           <Input 
@@ -85,6 +105,17 @@ function GameForm({ item, onSave, onCancel }: { item?: Game; onSave: (data: Part
             onChange={(e) => setCompletionDate(e.target.value)} 
           />
         </div>
+        <div className="grid grid-cols-4 items-center gap-4">
+            <Label className="text-right">Nota</Label>
+            <div className="col-span-3">
+                <StarRating rating={rating} onRatingChange={setRating} />
+            </div>
+        </div>
+        <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="review" className="text-right">Comentário</Label>
+            <Textarea id="review" name="review" className="col-span-3" defaultValue={item?.review}/>
+        </div>
+        </>
       )}
 
       <DialogFooter>
@@ -232,6 +263,15 @@ export default function GamesPage() {
             </div>
             <CardContent className="p-3">
                 <h3 className="font-semibold font-headline truncate text-sm">{item.name}</h3>
+                 {item.rating > 0 && (
+                    <div className="flex items-center gap-1 mt-1">
+                        <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                        <span className="text-xs text-muted-foreground">{item.rating} / 5</span>
+                    </div>
+                )}
+                {item.status === 'Zerado' && item.review && (
+                    <p className="text-xs text-muted-foreground mt-2 border-t pt-2 italic">"{item.review}"</p>
+                )}
             </CardContent>
             
             <CardFooter className="p-3 pt-0 text-xs text-muted-foreground flex justify-between items-center">

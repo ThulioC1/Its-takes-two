@@ -112,6 +112,8 @@ export interface MovieSeries {
     season?: number | null;
     episode?: number | null;
     author: Author;
+    rating: number;
+    review?: string;
 }
 
 export interface Game {
@@ -123,6 +125,6 @@ export interface Game {
     startDate?: Timestamp | null;
     completionDate?: Timestamp | null;
     author: Author;
+    rating: number;
+    review?: string;
 }
-
-    

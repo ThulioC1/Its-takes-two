@@ -136,6 +136,14 @@
         },
         "author": {
           "$ref": "#/entities/Author"
+        },
+        "rating": {
+          "type": "number",
+          "description": "Rating from 1 to 5."
+        },
+        "review": {
+          "type": "string",
+          "description": "A review or comment."
         }
       },
       "required": [
@@ -185,6 +193,14 @@
         },
         "author": {
           "$ref": "#/entities/Author"
+        },
+        "rating": {
+          "type": "number",
+          "description": "Rating from 1 to 5."
+        },
+        "review": {
+          "type": "string",
+          "description": "A review or comment."
         }
       },
       "required": [
@@ -768,5 +784,3 @@
     ]
   }
 }
-
-    
