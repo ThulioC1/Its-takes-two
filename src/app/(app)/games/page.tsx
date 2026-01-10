@@ -34,17 +34,13 @@ const StarRating = ({ rating, onRatingChange }: { rating: number; onRatingChange
 };
 
 function GameForm({ item, onSave, onCancel }: { item?: Game; onSave: (data: Partial<Game>) => void; onCancel: () => void; }) {
-  const [startDate, setStartDate] = useState<string>(
-    item?.startDate ? format(item.startDate.toDate(), 'yyyy-MM-dd') : ''
-  );
-   const [completionDate, setCompletionDate] = useState<string>(
-    item?.completionDate ? format(item.completionDate.toDate(), 'yyyy-MM-dd') : ''
-  );
-  const [rating, setRating] = useState(item?.rating || 0);
+  const [startDate, setStartDate] = useState<string>('');
+   const [completionDate, setCompletionDate] = useState<string>('');
+  const [rating, setRating] = useState(0);
 
   useEffect(() => {
-    setStartDate(item?.startDate ? format(item.startDate.toDate(), 'yyyy-MM-dd') : '');
-    setCompletionDate(item?.completionDate ? format(item.completionDate.toDate(), 'yyyy-MM-dd') : '');
+    setStartDate(item?.startDate && item.startDate.toDate ? format(item.startDate.toDate(), 'yyyy-MM-dd') : '');
+    setCompletionDate(item?.completionDate && item.completionDate.toDate ? format(item.completionDate.toDate(), 'yyyy-MM-dd') : '');
     setRating(item?.rating || 0);
   }, [item]);
   
@@ -199,8 +195,8 @@ export default function GamesPage() {
       link: data.link || `https://picsum.photos/seed/${Date.now()}/300/450`,
     };
 
-    if (startDateString) dataToSave.startDate = Timestamp.fromDate(new Date(startDateString));
-    if (completionDateString) dataToSave.completionDate = Timestamp.fromDate(new Date(completionDateString));
+    if (startDateString) dataToSave.startDate = Timestamp.fromDate(new Date(startDateString + 'T00:00:00'));
+    if (completionDateString) dataToSave.completionDate = Timestamp.fromDate(new Date(completionDateString + 'T00:00:00'));
 
     if (editingItem) {
       const itemDoc = doc(gamesRef, editingItem.id);
@@ -209,6 +205,8 @@ export default function GamesPage() {
       await addDoc(gamesRef, {
         ...dataToSave,
         status: 'Para Jogar',
+        rating: data.rating || 0,
+        review: data.review || '',
         author: {
             uid: user.uid,
             displayName: user.displayName,
@@ -265,8 +263,7 @@ export default function GamesPage() {
                 <h3 className="font-semibold font-headline truncate text-sm">{item.name}</h3>
                  {item.rating > 0 && (
                     <div className="flex items-center gap-1 mt-1">
-                        <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-                        <span className="text-xs text-muted-foreground">{item.rating} / 5</span>
+                        <StarRating rating={item.rating} />
                     </div>
                 )}
                 {item.status === 'Zerado' && item.review && (
@@ -276,9 +273,9 @@ export default function GamesPage() {
             
             <CardFooter className="p-3 pt-0 text-xs text-muted-foreground flex justify-between items-center">
                  <div>
-                    {item.status === 'Zerado' && item.completionDate ? (
+                    {item.status === 'Zerado' && item.completionDate && item.completionDate.toDate ? (
                         <span>Zerado em {format(item.completionDate.toDate(), 'dd/MM/yy')}</span>
-                    ) : item.status === 'Jogando' && item.startDate ? (
+                    ) : item.status === 'Jogando' && item.startDate && item.startDate.toDate ? (
                         <span>Iniciado em {format(item.startDate.toDate(), 'dd/MM/yy')}</span>
                     ) : <span />}
                 </div>
@@ -351,5 +348,3 @@ export default function GamesPage() {
     </div>
   );
 }
-
-    

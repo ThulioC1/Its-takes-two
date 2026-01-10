@@ -36,10 +36,8 @@ const StarRating = ({ rating, onRatingChange }: { rating: number; onRatingChange
 
 function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave: (data: Partial<MovieSeries>) => void; onCancel: () => void; }) {
   const [itemType, setItemType] = useState(item?.type);
-  const [watchedDate, setWatchedDate] = useState<string>(
-    item?.dateWatched && item.dateWatched.toDate ? format(item.dateWatched.toDate(), 'yyyy-MM-dd') : ''
-  );
-  const [rating, setRating] = useState(item?.rating || 0);
+  const [watchedDate, setWatchedDate] = useState<string>('');
+  const [rating, setRating] = useState(0);
 
   useEffect(() => {
     setItemType(item?.type);
@@ -166,8 +164,8 @@ export default function WatchlistPage() {
     if (!watchlist) return [];
     return [...watchlist].sort((a, b) => {
         if (sortOrder === 'dateWatched') {
-            const dateA = a.dateWatched?.toDate()?.getTime() || 0;
-            const dateB = b.dateWatched?.toDate()?.getTime() || 0;
+            const dateA = a.dateWatched?.toDate?.()?.getTime() || 0;
+            const dateB = b.dateWatched?.toDate?.()?.getTime() || 0;
             return dateB - dateA; // Most recent first
         }
         if (sortOrder === 'alphabetical') {
@@ -230,7 +228,7 @@ export default function WatchlistPage() {
     }
 
     if (dateWatchedString) {
-      dataToSave.dateWatched = Timestamp.fromDate(new Date(dateWatchedString));
+      dataToSave.dateWatched = Timestamp.fromDate(new Date(dateWatchedString + 'T00:00:00'));
     } else if (editingItem && editingItem.status === 'Watched') {
        // do nothing to keep the existing date if field is cleared
     } else {
@@ -239,7 +237,7 @@ export default function WatchlistPage() {
 
     if (editingItem) {
       const itemDoc = doc(watchlistRef, editingItem.id);
-      await updateDoc(itemDoc, dataToSave);
+      await updateDoc(itemDoc, dataToSave as any);
     } else {
       await addDoc(watchlistRef, {
         ...dataToSave,
@@ -416,5 +414,3 @@ export default function WatchlistPage() {
     </div>
   );
 }
-
-    
