@@ -137,10 +137,8 @@ export default function ProfilePage() {
 
       toast({
         title: "Contas desvinculadas",
-        description: "A conexão foi removida. A página será recarregada.",
+        description: "A conexão foi removida.",
       });
-
-      setTimeout(() => window.location.reload(), 2000);
 
     } catch (error: any) {
       console.error("Error unlinking accounts: ", error);
@@ -149,7 +147,8 @@ export default function ProfilePage() {
         title: "Erro ao desvincular",
         description: error.message || "Não foi possível remover a conexão.",
       });
-      setIsUnlinking(false);
+    } finally {
+        setIsUnlinking(false);
     }
   }
   

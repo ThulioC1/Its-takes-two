@@ -96,8 +96,6 @@ function CoupleLinker() {
         description: 'Agora vocês estão conectados. A página será recarregada.',
       });
   
-      setTimeout(() => window.location.reload(), 2000);
-  
     } catch (error: any) {
       console.error("Error linking couple:", error);
   
@@ -234,7 +232,7 @@ export default function DashboardPage() {
     const today = startOfToday();
 
     return dates
-      .filter(d => d.status !== 'archived') // Only show active dates
+      .filter(d => d.status !== 'archived')
       .map(d => {
         try {
             const baseDate = new Date(d.date + 'T00:00:00');
@@ -243,16 +241,16 @@ export default function DashboardPage() {
             let nextOccurrence = new Date(baseDate);
             if (d.repeat === 'yearly') {
                 nextOccurrence.setFullYear(today.getFullYear());
-                if (nextOccurrence < today) {
+                if (isPast(nextOccurrence) && !isToday(nextOccurrence)) {
                     nextOccurrence.setFullYear(today.getFullYear() + 1);
                 }
             } else if (d.repeat === 'monthly') {
                 const currentDay = baseDate.getDate();
                 nextOccurrence = new Date(today.getFullYear(), today.getMonth(), currentDay);
-                if (nextOccurrence < today) {
+                if (isPast(nextOccurrence) && !isToday(nextOccurrence)) {
                     nextOccurrence.setMonth(today.getMonth() + 1);
                 }
-            } else { // repeat === 'none'
+            } else { 
                  if (isPast(nextOccurrence) && !isToday(nextOccurrence)) return null;
             }
             
