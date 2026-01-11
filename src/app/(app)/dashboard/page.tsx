@@ -24,7 +24,7 @@ import {
   ChartConfig,
 } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
-import { format, differenceInDays, startOfToday, isValid, isPast } from 'date-fns';
+import { format, differenceInDays, startOfToday, isValid, isPast, isToday } from 'date-fns';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { doc, collection, writeBatch, getDoc } from 'firebase/firestore';
 import type { ToDoItem, ImportantDate, Post, Expense, UserProfile, CoupleDetails } from "@/types";
@@ -234,15 +234,11 @@ export default function DashboardPage() {
     const today = startOfToday();
 
     return dates
+      .filter(d => d.status !== 'archived') // Only show active dates
       .map(d => {
         try {
             const baseDate = new Date(d.date + 'T00:00:00');
             if (!isValid(baseDate)) return null;
-
-            // For non-repeating dates, if it's in the past, it's not upcoming.
-            if (d.repeat === 'none' && isPast(baseDate) && !isToday(baseDate)) {
-                return null;
-            }
 
             let nextOccurrence = new Date(baseDate);
             if (d.repeat === 'yearly') {
@@ -256,6 +252,8 @@ export default function DashboardPage() {
                 if (nextOccurrence < today) {
                     nextOccurrence.setMonth(today.getMonth() + 1);
                 }
+            } else { // repeat === 'none'
+                 if (isPast(nextOccurrence) && !isToday(nextOccurrence)) return null;
             }
             
             const diffDays = differenceInDays(nextOccurrence, today);

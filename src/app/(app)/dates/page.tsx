@@ -4,7 +4,7 @@ import { isValid, format, isPast, startOfToday, differenceInDays, isToday } from
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Gift, PartyPopper, Plane, MoreHorizontal, Repeat } from "lucide-react";
+import { PlusCircle, Gift, PartyPopper, Plane, MoreHorizontal, Repeat, Check } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -18,6 +18,7 @@ import { collection, doc, addDoc, updateDoc, deleteDoc } from "firebase/firestor
 import type { ImportantDate, UserProfile } from "@/types";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const typeIcons: { [key: string]: React.ReactNode } = {
   'Aniversário': <Gift className="h-6 w-6 text-primary" />,
@@ -193,42 +194,20 @@ export default function DatesPage() {
 
   const { upcomingDates, pastDates } = useMemo(() => {
     if (!importantDates) return { upcomingDates: [], pastDates: [] };
-    const today = startOfToday();
     
-    const allDates = importantDates.map(d => {
-        if (!d.date) return null;
-        const baseDate = new Date(d.date + 'T00:00:00');
-        if (!isValid(baseDate)) return null;
+    const active = importantDates.filter(d => d.status !== 'archived').sort((a, b) => {
+        const dateA = new Date(a.date + 'T00:00:00');
+        const dateB = new Date(b.date + 'T00:00:00');
+        return dateA.getTime() - dateB.getTime();
+    });
 
-        let nextOccurrence = new Date(baseDate);
-        if (d.repeat === 'yearly') {
-            nextOccurrence.setFullYear(today.getFullYear());
-            if (nextOccurrence < today) {
-                nextOccurrence.setFullYear(today.getFullYear() + 1);
-            }
-        } else if (d.repeat === 'monthly') {
-            const currentDay = baseDate.getDate();
-            nextOccurrence = new Date(today.getFullYear(), today.getMonth(), currentDay);
-            if (nextOccurrence < today) {
-                nextOccurrence.setMonth(today.getMonth() + 1);
-            }
-        }
-        
-        return { ...d, nextOccurrence, originalDate: baseDate };
-    }).filter((d): d is ImportantDate & { nextOccurrence: Date, originalDate: Date } => d !== null);
+    const archived = importantDates.filter(d => d.status === 'archived').sort((a, b) => {
+        const dateA = new Date(a.date + 'T00:00:00');
+        const dateB = new Date(b.date + 'T00:00:00');
+        return dateB.getTime() - dateA.getTime();
+    });
 
-    const upcoming = allDates
-        .filter(d => {
-            if (d.repeat !== 'none') return true;
-            return !isPast(d.nextOccurrence) || isToday(d.nextOccurrence);
-        })
-        .sort((a, b) => a.nextOccurrence.getTime() - b.nextOccurrence.getTime());
-
-    const past = allDates
-        .filter(d => d.repeat === 'none' && isPast(d.nextOccurrence) && !isToday(d.nextOccurrence))
-        .sort((a, b) => b.originalDate.getTime() - a.originalDate.getTime());
-
-    return { upcomingDates: upcoming, pastDates: past };
+    return { upcomingDates: active, pastDates: archived };
   }, [importantDates]);
 
   const handleOpenDialog = (date: ImportantDate | null = null) => {
@@ -239,7 +218,7 @@ export default function DatesPage() {
   const handleCloseDialog = () => {
     setEditingDate(null);
     setIsDialogOpen(false);
-    window.location.reload();
+    // window.location.reload(); // Not needed with real-time updates
   }
 
   const handleSaveDate = async (data: Partial<ImportantDate>) => {
@@ -250,6 +229,7 @@ export default function DatesPage() {
     } else {
       await addDoc(datesRef, {
         ...data,
+        status: 'active', // Default status
         author: {
           uid: user.uid,
           displayName: user.displayName,
@@ -267,14 +247,21 @@ export default function DatesPage() {
     await deleteDoc(dateDoc);
   };
   
-  const renderDateList = (dates: (ImportantDate & { nextOccurrence?: Date, originalDate?: Date })[]) => {
+  const handleToggleArchive = async (date: ImportantDate) => {
+    if (!datesRef) return;
+    const dateDoc = doc(datesRef, date.id);
+    const newStatus = date.status === 'archived' ? 'active' : 'archived';
+    await updateDoc(dateDoc, { status: newStatus });
+  }
+
+  const renderDateList = (dates: ImportantDate[], isHistory: boolean = false) => {
       if (dates.length === 0) {
           return <p className="text-center text-muted-foreground pt-10">Nenhuma data aqui.</p>
       }
       return (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {dates.map(d => {
-            const parsedDate = d.originalDate ? d.originalDate : (d.date ? new Date(d.date + 'T00:00:00') : null);
+            const parsedDate = (d.date ? new Date(d.date + 'T00:00:00') : null);
             if (!parsedDate || !isValid(parsedDate)) return null;
 
             return (
@@ -303,18 +290,34 @@ export default function DatesPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="flex-grow">
-                   {isPast(parsedDate) && d.repeat === 'none' && !isToday(parsedDate) ? (
-                       <p className="text-sm text-muted-foreground">Esta data já passou.</p>
-                   ) : (
+                   {d.status === 'active' ? (
                        <Countdown date={d.date} repeat={d.repeat} />
+                   ): (
+                       <p className="text-sm text-muted-foreground">Arquivado.</p>
                    )}
                   {d.observation && (
                     <p className="text-sm text-foreground mt-2 pt-2 border-t">{d.observation}</p>
                   )}
                 </CardContent>
                 <CardFooter className="flex justify-between items-center">
-                    <div>
-                        <Badge variant="outline">{d.type}</Badge>
+                    <div className="flex items-center gap-2">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <div className="flex items-center gap-2">
+                                <Checkbox 
+                                    id={`archive-${d.id}`}
+                                    checked={d.status === 'archived'}
+                                    onCheckedChange={() => handleToggleArchive(d)}
+                                />
+                                <label htmlFor={`archive-${d.id}`} className="text-sm text-muted-foreground cursor-pointer">
+                                  {d.status === 'archived' ? 'Arquivado' : 'Concluir'}
+                                </label>
+                                </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{d.status === 'archived' ? 'Reativar data' : 'Marcar como concluído e arquivar'}</p>
+                            </TooltipContent>
+                        </Tooltip>
                         {d.repeat && d.repeat !== 'none' && (
                             <Badge variant="secondary" className="ml-2">
                                 <Repeat className="h-3 w-3 mr-1" />
@@ -380,7 +383,7 @@ export default function DatesPage() {
           </TabsContent>
           <TabsContent value="history" className="mt-6">
             <TooltipProvider>
-                {isLoading ? <p className="text-center text-muted-foreground">Carregando histórico...</p> : renderDateList(pastDates)}
+                {isLoading ? <p className="text-center text-muted-foreground">Carregando histórico...</p> : renderDateList(pastDates, true)}
             </TooltipProvider>
           </TabsContent>
       </Tabs>

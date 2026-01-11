@@ -52,6 +52,7 @@ export interface ImportantDate {
     type: string;
     observation?: string;
     repeat?: 'none' | 'monthly' | 'yearly';
+    status: 'active' | 'archived';
     author: Author;
 }
 

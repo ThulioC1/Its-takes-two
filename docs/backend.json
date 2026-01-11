@@ -177,7 +177,6 @@
         },
         "status": {
           "type": "string",
-          "description": "Current status of playing the game.",
           "enum": ["Para Jogar", "Jogando", "Zerado"]
         },
         "startDate": {
@@ -239,6 +238,11 @@
           "description": "How often the date repeats.",
           "enum": ["none", "monthly", "yearly"]
         },
+        "status": {
+          "type": "string",
+          "description": "The status of the date, 'active' or 'archived'.",
+          "enum": ["active", "archived"]
+        },
         "author": {
           "$ref": "#/entities/Author"
         }
@@ -248,6 +252,7 @@
         "title",
         "date",
         "type",
+        "status",
         "author"
       ]
     },
