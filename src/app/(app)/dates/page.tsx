@@ -196,7 +196,8 @@ export default function DatesPage() {
   const { upcomingDates, pastDates } = useMemo(() => {
     if (!importantDates) return { upcomingDates: [], pastDates: [] };
     
-    const active = importantDates.filter(d => d.status === 'active').sort((a, b) => {
+    // Treat dates without a status as 'active' for backward compatibility
+    const active = importantDates.filter(d => d.status === 'active' || d.status === undefined).sort((a, b) => {
         const dateA = new Date(a.date + 'T00:00:00');
         const dateB = new Date(b.date + 'T00:00:00');
         return dateA.getTime() - dateB.getTime();
@@ -290,7 +291,7 @@ export default function DatesPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="flex-grow">
-                   {d.status === 'active' ? (
+                   {d.status !== 'archived' ? (
                        <Countdown date={d.date} repeat={d.repeat} />
                    ): (
                        <p className="text-sm text-muted-foreground">Arquivado.</p>
