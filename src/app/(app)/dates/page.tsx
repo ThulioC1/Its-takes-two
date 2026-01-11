@@ -1,6 +1,6 @@
 'use client';
 import { useState, useMemo, useEffect } from 'react';
-import { isValid, format, isPast, startOfToday } from 'date-fns';
+import { isValid, format, isPast, startOfToday, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -218,7 +218,10 @@ export default function DatesPage() {
     }).filter((d): d is ImportantDate & { nextOccurrence: Date, originalDate: Date } => d !== null);
 
     const upcoming = allDates
-        .filter(d => d.repeat !== 'none' || d.nextOccurrence >= today)
+        .filter(d => {
+            if (d.repeat !== 'none') return true; // Always include recurring dates
+            return d.nextOccurrence >= today; // Only include non-recurring if they are today or in the future
+        })
         .sort((a, b) => a.nextOccurrence.getTime() - b.nextOccurrence.getTime());
 
     const past = allDates
@@ -384,3 +387,5 @@ export default function DatesPage() {
     </div>
   );
 }
+
+    

@@ -24,7 +24,7 @@ import {
   ChartConfig,
 } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
-import { format, differenceInDays } from 'date-fns';
+import { format, differenceInDays, startOfToday, isValid } from 'date-fns';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { doc, collection, writeBatch, getDoc } from 'firebase/firestore';
 import type { ToDoItem, ImportantDate, Post, Expense, UserProfile, CoupleDetails } from "@/types";
@@ -231,34 +231,34 @@ export default function DashboardPage() {
   
   const upcomingDates = useMemo(() => {
     if (!dates) return [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = startOfToday();
 
     return dates
       .map(d => {
         try {
-            const parsedDate = new Date(d.date + 'T00:00:00');
-            if (isNaN(parsedDate.getTime())) return null;
-            parsedDate.setHours(0, 0, 0, 0);
-            
-            let nextOccurrence = new Date(parsedDate);
+            const baseDate = new Date(d.date + 'T00:00:00');
+            if (!isValid(baseDate)) return null;
+
+            let nextOccurrence = new Date(baseDate);
             if (d.repeat === 'yearly') {
                 nextOccurrence.setFullYear(today.getFullYear());
                 if (nextOccurrence < today) {
                     nextOccurrence.setFullYear(today.getFullYear() + 1);
                 }
             } else if (d.repeat === 'monthly') {
-                const currentDay = parsedDate.getDate();
+                const currentDay = baseDate.getDate();
                 nextOccurrence = new Date(today.getFullYear(), today.getMonth(), currentDay);
                 if (nextOccurrence < today) {
                     nextOccurrence.setMonth(today.getMonth() + 1);
                 }
             }
             
-            const diffTime = nextOccurrence.getTime() - today.getTime();
-            if (diffTime < 0 && d.repeat === 'none') return null;
+            // If it doesn't repeat and is in the past, it's not an upcoming date.
+            if (d.repeat === 'none' && nextOccurrence < today) {
+                return null;
+            }
 
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const diffDays = differenceInDays(nextOccurrence, today);
             
             return {...d, daysLeft: diffDays, nextOccurrence};
         } catch (error) {
@@ -297,12 +297,12 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      {!isLinked && !userProfile && (
+      {user && !isLinked && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-xl font-headline">Bem-vindo(a) de volta!</CardTitle>
+              <CardTitle className="text-xl font-headline">Bem-vindo(a)!</CardTitle>
               <p className="text-muted-foreground text-sm">
-                Aguardando a conexão com seu par para desbloquear as funcionalidades.
+                Conecte-se com seu par para desbloquear todas as funcionalidades do aplicativo.
               </p>
             </CardHeader>
           </Card>
@@ -460,3 +460,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
