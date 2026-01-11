@@ -58,7 +58,7 @@ function Countdown({ date, repeat }: { date: string, repeat?: 'none' | 'monthly'
             }
         }
         
-        if (repeat === 'none' && isPast(nextOccurrence) && !isToday(nextOccurrence)) {
+        if (repeat === 'none' && isPast(targetDate) && !isToday(targetDate)) {
             return -1;
         }
 

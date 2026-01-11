@@ -250,8 +250,8 @@ export default function DashboardPage() {
                 if (isPast(nextOccurrence) && !isToday(nextOccurrence)) {
                     nextOccurrence.setMonth(today.getMonth() + 1);
                 }
-            } else { 
-                 if (isPast(nextOccurrence) && !isToday(nextOccurrence)) return null;
+            } else { // 'none'
+                 if (isPast(baseDate) && !isToday(baseDate)) return null;
             }
             
             const diffDays = differenceInDays(nextOccurrence, today);
