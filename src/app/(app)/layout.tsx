@@ -33,13 +33,10 @@ import {
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { useAuth, useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase"
+import { useAuth, useUser } from "@/firebase"
 import { signOut } from "firebase/auth"
 import { Separator } from "@/components/ui/separator"
 import { BottomNavigation } from "@/components/ui/bottom-navigation"
-import { collection, query, orderBy, limit, doc } from 'firebase/firestore';
-import type { Post, UserProfile } from '@/types';
-import { cn } from "@/lib/utils"
 
 export const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Painel" },
@@ -48,7 +45,7 @@ export const navItems = [
   { href: "/watchlist", icon: Clapperboard, label: "Filmes" },
   { href: "/games", icon: Gamepad2, label: "Jogos" },
   { href: "/dates", icon: CalendarHeart, label: "Datas" },
-  { href: "/wall", icon: Users, label: "Mural", hasNotification: true },
+  { href: "/wall", icon: Users, label: "Mural" },
   { href: "/memories", icon: ImageIcon, label: "Memórias" },
   { href: "/messages", icon: Mail, label: "Cartas" },
   { href: "/goals", icon: Goal, label: "Metas" },
@@ -91,43 +88,6 @@ function UserProfile() {
     )
 }
 
-function WallNotificationIndicator() {
-    const { user } = useUser();
-    const firestore = useFirestore();
-
-    const userProfileRef = useMemoFirebase(() => {
-        if (!user || !firestore) return null;
-        return doc(firestore, 'users', user.uid);
-    }, [user, firestore]);
-    const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
-
-    const coupleId = userProfile?.coupleId;
-
-    const lastPostQuery = useMemoFirebase(() => {
-        if (!firestore || !coupleId) return null;
-        return query(collection(firestore, 'couples', coupleId, 'posts'), orderBy('dateTime', 'desc'), limit(1));
-    }, [firestore, coupleId]);
-
-    const { data: lastPostData } = useCollection<Post>(lastPostQuery);
-
-    const hasNewPost = React.useMemo(() => {
-        if (!lastPostData || lastPostData.length === 0) return false;
-
-        const lastViewDate = userProfile?.lastWallView?.toDate();
-        if (!lastViewDate) return true; // If never viewed wall, show notification
-
-        const lastPostDate = lastPostData[0].dateTime.toDate();
-        
-        return lastPostDate > lastViewDate;
-    }, [lastPostData, userProfile]);
-
-    if (!hasNewPost) return null;
-
-    return (
-        <span className="absolute top-1.5 right-1.5 block h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
-    );
-}
-
 export default function AppLayout({ children }: { children: React.React.Node }) {  
   const pathname = usePathname()
   return (
@@ -148,7 +108,6 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
                     <Link href={item.href} className="relative">
                         <item.icon />
                         <span>{item.label}</span>
-                        {item.hasNotification && <WallNotificationIndicator />}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
