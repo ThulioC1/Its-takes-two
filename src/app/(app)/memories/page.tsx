@@ -109,7 +109,6 @@ export default function MemoriesPage() {
   const handleCloseDialog = () => {
     setEditingMemory(null);
     setIsDialogOpen(false);
-    window.location.reload();
   }
   
   const handleSaveMemory = async (data: Partial<Memory & { dateString?: string }>) => {
