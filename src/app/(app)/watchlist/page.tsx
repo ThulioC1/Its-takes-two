@@ -41,7 +41,11 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
 
   useEffect(() => {
     setItemType(item?.type);
-    setWatchedDate(item?.dateWatched && item.dateWatched.toDate ? format(item.dateWatched.toDate(), 'yyyy-MM-dd') : '');
+    if (item?.dateWatched && item.dateWatched.toDate) {
+      setWatchedDate(format(item.dateWatched.toDate(), 'yyyy-MM-dd'));
+    } else {
+      setWatchedDate('');
+    }
   }, [item]);
   
   const handleItemSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -121,7 +125,7 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
   );
 }
 
-function ReviewSection({ item, onReviewSubmit, onReviewDelete }: { item: MovieSeries; onReviewSubmit: (review: Omit<Review, 'author'>) => void; onReviewDelete: () => void; }) {
+function ReviewSection({ item, onReviewSubmit, onReviewDelete, onUpdate }: { item: MovieSeries; onReviewSubmit: (review: Omit<Review, 'author'>) => Promise<Review | undefined>; onReviewDelete: () => Promise<void>; onUpdate: (updatedItem: MovieSeries) => void; }) {
     const { user } = useUser();
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
@@ -141,13 +145,19 @@ function ReviewSection({ item, onReviewSubmit, onReviewDelete }: { item: MovieSe
         }
     }, [userReview]);
 
-    const handleSubmit = () => {
-        onReviewSubmit({ rating, comment });
+    const handleSubmit = async () => {
+        const newReview = await onReviewSubmit({ rating, comment });
+        if (newReview) {
+            const updatedReviews = [...(item.reviews?.filter(r => r.author.uid !== user?.uid) || []), newReview];
+            onUpdate({ ...item, reviews: updatedReviews });
+        }
         setIsEditing(false);
     }
 
-    const handleDelete = () => {
-        onReviewDelete();
+    const handleDelete = async () => {
+        await onReviewDelete();
+        const updatedReviews = item.reviews?.filter(r => r.author.uid !== user?.uid) || [];
+        onUpdate({ ...item, reviews: updatedReviews });
         setRating(0);
         setComment('');
         setIsEditing(true);
@@ -258,7 +268,6 @@ export default function WatchlistPage() {
   const handleCloseForm = () => {
     setSelectedItem(null);
     setIsFormOpen(false);
-    window.location.reload();
   };
 
   const handleOpenDetails = (item: MovieSeries) => {
@@ -335,7 +344,7 @@ export default function WatchlistPage() {
     handleCloseForm();
   };
 
-  const handleReviewSubmit = async (itemId: string, review: Omit<Review, 'author'>) => {
+  const handleReviewSubmit = async (itemId: string, review: Omit<Review, 'author'>): Promise<Review | undefined> => {
     if (!watchlistRef || !user || !userProfile) return;
 
     const itemDoc = doc(watchlistRef, itemId);
@@ -362,8 +371,7 @@ export default function WatchlistPage() {
       reviews: arrayUnion(newReview)
     });
     
-    // Manually update local state to show instant feedback
-    setSelectedItem(prev => prev ? { ...prev, reviews: [...(prev.reviews?.filter(r => r.author.uid !== user.uid) || []), newReview] } : null);
+    return newReview;
   };
   
   const handleReviewDelete = async (itemId: string) => {
@@ -375,8 +383,6 @@ export default function WatchlistPage() {
       await updateDoc(itemDoc, {
         reviews: arrayRemove(existingReview)
       });
-      // Manually update local state
-      setSelectedItem(prev => prev ? { ...prev, reviews: prev.reviews?.filter(r => r.author.uid !== user.uid) } : null);
     }
   };
 
@@ -444,12 +450,12 @@ export default function WatchlistPage() {
                         <span>{item.type}</span>
                     </div>
                      <div className="flex items-center gap-2">
-                        {averageRating > 0 && (
+                        {averageRating > 0 ? (
                             <div className="flex items-center gap-1">
                                 <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
                                 <span className="font-semibold">{averageRating.toFixed(1)}</span>
                             </div>
-                        )}
+                        ) : <div />}
                         {item.reviews && item.reviews.length > 0 && (
                              <div className="flex items-center gap-1">
                                 <MessageSquare className="w-4 h-4" />
@@ -461,9 +467,11 @@ export default function WatchlistPage() {
             </CardContent>
             
             <CardFooter className="p-3 pt-0 text-xs text-muted-foreground flex justify-between items-center">
-                {item.status === 'Watched' && item.dateWatched && item.dateWatched.toDate ? (
-                    <span>Visto em {format(item.dateWatched.toDate(), 'dd/MM/yy')}</span>
-                ) : <span />}
+                 <div>
+                    {item.status === 'Watched' && item.dateWatched && item.dateWatched.toDate ? (
+                        <span>Visto em {format(item.dateWatched.toDate(), 'dd/MM/yy')}</span>
+                    ) : <span />}
+                </div>
                  {item.author && (
                     <Tooltip>
                         <TooltipTrigger>
@@ -543,6 +551,7 @@ export default function WatchlistPage() {
                   item={selectedItem} 
                   onReviewSubmit={(review) => handleReviewSubmit(selectedItem.id, review)} 
                   onReviewDelete={() => handleReviewDelete(selectedItem.id)}
+                  onUpdate={setSelectedItem}
                 />
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-4">Você pode adicionar uma avaliação quando o item for assistido.</p>
