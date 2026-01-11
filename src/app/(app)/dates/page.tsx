@@ -1,6 +1,6 @@
 'use client';
 import { useState, useMemo, useEffect } from 'react';
-import { isValid, format, isPast, startOfToday, differenceInDays } from 'date-fns';
+import { isValid, format, isPast, startOfToday, differenceInDays, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -219,13 +219,13 @@ export default function DatesPage() {
 
     const upcoming = allDates
         .filter(d => {
-            if (d.repeat !== 'none') return true; // Always include recurring dates
-            return d.nextOccurrence >= today; // Only include non-recurring if they are today or in the future
+            if (d.repeat !== 'none') return true;
+            return !isPast(d.nextOccurrence) || isToday(d.nextOccurrence);
         })
         .sort((a, b) => a.nextOccurrence.getTime() - b.nextOccurrence.getTime());
 
     const past = allDates
-        .filter(d => d.repeat === 'none' && d.nextOccurrence < today)
+        .filter(d => d.repeat === 'none' && isPast(d.nextOccurrence) && !isToday(d.nextOccurrence))
         .sort((a, b) => b.originalDate.getTime() - a.originalDate.getTime());
 
     return { upcomingDates: upcoming, pastDates: past };
@@ -303,7 +303,7 @@ export default function DatesPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="flex-grow">
-                   {isPast(parsedDate) && d.repeat === 'none' ? (
+                   {isPast(parsedDate) && d.repeat === 'none' && !isToday(parsedDate) ? (
                        <p className="text-sm text-muted-foreground">Esta data já passou.</p>
                    ) : (
                        <Countdown date={d.date} repeat={d.repeat} />
@@ -387,5 +387,3 @@ export default function DatesPage() {
     </div>
   );
 }
-
-    
