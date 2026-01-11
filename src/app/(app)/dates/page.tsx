@@ -4,7 +4,7 @@ import { isValid, format, isPast, startOfToday, differenceInDays, isToday } from
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Gift, PartyPopper, Plane, MoreHorizontal, Repeat, Check } from "lucide-react";
+import { PlusCircle, Gift, PartyPopper, Plane, MoreHorizontal, Repeat, Check, History, ArchiveRestore } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -18,7 +18,6 @@ import { collection, doc, addDoc, updateDoc, deleteDoc } from "firebase/firestor
 import type { ImportantDate, UserProfile } from "@/types";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Checkbox } from '@/components/ui/checkbox';
 
 const typeIcons: { [key: string]: React.ReactNode } = {
   'Aniversário': <Gift className="h-6 w-6 text-primary" />,
@@ -48,20 +47,22 @@ function Countdown({ date, repeat }: { date: string, repeat?: 'none' | 'monthly'
         let nextOccurrence = new Date(targetDate);
         if (repeat === 'yearly') {
             nextOccurrence.setFullYear(today.getFullYear());
-            if (nextOccurrence < today) {
+            if (isPast(nextOccurrence) && !isToday(nextOccurrence)) {
                 nextOccurrence.setFullYear(today.getFullYear() + 1);
             }
         } else if (repeat === 'monthly') {
             const currentDay = targetDate.getDate();
             nextOccurrence = new Date(today.getFullYear(), today.getMonth(), currentDay);
-            if (nextOccurrence < today) {
+            if (isPast(nextOccurrence) && !isToday(nextOccurrence)) {
                 nextOccurrence.setMonth(today.getMonth() + 1);
             }
         }
         
-        const diffTime = nextOccurrence.getTime() - today.getTime();
-        if (diffTime < 0 && repeat === 'none') return -1;
+        if (repeat === 'none' && isPast(nextOccurrence) && !isToday(nextOccurrence)) {
+            return -1;
+        }
 
+        const diffTime = nextOccurrence.getTime() - today.getTime();
         return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     }, [date, repeat]);
 
@@ -195,7 +196,7 @@ export default function DatesPage() {
   const { upcomingDates, pastDates } = useMemo(() => {
     if (!importantDates) return { upcomingDates: [], pastDates: [] };
     
-    const active = importantDates.filter(d => d.status !== 'archived').sort((a, b) => {
+    const active = importantDates.filter(d => d.status === 'active').sort((a, b) => {
         const dateA = new Date(a.date + 'T00:00:00');
         const dateB = new Date(b.date + 'T00:00:00');
         return dateA.getTime() - dateB.getTime();
@@ -300,23 +301,17 @@ export default function DatesPage() {
                 </CardContent>
                 <CardFooter className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <div className="flex items-center gap-2">
-                                <Checkbox 
-                                    id={`archive-${d.id}`}
-                                    checked={d.status === 'archived'}
-                                    onCheckedChange={() => handleToggleArchive(d)}
-                                />
-                                <label htmlFor={`archive-${d.id}`} className="text-sm text-muted-foreground cursor-pointer">
-                                  {d.status === 'archived' ? 'Arquivado' : 'Concluir'}
-                                </label>
-                                </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{d.status === 'archived' ? 'Reativar data' : 'Marcar como concluído e arquivar'}</p>
-                            </TooltipContent>
-                        </Tooltip>
+                        {!isHistory ? (
+                            <Button variant="outline" size="sm" onClick={() => handleToggleArchive(d)}>
+                                <History className="mr-2 h-4 w-4" />
+                                Mover para Histórico
+                            </Button>
+                        ) : (
+                            <Button variant="outline" size="sm" onClick={() => handleToggleArchive(d)}>
+                                <ArchiveRestore className="mr-2 h-4 w-4" />
+                                Reativar
+                            </Button>
+                        )}
                         {d.repeat && d.repeat !== 'none' && (
                             <Badge variant="secondary" className="ml-2">
                                 <Repeat className="h-3 w-3 mr-1" />
