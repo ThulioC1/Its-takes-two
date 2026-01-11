@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { collection, doc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import type { ImportantDate, UserProfile } from "@/types";
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -184,17 +184,6 @@ export default function DatesPage() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
 
-   useEffect(() => {
-        if (userProfileRef && userProfile) {
-            updateDoc(userProfileRef, { 
-                lastViewed: {
-                    ...userProfile.lastViewed,
-                    dates: serverTimestamp()
-                }
-            });
-        }
-    }, [userProfileRef, userProfile]);
-
   const datesRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return collection(firestore, 'couples', coupleId, 'dates');
@@ -247,6 +236,7 @@ export default function DatesPage() {
   const handleCloseDialog = () => {
     setEditingDate(null);
     setIsDialogOpen(false);
+    window.location.reload();
   }
 
   const handleSaveDate = async (data: Partial<ImportantDate>) => {

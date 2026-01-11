@@ -207,17 +207,6 @@ export default function GamesPage() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
 
-   useEffect(() => {
-        if (userProfileRef && userProfile) {
-            updateDoc(userProfileRef, { 
-                lastViewed: {
-                    ...userProfile.lastViewed,
-                    games: serverTimestamp()
-                }
-            });
-        }
-    }, [userProfileRef, userProfile]);
-
   const gamesRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return collection(firestore, 'couples', coupleId, 'games');
@@ -233,6 +222,7 @@ export default function GamesPage() {
   const handleCloseForm = () => {
     setSelectedItem(null);
     setIsFormOpen(false);
+    window.location.reload();
   }
   
   const handleOpenDetails = (item: Game) => {

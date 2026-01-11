@@ -15,9 +15,7 @@ export interface UserProfile {
     photoURL?: string;
     gender?: 'Masculino' | 'Feminino' | 'Prefiro não informar';
     relationshipStartDate?: string; // Stored as 'YYYY-MM-DD'
-    lastViewed?: {
-        [key: string]: Timestamp;
-    };
+    lastWallView?: Timestamp;
 }
 
 export interface CoupleDetails {

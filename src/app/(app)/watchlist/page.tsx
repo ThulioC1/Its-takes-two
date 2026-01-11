@@ -223,17 +223,6 @@ export default function WatchlistPage() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
 
-   useEffect(() => {
-        if (userProfileRef && userProfile) {
-            updateDoc(userProfileRef, { 
-                lastViewed: {
-                    ...userProfile.lastViewed,
-                    movies: serverTimestamp()
-                }
-            });
-        }
-    }, [userProfileRef, userProfile]);
-
   const watchlistRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return collection(firestore, 'couples', coupleId, 'movies');
@@ -269,6 +258,7 @@ export default function WatchlistPage() {
   const handleCloseForm = () => {
     setSelectedItem(null);
     setIsFormOpen(false);
+    window.location.reload();
   };
 
   const handleOpenDetails = (item: MovieSeries) => {

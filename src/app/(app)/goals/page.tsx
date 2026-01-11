@@ -120,17 +120,6 @@ export default function GoalsPage() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
 
-  useEffect(() => {
-        if (userProfileRef && userProfile) {
-            updateDoc(userProfileRef, { 
-                lastViewed: {
-                    ...userProfile.lastViewed,
-                    goals: serverTimestamp()
-                }
-            });
-        }
-    }, [userProfileRef, userProfile]);
-
   const goalsRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return collection(firestore, 'couples', coupleId, 'goals');
@@ -163,6 +152,7 @@ export default function GoalsPage() {
   const handleCloseDialog = () => {
     setEditingGoal(null);
     setIsDialogOpen(false);
+    window.location.reload();
   }
 
   const handleSaveGoal = async (data: Partial<CoupleGoal & { completionDateString?: string }>) => {

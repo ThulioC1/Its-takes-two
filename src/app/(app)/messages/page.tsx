@@ -58,17 +58,6 @@ export default function MessagesPage() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
 
-  useEffect(() => {
-        if (userProfileRef && userProfile) {
-            updateDoc(userProfileRef, { 
-                lastViewed: {
-                    ...userProfile.lastViewed,
-                    loveLetters: serverTimestamp()
-                }
-            });
-        }
-    }, [userProfileRef, userProfile]);
-
   const messagesRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return collection(firestore, 'couples', coupleId, 'loveLetters');
@@ -111,6 +100,7 @@ export default function MessagesPage() {
   const handleCloseDialog = () => {
     setEditingMessage(null);
     setIsDialogOpen(false);
+    window.location.reload();
   };
 
   const handleSaveMessage = async (content: string) => {

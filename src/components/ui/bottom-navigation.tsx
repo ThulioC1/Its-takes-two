@@ -7,19 +7,16 @@ import type { LucideIcon } from 'lucide-react'
 import React from 'react'
 import { useUser, useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase'
 import { collection, query, orderBy, limit, doc } from 'firebase/firestore'
-import type { Post, UserProfile, ToDoItem, Expense, MovieSeries, Game, ImportantDate, Memory, LoveLetter, CoupleGoal } from '@/types';
-
-type CollectionName = 'todos' | 'expenses' | 'movies' | 'games' | 'dates' | 'posts' | 'memories' | 'loveLetters' | 'goals';
-type CollectionItem = ToDoItem | Expense | MovieSeries | Game | ImportantDate | Post | Memory | LoveLetter | CoupleGoal;
+import type { Post, UserProfile } from '@/types';
 
 interface NavItem {
   href: string
   label: string
   icon: LucideIcon
-  notificationKey?: string
+  hasNotification?: boolean
 }
 
-function NotificationIndicator({ notificationKey }: { notificationKey: string }) {
+function WallNotificationIndicator() {
     const { user } = useUser();
     const firestore = useFirestore();
 
@@ -31,40 +28,25 @@ function NotificationIndicator({ notificationKey }: { notificationKey: string })
 
     const coupleId = userProfile?.coupleId;
 
-    const lastItemQuery = useMemoFirebase(() => {
-        if (!firestore || !coupleId || !notificationKey) return null;
+    const lastPostQuery = useMemoFirebase(() => {
+        if (!firestore || !coupleId) return null;
+        return query(collection(firestore, 'couples', coupleId, 'posts'), orderBy('dateTime', 'desc'), limit(1));
+    }, [firestore, coupleId]);
+
+    const { data: lastPostData } = useCollection<Post>(lastPostQuery);
+
+    const hasNewPost = React.useMemo(() => {
+        if (!lastPostData || lastPostData.length === 0) return false;
+
+        const lastViewDate = userProfile?.lastWallView?.toDate();
+        if (!lastViewDate) return true; // If never viewed wall, show notification
+
+        const lastPostDate = lastPostData[0].dateTime.toDate();
         
-        const collectionName = notificationKey as CollectionName;
-        const dateField = (notificationKey === 'posts' || notificationKey === 'loveLetters') ? 'dateTime' : 
-                          (notificationKey === 'expenses' || notificationKey === 'dates' || notificationKey === 'memories') ? 'date' : 
-                          'creationDate';
+        return lastPostDate > lastViewDate;
+    }, [lastPostData, userProfile]);
 
-        return query(collection(firestore, 'couples', coupleId, collectionName), orderBy(dateField, 'desc'), limit(1));
-    }, [firestore, coupleId, notificationKey]);
-
-    const { data: lastItemData } = useCollection<CollectionItem>(lastItemQuery);
-
-    const hasNewContent = React.useMemo(() => {
-        if (!lastItemData || lastItemData.length === 0) return false;
-
-        const lastViewDate = userProfile?.lastViewed?.[notificationKey]?.toDate();
-        if (!lastViewDate) return true;
-        
-        const lastItem = lastItemData[0];
-        let lastItemDate: Date | undefined;
-
-        if ('dateTime' in lastItem && lastItem.dateTime) {
-            lastItemDate = lastItem.dateTime.toDate();
-        } else if ('date' in lastItem && lastItem.date) {
-             lastItemDate = (lastItem as Expense).date.toDate();
-        } else if ('creationDate' in lastItem && lastItem.creationDate) {
-            lastItemDate = lastItem.creationDate.toDate();
-        }
-        
-        return lastItemDate && lastItemDate > lastViewDate;
-    }, [lastItemData, userProfile, notificationKey]);
-
-    if (!hasNewContent) return null;
+    if (!hasNewPost) return null;
 
     return (
         <span className="absolute top-1 right-5 block h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
@@ -93,7 +75,7 @@ export function BottomNavigation({ navItems }: BottomNavigationProps) {
                   isActive ? 'text-primary' : 'text-muted-foreground'
                 )}
               >
-                {item.notificationKey && <NotificationIndicator notificationKey={item.notificationKey} />}
+                {item.hasNotification && <WallNotificationIndicator />}
                 <item.icon className="w-5 h-5 mb-1" />
                 <span className="text-xs text-center break-words">{item.label}</span>
               </Link>

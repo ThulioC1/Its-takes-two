@@ -171,14 +171,9 @@ export default function WallPage() {
     // Update lastWallView when the component mounts
     useEffect(() => {
         if (userProfileRef) {
-            updateDoc(userProfileRef, { 
-                lastViewed: {
-                    ...userProfile?.lastViewed,
-                    posts: serverTimestamp()
-                }
-            });
+            updateDoc(userProfileRef, { lastWallView: serverTimestamp() });
         }
-    }, [userProfileRef, userProfile]);
+    }, [userProfileRef]);
 
     const postsRef = useMemoFirebase(() => {
         if (!firestore || !coupleId) return null;

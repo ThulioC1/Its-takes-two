@@ -38,23 +38,20 @@ import { signOut } from "firebase/auth"
 import { Separator } from "@/components/ui/separator"
 import { BottomNavigation } from "@/components/ui/bottom-navigation"
 import { collection, query, orderBy, limit, doc } from 'firebase/firestore';
-import type { Post, UserProfile, ToDoItem, Expense, MovieSeries, Game, ImportantDate, Memory, LoveLetter, CoupleGoal } from '@/types';
+import type { Post, UserProfile } from '@/types';
 import { cn } from "@/lib/utils"
-
-type CollectionName = 'todos' | 'expenses' | 'movies' | 'games' | 'dates' | 'posts' | 'memories' | 'loveLetters' | 'goals';
-type CollectionItem = ToDoItem | Expense | MovieSeries | Game | ImportantDate | Post | Memory | LoveLetter | CoupleGoal;
 
 export const navItems = [
   { href: "/dashboard", icon: LayoutDashboard, label: "Painel" },
-  { href: "/todos", icon: ListTodo, label: "Tarefas", notificationKey: "todos" },
-  { href: "/finances", icon: CircleDollarSign, label: "Finanças", notificationKey: "expenses" },
-  { href: "/watchlist", icon: Clapperboard, label: "Filmes", notificationKey: "movies" },
-  { href: "/games", icon: Gamepad2, label: "Jogos", notificationKey: "games" },
-  { href: "/dates", icon: CalendarHeart, label: "Datas", notificationKey: "dates" },
-  { href: "/wall", icon: Users, label: "Mural", notificationKey: "posts" },
-  { href: "/memories", icon: ImageIcon, label: "Memórias", notificationKey: "memories" },
-  { href: "/messages", icon: Mail, label: "Cartas", notificationKey: "loveLetters" },
-  { href: "/goals", icon: Goal, label: "Metas", notificationKey: "goals" },
+  { href: "/todos", icon: ListTodo, label: "Tarefas" },
+  { href: "/finances", icon: CircleDollarSign, label: "Finanças" },
+  { href: "/watchlist", icon: Clapperboard, label: "Filmes" },
+  { href: "/games", icon: Gamepad2, label: "Jogos" },
+  { href: "/dates", icon: CalendarHeart, label: "Datas" },
+  { href: "/wall", icon: Users, label: "Mural", hasNotification: true },
+  { href: "/memories", icon: ImageIcon, label: "Memórias" },
+  { href: "/messages", icon: Mail, label: "Cartas" },
+  { href: "/goals", icon: Goal, label: "Metas" },
   { href: "/profile", icon: User, label: "Perfil" },
 ]
 
@@ -94,7 +91,7 @@ function UserProfile() {
     )
 }
 
-function NotificationIndicator({ notificationKey }: { notificationKey: string }) {
+function WallNotificationIndicator() {
     const { user } = useUser();
     const firestore = useFirestore();
 
@@ -106,41 +103,25 @@ function NotificationIndicator({ notificationKey }: { notificationKey: string })
 
     const coupleId = userProfile?.coupleId;
 
-    const lastItemQuery = useMemoFirebase(() => {
-        if (!firestore || !coupleId || !notificationKey) return null;
+    const lastPostQuery = useMemoFirebase(() => {
+        if (!firestore || !coupleId) return null;
+        return query(collection(firestore, 'couples', coupleId, 'posts'), orderBy('dateTime', 'desc'), limit(1));
+    }, [firestore, coupleId]);
 
-        const collectionName = notificationKey as CollectionName;
-        // The date field varies across collections
-        const dateField = (notificationKey === 'posts' || notificationKey === 'loveLetters') ? 'dateTime' : 
-                          (notificationKey === 'expenses' || notificationKey === 'dates' || notificationKey === 'memories') ? 'date' : 
-                          'creationDate';
+    const { data: lastPostData } = useCollection<Post>(lastPostQuery);
 
-        return query(collection(firestore, 'couples', coupleId, collectionName), orderBy(dateField, 'desc'), limit(1));
-    }, [firestore, coupleId, notificationKey]);
+    const hasNewPost = React.useMemo(() => {
+        if (!lastPostData || lastPostData.length === 0) return false;
 
-    const { data: lastItemData } = useCollection<CollectionItem>(lastItemQuery);
+        const lastViewDate = userProfile?.lastWallView?.toDate();
+        if (!lastViewDate) return true; // If never viewed wall, show notification
 
-    const hasNewContent = React.useMemo(() => {
-        if (!lastItemData || lastItemData.length === 0) return false;
-
-        const lastViewDate = userProfile?.lastViewed?.[notificationKey]?.toDate();
-        if (!lastViewDate) return true; // If never viewed, show notification
-
-        const lastItem = lastItemData[0];
-        let lastItemDate: Date | undefined;
-
-        if ('dateTime' in lastItem && lastItem.dateTime) {
-            lastItemDate = lastItem.dateTime.toDate();
-        } else if ('date' in lastItem && lastItem.date) {
-            lastItemDate = (lastItem as Expense).date.toDate();
-        } else if ('creationDate' in lastItem && lastItem.creationDate) {
-            lastItemDate = lastItem.creationDate.toDate();
-        }
+        const lastPostDate = lastPostData[0].dateTime.toDate();
         
-        return lastItemDate && lastItemDate > lastViewDate;
-    }, [lastItemData, userProfile, notificationKey]);
+        return lastPostDate > lastViewDate;
+    }, [lastPostData, userProfile]);
 
-    if (!hasNewContent) return null;
+    if (!hasNewPost) return null;
 
     return (
         <span className="absolute top-1.5 right-1.5 block h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
@@ -167,7 +148,7 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
                     <Link href={item.href} className="relative">
                         <item.icon />
                         <span>{item.label}</span>
-                        {item.notificationKey && <NotificationIndicator notificationKey={item.notificationKey} />}
+                        {item.hasNotification && <WallNotificationIndicator />}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
