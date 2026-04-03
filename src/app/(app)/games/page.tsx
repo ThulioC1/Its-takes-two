@@ -263,8 +263,8 @@ export default function GamesPage() {
             updateData.startDate = serverTimestamp() as Timestamp;
         }
     } else if (newStatus === 'Para Jogar') {
-        updateData.startDate = undefined;
-        updateData.completionDate = undefined;
+        updateData.startDate = null;
+        updateData.completionDate = null;
     }
     await updateDoc(itemDoc, updateData);
   };

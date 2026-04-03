@@ -36,15 +36,18 @@ const StarRating = ({ rating, onRatingChange, readOnly = false }: { rating: numb
 
 
 function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave: (data: Partial<MovieSeries>) => void; onCancel: () => void; }) {
-  const [itemType, setItemType] = useState(item?.type);
+  const [itemType, setItemType] = useState<'Movie' | 'Series'>(item?.type || 'Movie');
   const [watchedDate, setWatchedDate] = useState<string>('');
 
   useEffect(() => {
-    setItemType(item?.type);
-    if (item?.dateWatched && item.dateWatched.toDate) {
-      setWatchedDate(format(item.dateWatched.toDate(), 'yyyy-MM-dd'));
+    if (item) {
+        setItemType(item.type);
+        if (item.dateWatched && item.dateWatched.toDate) {
+            setWatchedDate(format(item.dateWatched.toDate(), 'yyyy-MM-dd'));
+        }
     } else {
-      setWatchedDate('');
+        setItemType('Movie');
+        setWatchedDate('');
     }
   }, [item]);
   
@@ -53,7 +56,7 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
     const formData = new FormData(e.currentTarget);
     const data: Partial<MovieSeries & { dateWatchedString?: string }> = {
       name: formData.get('name') as string,
-      type: formData.get('type') as 'Movie' | 'Series',
+      type: itemType,
       platform: formData.get('platform') as string,
       link: formData.get('image') as string,
       season: itemType === 'Series' ? parseInt(formData.get('season') as string, 10) : undefined,
@@ -71,7 +74,7 @@ function WatchlistForm({ item, onSave, onCancel }: { item?: MovieSeries; onSave:
       </div>
       <div className="grid grid-cols-4 items-center gap-4">
         <Label htmlFor="type" className="text-right">Tipo</Label>
-        <Select name="type" defaultValue={item?.type} required onValueChange={(value) => setItemType(value as 'Movie' | 'Series')}>
+        <Select name="type" value={itemType} required onValueChange={(value) => setItemType(value as 'Movie' | 'Series')}>
           <SelectTrigger className="col-span-3">
             <SelectValue placeholder="Selecione o tipo" />
           </SelectTrigger>
@@ -303,29 +306,29 @@ export default function WatchlistPage() {
 
     const { dateWatchedString, ...restOfData } = data;
 
-    const dataToSave: Partial<MovieSeries> = {
+    const dataToSave: any = {
       ...restOfData,
       link: data.link || `https://picsum.photos/seed/${Date.now()}/300/450`,
     };
 
     if (data.type === 'Series') {
-      dataToSave.season = !isNaN(data.season as number) ? data.season : undefined;
-      dataToSave.episode = !isNaN(data.episode as number) ? data.episode : undefined;
+      dataToSave.season = typeof data.season === 'number' && !isNaN(data.season) ? data.season : null;
+      dataToSave.episode = typeof data.episode === 'number' && !isNaN(data.episode) ? data.episode : null;
     } else {
-      dataToSave.season = undefined;
-      dataToSave.episode = undefined;
+      dataToSave.season = null;
+      dataToSave.episode = null;
     }
 
     if (dateWatchedString) {
       dataToSave.dateWatched = Timestamp.fromDate(new Date(dateWatchedString + 'T00:00:00'));
     } else if (selectedItem && selectedItem.status === 'Watched') {
-       // do nothing to keep the existing date if field is cleared
+       // Keep existing date
     } else {
        dataToSave.dateWatched = null;
     }
 
     if (selectedItem) {
-      await updateDoc(doc(watchlistRef, selectedItem.id), dataToSave as any);
+      await updateDoc(doc(watchlistRef, selectedItem.id), dataToSave);
     } else {
       await addDoc(watchlistRef, {
         ...dataToSave,
