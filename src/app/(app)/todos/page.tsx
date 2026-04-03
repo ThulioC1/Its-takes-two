@@ -74,7 +74,7 @@ function TodoForm({ todo, onSave, onCancel }: { todo?: ToDoItem; onSave: (data: 
 export default function TodosPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingTodo, setEditingTodo] = useState<ToDoItem | null>(null);
-  const [sortOrder, setSortOrder] = useState('creationDate');
+  const [sortOrder, setSortOrder] = useState('dueDate');
 
   const firestore = useFirestore();
   const { user } = useUser();
