@@ -6,6 +6,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from '@/components/ui/card';
 import {
   ListTodo,
@@ -16,7 +17,6 @@ import {
   Copy,
   Check,
   TrendingUp,
-  ArrowRight,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -29,14 +29,13 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { format, differenceInDays, startOfToday, isValid, isPast, isToday } from 'date-fns';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { doc, collection, writeBatch, getDoc } from 'firebase/firestore';
-import type { ToDoItem, ImportantDate, Post, Expense, UserProfile, CoupleDetails } from "@/types";
+import type { ToDoItem, ImportantDate, Post, Expense, UserProfile } from "@/types";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
 
 const chartConfig = {
   expenses: {
