@@ -4,7 +4,7 @@ import { isValid, format, isPast, startOfToday, differenceInDays, isToday } from
 import { ptBR } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { PlusCircle, Gift, PartyPopper, Plane, MoreHorizontal, Repeat, Check, History, ArchiveRestore } from "lucide-react";
+import { PlusCircle, Gift, PartyPopper, Plane, MoreHorizontal, Repeat, History, ArchiveRestore } from "lucide-react";
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -16,15 +16,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, addDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import type { ImportantDate, UserProfile } from "@/types";
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const typeIcons: { [key: string]: React.ReactNode } = {
-  'Aniversário': <Gift className="h-6 w-6 text-primary" />,
-  'Viagem': <Plane className="h-6 w-6 text-blue-500" />,
-  'Evento': <PartyPopper className="h-6 w-6 text-amber-500" />,
-  'Casamento': <Gift className="h-6 w-6 text-pink-500" />,
-  'Outro': <Gift className="h-6 w-6 text-slate-500" />,
+  'Aniversário': <Gift className="h-5 w-5 text-primary" />,
+  'Viagem': <Plane className="h-5 w-5 text-blue-500" />,
+  'Evento': <PartyPopper className="h-5 w-5 text-amber-500" />,
+  'Casamento': <Gift className="h-5 w-5 text-pink-500" />,
+  'Outro': <Gift className="h-5 w-5 text-slate-500" />,
 };
 
 const repeatOptions = {
@@ -82,7 +82,7 @@ function Countdown({ date, repeat }: { date: string, repeat?: 'none' | 'monthly'
         }
     }, [daysLeft]);
 
-    return <p className="text-sm text-muted-foreground">{countdownText}</p>;
+    return <p className="text-sm font-medium text-primary/80">{countdownText}</p>;
 }
 
 function DateForm({ date, onSave, onCancel }: { date?: ImportantDate | null; onSave: (data: Partial<ImportantDate>) => void; onCancel: () => void; }) {
@@ -196,7 +196,6 @@ export default function DatesPage() {
   const { upcomingDates, pastDates } = useMemo(() => {
     if (!importantDates) return { upcomingDates: [], pastDates: [] };
     
-    // Treat dates without a status as 'active' for backward compatibility
     const active = importantDates.filter(d => d.status === 'active' || d.status === undefined).sort((a, b) => {
         const dateA = new Date(a.date + 'T00:00:00');
         const dateB = new Date(b.date + 'T00:00:00');
@@ -230,7 +229,7 @@ export default function DatesPage() {
     } else {
       await addDoc(datesRef, {
         ...data,
-        status: 'active', // Default status
+        status: 'active',
         author: {
           uid: user.uid,
           displayName: user.displayName,
@@ -266,19 +265,28 @@ export default function DatesPage() {
             if (!parsedDate || !isValid(parsedDate)) return null;
 
             return (
-              <Card key={d.id} className="flex flex-col">
-                <CardHeader>
-                <div className="flex flex-row items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        {typeIcons[d.type] || <Gift className="h-6 w-6 text-primary" />}
-                        <div>
-                            <CardTitle className="font-headline">{d.title}</CardTitle>
-                            <p className="text-muted-foreground text-sm">{format(parsedDate, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
+              <Card key={d.id} className="flex flex-col group h-full">
+                <CardHeader className="pb-4">
+                <div className="flex flex-row items-start justify-between">
+                    <div className="flex items-start gap-3 min-w-0">
+                        <div className="mt-1 shrink-0">
+                            {typeIcons[d.type] || <Gift className="h-5 w-5 text-primary" />}
+                        </div>
+                        <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <CardTitle className="font-headline text-lg truncate leading-tight">{d.title}</CardTitle>
+                                {d.repeat && d.repeat !== 'none' && (
+                                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 shrink-0 font-medium bg-primary/10 text-primary border-none">
+                                        {repeatOptions[d.repeat]}
+                                    </Badge>
+                                )}
+                            </div>
+                            <p className="text-muted-foreground text-xs mt-0.5">{format(parsedDate, "EEEE, dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</p>
                         </div>
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
+                        <Button variant="ghost" className="h-8 w-8 p-0 shrink-0">
                           <span className="sr-only">Abrir menu</span>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
@@ -290,45 +298,42 @@ export default function DatesPage() {
                     </DropdownMenu>
                   </div>
                 </CardHeader>
-                <CardContent className="flex-grow">
-                   {d.status !== 'archived' ? (
-                       <Countdown date={d.date} repeat={d.repeat} />
-                   ): (
-                       <p className="text-sm text-muted-foreground">Arquivado.</p>
-                   )}
+                <CardContent className="flex-grow pt-0 pb-4">
+                   <div className="bg-secondary/30 rounded-lg p-3 border border-border/50">
+                    {d.status !== 'archived' ? (
+                        <Countdown date={d.date} repeat={d.repeat} />
+                    ): (
+                        <p className="text-sm text-muted-foreground">Arquivado no histórico.</p>
+                    )}
+                   </div>
                   {d.observation && (
-                    <p className="text-sm text-foreground mt-2 pt-2 border-t">{d.observation}</p>
+                    <p className="text-xs text-muted-foreground mt-4 line-clamp-2 leading-relaxed">"{d.observation}"</p>
                   )}
                 </CardContent>
-                <CardFooter className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
+                <CardFooter className="flex justify-between items-center pt-4 border-t mt-auto">
+                    <div className="flex items-center gap-2 overflow-hidden">
                         {!isHistory ? (
-                            <Button variant="outline" size="sm" onClick={() => handleToggleArchive(d)}>
-                                <History className="mr-2 h-4 w-4" />
-                                Mover para Histórico
+                            <Button variant="outline" size="sm" onClick={() => handleToggleArchive(d)} className="h-8 px-2 text-[11px] whitespace-nowrap">
+                                <History className="mr-1.5 h-3.5 w-3.5" />
+                                Histórico
                             </Button>
                         ) : (
-                            <Button variant="outline" size="sm" onClick={() => handleToggleArchive(d)}>
-                                <ArchiveRestore className="mr-2 h-4 w-4" />
+                            <Button variant="outline" size="sm" onClick={() => handleToggleArchive(d)} className="h-8 px-2 text-[11px] whitespace-nowrap">
+                                <ArchiveRestore className="mr-1.5 h-3.5 w-3.5" />
                                 Reativar
                             </Button>
-                        )}
-                        {d.repeat && d.repeat !== 'none' && (
-                            <Badge variant="secondary" className="ml-2">
-                                <Repeat className="h-3 w-3 mr-1" />
-                                {repeatOptions[d.repeat]}
-                            </Badge>
                         )}
                     </div>
                   {d.author && d.author.displayName && (
                       <Tooltip>
                           <TooltipTrigger>
-                              <Avatar className="h-6 w-6">
-                                  <AvatarFallback className="text-xs">{d.author.displayName.charAt(0)}</AvatarFallback>
+                              <Avatar className="h-7 w-7 border shadow-sm">
+                                  <AvatarImage src={d.author.photoURL || undefined} />
+                                  <AvatarFallback className="text-[10px]">{d.author.displayName.charAt(0)}</AvatarFallback>
                               </Avatar>
                           </TooltipTrigger>
                           <TooltipContent>
-                              <p>Adicionado por: {d.author.displayName}</p>
+                              <p className="text-xs">Adicionado por: {d.author.displayName}</p>
                           </TooltipContent>
                       </Tooltip>
                   )}
@@ -341,20 +346,20 @@ export default function DatesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 max-w-7xl mx-auto">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold font-headline">Datas Importantes</h1>
           <p className="text-muted-foreground">Nunca mais esqueçam uma data especial.</p>
         </div>
-        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog(null)} disabled={!coupleId}>
+        <Button className="w-full sm:w-auto shadow-sm" onClick={() => handleOpenDialog(null)} disabled={!coupleId}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Adicionar Data
         </Button>
       </div>
       
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>{editingDate ? 'Editar Data' : 'Nova Data'}</DialogTitle>
             </DialogHeader>
@@ -366,8 +371,8 @@ export default function DatesPage() {
           </DialogContent>
         </Dialog>
       
-      <Tabs defaultValue="upcoming">
-          <TabsList className="grid w-full grid-cols-2">
+      <Tabs defaultValue="upcoming" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
             <TabsTrigger value="upcoming">Próximas</TabsTrigger>
             <TabsTrigger value="history">Histórico</TabsTrigger>
           </TabsList>
