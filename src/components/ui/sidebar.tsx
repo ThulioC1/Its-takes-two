@@ -193,14 +193,12 @@ const Sidebar = React.forwardRef<
     }
 
     if (isMobile) {
-       // On mobile, the trigger is in the header, not the sidebar itself.
-       // We render nothing here for the sidebar, the layout will handle the trigger.
       return (
         <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
           <SheetContent
             data-sidebar="sidebar"
             data-mobile="true"
-            className="w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+            className={cn("w-[--sidebar-width] bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden", className)}
             style={
               {
                 "--sidebar-width": SIDEBAR_WIDTH_MOBILE,

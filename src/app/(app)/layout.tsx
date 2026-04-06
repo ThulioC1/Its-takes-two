@@ -80,7 +80,7 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
   return (
     <SidebarProvider>
       <div className="relative min-h-screen md:flex w-full bg-background">
-        <Sidebar className="border-r border-border/40 bg-card/40 backdrop-blur-xl">
+        <Sidebar className="border-r border-border/40 bg-sidebar/95 backdrop-blur-xl md:bg-card/40">
           <SidebarHeader className="p-6">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 bg-primary flex items-center justify-center rounded-xl shadow-lg shadow-primary/20">
