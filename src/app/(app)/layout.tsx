@@ -67,7 +67,6 @@ function UserProfile() {
             </Avatar>
             <div className="flex flex-col min-w-0 flex-1">
                 <span className="text-xs font-semibold truncate">{user?.displayName || 'Usuário'}</span>
-                <span className="text-[10px] text-muted-foreground truncate uppercase tracking-tighter">Premium Account</span>
             </div>
             <Button variant="ghost" size="icon" onClick={handleLogout} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive">
                 <LogOut className="h-4 w-4" />
@@ -89,7 +88,6 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
               </div>
               <div className="flex flex-col">
                 <span className="text-sm font-bold font-headline leading-tight">It Takes Two</span>
-                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-[0.2em]">Partner OS</span>
               </div>
             </div>
           </SidebarHeader>
@@ -145,9 +143,7 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                 <Button variant="outline" size="sm" className="hidden sm:flex rounded-full px-4 h-8 text-[10px] font-bold uppercase tracking-widest bg-card/50">
-                    Sync Status: OK
-                 </Button>
+                 {/* Sync status removed as requested */}
               </div>
           </header>
           <main className="flex-1 overflow-y-auto p-6 md:p-10 pb-24 md:pb-10">
