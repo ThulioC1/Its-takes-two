@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import {
   Card,
@@ -15,6 +15,8 @@ import {
   MessageSquare,
   Copy,
   Check,
+  TrendingUp,
+  ArrowRight,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -34,6 +36,7 @@ import { useToast } from '@/hooks/use-toast';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 const chartConfig = {
   expenses: {
@@ -60,57 +63,29 @@ function CoupleLinker() {
 
   const handleLinkCouple = async () => {
     if (!partnerCode.trim() || !user || !firestore) return;
-    
     setIsLinking(true);
-    
     const partnerId = partnerCode.trim();
     const partnerProfileRef = doc(firestore, 'users', partnerId);
-    
     try {
       const partnerDoc = await getDoc(partnerProfileRef);
-      if (!partnerDoc.exists()) {
-        throw new Error("Código do parceiro(a) não encontrado.");
-      }
-
+      if (!partnerDoc.exists()) throw new Error("Código do parceiro(a) não encontrado.");
       const newCoupleId = partnerDoc.data().coupleId;
-      if (!newCoupleId) {
-        throw new Error("Parceiro(a) não possui um código de casal válido.");
-      }
-  
+      if (!newCoupleId) throw new Error("Parceiro(a) não possui um código de casal válido.");
       const batch = writeBatch(firestore);
-      
       const currentUserProfileRef = doc(firestore, 'users', user.uid);
-
-      const currentUserData = {
-        coupleId: newCoupleId,
-      };
-      batch.update(currentUserProfileRef, currentUserData);
-
+      batch.update(currentUserProfileRef, { coupleId: newCoupleId });
       const coupleDocRef = doc(firestore, "couples", newCoupleId);
       batch.update(coupleDocRef, { memberIds: [user.uid, partnerId] });
-  
       await batch.commit();
-      
-      toast({
-        title: 'Casal vinculado com sucesso!',
-        description: 'Agora vocês estão conectados. A página será recarregada.',
-      });
-  
+      toast({ title: 'Casal vinculado!', description: 'Contas conectadas com sucesso.' });
     } catch (error: any) {
-      console.error("Error linking couple:", error);
-  
       const permissionError = new FirestorePermissionError({
           path: `users/${user.uid} or users/${partnerId}`,
           operation: 'write',
           requestResourceData: { coupleId: partnerCode.trim() },
       });
       errorEmitter.emit('permission-error', permissionError);
-      
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao vincular',
-        description: error.message || 'Não foi possível vincular as contas. Verifique o código e as permissões de segurança.',
-      });
+      toast({ variant: 'destructive', title: 'Erro ao vincular', description: error.message });
     } finally {
       setIsLinking(false);
     }
@@ -125,38 +100,31 @@ function CoupleLinker() {
     }
   };
   
-  if (isProfileLoading) {
-    return <Skeleton className="h-48 w-full" />;
-  }
-
-  if (isLinked) {
-    return null;
-  }
+  if (isProfileLoading) return <Skeleton className="h-48 w-full rounded-xl" />;
+  if (isLinked) return null;
 
   return (
-    <Card>
+    <Card className="md:col-span-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <CardHeader>
-        <CardTitle className="text-xl font-headline">Conecte-se com seu par</CardTitle>
-        <p className="text-muted-foreground text-sm">Um de vocês deve compartilhar o código e o outro deve inseri-lo para começar a usar o app juntos.</p>
+        <CardTitle>Conecte seu Par</CardTitle>
+        <p className="text-muted-foreground text-sm">Vincule sua conta para compartilhar o mural, finanças e metas.</p>
       </CardHeader>
-      <CardContent className="grid md:grid-cols-2 gap-6">
-        <div className="space-y-3">
-          <h3 className="font-semibold">1. Compartilhe seu código</h3>
-          <p className="text-sm text-muted-foreground">Envie o código abaixo para seu parceiro(a).</p>
+      <CardContent className="grid md:grid-cols-2 gap-8">
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Seu Código</h3>
           <div className="flex gap-2">
-            <Input readOnly value={userProfile?.coupleId || user?.uid || ''} className="bg-muted" />
-            <Button variant="outline" size="icon" onClick={copyToClipboard}>
+            <Input readOnly value={userProfile?.coupleId || user?.uid || ''} className="bg-secondary/50 border-none" />
+            <Button variant="secondary" size="icon" onClick={copyToClipboard} className="shrink-0">
               {copied ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
             </Button>
           </div>
         </div>
-        <div className="space-y-3">
-          <h3 className="font-semibold">2. Insira o código do seu par</h3>
-          <p className="text-sm text-muted-foreground">Se você recebeu um código, insira-o aqui.</p>
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Vincular Código</h3>
           <div className="flex gap-2">
-            <Input placeholder="Código do parceiro(a)" value={partnerCode} onChange={(e) => setPartnerCode(e.target.value)} />
-            <Button onClick={handleLinkCouple} disabled={isLinking}>
-              {isLinking ? 'Vinculando...' : 'Vincular'}
+            <Input placeholder="Insira o código aqui" value={partnerCode} onChange={(e) => setPartnerCode(e.target.value)} className="bg-secondary/50 border-none" />
+            <Button onClick={handleLinkCouple} disabled={isLinking} className="shadow-sm">
+              {isLinking ? 'Conectando...' : 'Vincular'}
             </Button>
           </div>
         </div>
@@ -173,18 +141,9 @@ export default function DashboardPage() {
     if (!firestore || !user) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
-
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
-  
   const coupleId = userProfile?.coupleId;
-
   const isLinked = useMemo(() => userProfile && user && userProfile.coupleId !== user.uid, [user, userProfile]);
-
-  const coupleDocRef = useMemoFirebase(() => {
-    if (!firestore || !coupleId) return null;
-    return doc(firestore, 'couples', coupleId);
-  }, [firestore, coupleId]);
-  const { data: coupleDetails } = useDoc<CoupleDetails>(coupleDocRef);
 
   const datesRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
@@ -212,247 +171,165 @@ export default function DashboardPage() {
 
   const daysTogether = useMemo(() => {
     if (!userProfile?.relationshipStartDate) return null;
-    try {
-        const today = new Date();
-        const startDate = new Date(userProfile.relationshipStartDate + 'T00:00:00');
-        today.setHours(0, 0, 0, 0);
-        startDate.setHours(0, 0, 0, 0);
-        
-        if (isNaN(startDate.getTime())) return null;
-
-        const diffTime = today.getTime() - startDate.getTime();
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    } catch {
-      return null;
-    }
+    const today = startOfToday();
+    const startDate = new Date(userProfile.relationshipStartDate + 'T00:00:00');
+    if (isNaN(startDate.getTime())) return null;
+    return Math.max(0, differenceInDays(today, startDate));
   }, [userProfile]);
   
   const upcomingDates = useMemo(() => {
     if (!dates) return [];
     const today = startOfToday();
-
     return dates
-      .filter(d => d.status !== 'archived')
+      .filter(d => d.status === 'active' || d.status === undefined)
       .map(d => {
-        try {
-            const baseDate = new Date(d.date + 'T00:00:00');
-            if (!isValid(baseDate)) return null;
-
-            let nextOccurrence = new Date(baseDate);
-            if (d.repeat === 'yearly') {
-                nextOccurrence.setFullYear(today.getFullYear());
-                if (isPast(nextOccurrence) && !isToday(nextOccurrence)) {
-                    nextOccurrence.setFullYear(today.getFullYear() + 1);
-                }
-            } else if (d.repeat === 'monthly') {
-                const currentDay = baseDate.getDate();
-                nextOccurrence = new Date(today.getFullYear(), today.getMonth(), currentDay);
-                if (isPast(nextOccurrence) && !isToday(nextOccurrence)) {
-                    nextOccurrence.setMonth(today.getMonth() + 1);
-                }
-            } else { // 'none'
-                 if (isPast(baseDate) && !isToday(baseDate)) return null;
-            }
-            
-            const diffDays = differenceInDays(nextOccurrence, today);
-            
-            return {...d, daysLeft: diffDays, nextOccurrence};
-        } catch (error) {
-            return null;
+        const baseDate = new Date(d.date + 'T00:00:00');
+        if (!isValid(baseDate)) return null;
+        let next = new Date(baseDate);
+        if (d.repeat === 'yearly') {
+            next.setFullYear(today.getFullYear());
+            if (isPast(next) && !isToday(next)) next.setFullYear(today.getFullYear() + 1);
+        } else if (d.repeat === 'monthly') {
+            next = new Date(today.getFullYear(), today.getMonth(), baseDate.getDate());
+            if (isPast(next) && !isToday(next)) next.setMonth(today.getMonth() + 1);
         }
+        if (d.repeat === 'none' && isPast(baseDate) && !isToday(baseDate)) return null;
+        return {...d, daysLeft: differenceInDays(next, today), nextOccurrence: next};
       })
-      .filter((d): d is ImportantDate & { daysLeft: number, nextOccurrence: Date } => d !== null)
+      .filter((d): d is any => d !== null)
       .sort((a, b) => a.daysLeft - b.daysLeft)
-      .slice(0, 2);
+      .slice(0, 3);
   }, [dates]);
 
-  const pendingTodos = useMemo(() => {
-    if (!todos) return [];
-    return todos.filter(t => t.status !== 'Concluído');
-  }, [todos]);
-
-  const latestPost = useMemo(() => {
-    if (!posts || posts.length === 0) return null;
-    return [...posts].sort((a, b) => {
-        const timeA = a.dateTime?.toDate?.()?.getTime() || 0;
-        const timeB = b.dateTime?.toDate?.()?.getTime() || 0;
-        return timeB - timeA;
-    })[0];
-  }, [posts]);
+  const pendingTodos = useMemo(() => (todos || []).filter(t => t.status !== 'Concluído'), [todos]);
+  const latestPost = useMemo(() => (posts || []).sort((a, b) => (b.dateTime?.toDate?.().getTime() || 0) - (a.dateTime?.toDate?.().getTime() || 0))[0], [posts]);
   
   const chartData = useMemo(() => {
     if (!expenses) return [];
-    const monthlyExpenses = expenses.reduce((acc, expense) => {
-        const date = expense.date?.toDate ? expense.date.toDate() : new Date();
-        const month = format(date, 'MMM');
-        acc[month] = (acc[month] || 0) + expense.value;
+    const data = expenses.reduce((acc, e) => {
+        const month = format(e.date?.toDate() || new Date(), 'MMM');
+        acc[month] = (acc[month] || 0) + e.value;
         return acc;
     }, {} as Record<string, number>);
-    return Object.entries(monthlyExpenses).map(([month, expenses]) => ({ month, expenses }));
+    return Object.entries(data).map(([month, expenses]) => ({ month, expenses }));
   }, [expenses]);
 
   return (
-    <div className="flex flex-col gap-8">
-      {user && !isLinked && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-xl font-headline">Bem-vindo(a)!</CardTitle>
-              <p className="text-muted-foreground text-sm">
-                Conecte-se com seu par para desbloquear todas as funcionalidades do aplicativo.
-              </p>
-            </CardHeader>
-          </Card>
-      )}
-
-      {isLinked && (
-        <>
-          <div className="p-6 rounded-xl bg-card border shadow-sm">
-            <div className="text-center">
-              <h1 className="text-3xl md:text-4xl font-bold font-headline">
-                Bem vindo, {user?.displayName}!
-              </h1>
-              {daysTogether !== null && (
-                <div className="mt-4">
-                  <p className="text-5xl md:text-6xl font-bold text-primary">{daysTogether}</p>
-                  <p className="text-muted-foreground uppercase tracking-widest">Dias Juntos</p>
-                </div>
-              )}
-            </div>
+    <div className="max-w-7xl mx-auto space-y-8 pb-12">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+        <div>
+          <h1 className="text-4xl font-bold font-headline tracking-tight">Bom dia, {user?.displayName?.split(' ')[0]}</h1>
+          <p className="text-muted-foreground mt-1">Aqui está o que está acontecendo no seu mundo compartilhado.</p>
+        </div>
+        {isLinked && daysTogether !== null && (
+          <div className="flex items-center gap-3 bg-primary/10 px-4 py-2 rounded-full border border-primary/20">
+            <Heart className="w-4 h-4 text-primary fill-primary" />
+            <span className="text-sm font-semibold text-primary">{daysTogether} dias de jornada</span>
           </div>
-        </>
-      )}
+        )}
+      </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        <Link href="/dates" className="flex">
-            <Card className="lg:col-span-1 w-full hover:border-primary/50 transition-colors">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-lg font-medium font-headline">
-                Próximas Datas
-                </CardTitle>
-                <CalendarHeart className="h-5 w-5 text-muted-foreground" />
+      <div className="bento-grid">
+        <CoupleLinker />
+
+        {/* Bento: Upcoming Dates (4 cols) */}
+        <Link href="/dates" className="md:col-span-4 group h-full">
+          <Card className="h-full group-hover:bg-accent/50">
+            <CardHeader className="flex flex-row items-center justify-between pb-4">
+              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Próximas Datas</CardTitle>
+              <CalendarHeart className="w-5 h-5 text-primary" />
             </CardHeader>
-            <CardContent>
-                <div className="space-y-4">
-                {upcomingDates.length > 0 ? upcomingDates.map(d => {
-                    if (!d.nextOccurrence) return null;
-                    try {
-                        return (
-                            <div key={d.id} className="flex items-center">
-                                <div className="flex flex-col h-10 w-10 items-center justify-center rounded-lg bg-secondary text-secondary-foreground">
-                                    <span className="text-xs font-bold uppercase">{format(d.nextOccurrence, 'MMM')}</span>
-                                    <span className="text-lg font-bold">{format(d.nextOccurrence, 'dd')}</span>
-                                </div>
-                                <div className="ml-4 space-y-1">
-                                    <p className="text-sm font-medium leading-none">
-                                    {d.title}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                        {d.daysLeft === 0 ? 'É hoje! 🎉' : d.daysLeft === 1 ? 'É amanhã!' : `Em ${d.daysLeft} dias`}
-                                    </p>
-                                </div>
-                            </div>
-                        )
-                    } catch (e) { return null }
-                }) : (
-                    <p className="text-sm text-muted-foreground">Nenhuma data próxima.</p>
-                )}
+            <CardContent className="space-y-4">
+              {upcomingDates.length > 0 ? upcomingDates.map(d => (
+                <div key={d.id} className="flex items-center gap-4">
+                  <div className="h-10 w-10 rounded-lg bg-secondary flex flex-col items-center justify-center font-bold text-xs shrink-0">
+                    <span className="text-[10px] uppercase text-muted-foreground">{format(d.nextOccurrence, 'MMM')}</span>
+                    <span>{format(d.nextOccurrence, 'dd')}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{d.title}</p>
+                    <p className="text-xs text-muted-foreground">{d.daysLeft === 0 ? 'Hoje' : `Em ${d.daysLeft} dias`}</p>
+                  </div>
                 </div>
+              )) : <p className="text-sm text-muted-foreground py-2">Tudo calmo por enquanto.</p>}
             </CardContent>
-            </Card>
+          </Card>
         </Link>
 
-        <Link href="/todos" className="flex">
-            <Card className="lg:col-span-1 w-full hover:border-primary/50 transition-colors">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-lg font-medium font-headline">
-                Tarefas Pendentes
-                </CardTitle>
-                <ListTodo className="h-5 w-5 text-muted-foreground" />
+        {/* Bento: Latest Mural (4 cols) */}
+        <Link href="/wall" className="md:col-span-4 group h-full">
+          <Card className="h-full group-hover:bg-accent/50 overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between pb-4">
+              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Último no Mural</CardTitle>
+              <Users className="w-5 h-5 text-muted-foreground" />
             </CardHeader>
             <CardContent>
+              {latestPost ? (
                 <div className="space-y-3">
-                <p className="text-2xl font-bold">{pendingTodos.length} {pendingTodos.length === 1 ? 'tarefa' : 'tarefas'}</p>
-                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                    {pendingTodos.slice(0,3).map(t => <li key={t.id}>{t.title}</li>)}
-                </ul>
-                </div>
-            </CardContent>
-            </Card>
-        </Link>
-        
-        <Link href="/wall" className="flex">
-            <Card className="md:col-span-2 lg:col-span-1 w-full hover:border-primary/50 transition-colors">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-lg font-medium font-headline">
-                Mural do Casal
-                </CardTitle>
-                <Users className="h-5 w-5 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-                {latestPost && latestPost.author ? (
-                    <div className="flex items-start space-x-4">
-                    <Avatar>
-                        <AvatarImage src={latestPost.author.photoURL || ''} />
-                        <AvatarFallback>{latestPost.author.displayName?.charAt(0) || 'U'}</AvatarFallback>
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-6 w-6 border">
+                      <AvatarImage src={latestPost.author.photoURL} />
+                      <AvatarFallback>{latestPost.author.displayName.charAt(0)}</AvatarFallback>
                     </Avatar>
-                    <div className="space-y-2 flex-1 min-w-0">
-                        <p className="text-sm font-medium">{latestPost.author.displayName}</p>
-                        <p className="text-sm text-muted-foreground bg-accent p-3 rounded-lg truncate">
-                        {latestPost.text}
-                        </p>
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
-                        <span className="flex items-center gap-1">
-                            <Heart className="w-3 h-3" /> {latestPost.likes?.length || 0}
-                        </span>
-                        <span className="flex items-center gap-1">
-                            <MessageSquare className="w-3 h-3" /> {latestPost.comments || 0}
-                        </span>
-                        <span>{latestPost.dateTime ? format(latestPost.dateTime.toDate(), 'dd/MM/yy') : ''}</span>
-                        </div>
-                    </div>
-                    </div>
-                ) : (
-                    <p className="text-sm text-muted-foreground">Nenhuma publicação ainda.</p>
-                )}
+                    <span className="text-xs font-medium">{latestPost.author.displayName}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">"{latestPost.text}"</p>
+                  <div className="flex gap-3 text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-1"><Heart className="w-3 h-3" /> {latestPost.likes?.length || 0}</span>
+                    <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" /> {latestPost.comments || 0}</span>
+                  </div>
+                </div>
+              ) : <p className="text-sm text-muted-foreground py-2">Nenhum post recente.</p>}
             </CardContent>
-            </Card>
+          </Card>
         </Link>
-        
-        <Link href="/finances" className="lg:col-span-3 flex">
-            <Card className="w-full">
-            <CardHeader>
-                <CardTitle className="text-lg font-medium font-headline">
-                Balanço Financeiro
-                </CardTitle>
+
+        {/* Bento: Quick Tasks (4 cols) */}
+        <Link href="/todos" className="md:col-span-4 group h-full">
+          <Card className="h-full group-hover:bg-accent/50">
+            <CardHeader className="flex flex-row items-center justify-between pb-4">
+              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Tarefas Ativas</CardTitle>
+              <ListTodo className="w-5 h-5 text-muted-foreground" />
             </CardHeader>
-            <CardContent className="pl-2">
-                <ChartContainer config={chartConfig} className="h-[250px] w-full">
-                <BarChart accessibilityLayer data={chartData}>
-                    <CartesianGrid vertical={false} />
-                    <XAxis
-                    dataKey="month"
-                    tickLine={false}
-                    tickMargin={10}
-                    axisLine={false}
-                    />
-                    <YAxis
-                    tickLine={false}
-                    axisLine={false}
-                    tickMargin={10}
-                    tickFormatter={(value) => `R$${value/1000}k`}
-                    />
-                    <ChartTooltip
-                    cursor={false}
-                    content={<ChartTooltipContent hideLabel />}
-                    />
-                    <Bar dataKey="expenses" fill="var(--color-expenses)" radius={8} />
-                </BarChart>
-                </ChartContainer>
+            <CardContent className="space-y-3">
+              <p className="text-3xl font-bold tracking-tight">{pendingTodos.length}</p>
+              <div className="space-y-2">
+                {pendingTodos.slice(0, 2).map(t => (
+                  <div key={t.id} className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="w-1 h-1 rounded-full bg-primary" />
+                    <span className="truncate">{t.title}</span>
+                  </div>
+                ))}
+              </div>
             </CardContent>
-            </Card>
+          </Card>
+        </Link>
+
+        {/* Bento: Finances Chart (12 cols) */}
+        <Link href="/finances" className="md:col-span-12 group">
+          <Card className="group-hover:border-primary/30">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Visão Financeira</CardTitle>
+                <CardDescription>Resumo mensal de despesas</CardDescription>
+              </div>
+              <TrendingUp className="w-5 h-5 text-emerald-500" />
+            </CardHeader>
+            <CardContent className="h-[200px] mt-4">
+              <ChartContainer config={chartConfig} className="h-full w-full">
+                <BarChart data={chartData}>
+                  <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.1} />
+                  <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
+                  <YAxis hide />
+                  <ChartTooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} content={<ChartTooltipContent />} />
+                  <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} barSize={40} />
+                </BarChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
         </Link>
       </div>
-      <CoupleLinker />
     </div>
   );
 }
