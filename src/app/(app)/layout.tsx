@@ -84,7 +84,7 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
           <SidebarHeader className="p-6">
             <div className="flex items-center gap-3">
               <div className="h-9 w-9 bg-primary flex items-center justify-center rounded-xl shadow-lg shadow-primary/20">
-                <Heart className="h-5 w-5 text-primary-foreground fill-current" />
+                <Heart className="h-5 w-5 text-white fill-current" />
               </div>
               <div className="flex flex-col">
                 <span className="text-sm font-bold font-headline leading-tight">It Takes Two</span>
@@ -143,7 +143,6 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                 {/* Sync status removed as requested */}
               </div>
           </header>
           <main className="flex-1 overflow-y-auto p-6 md:p-10 pb-24 md:pb-10">
