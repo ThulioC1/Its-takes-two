@@ -17,6 +17,7 @@ import {
   Copy,
   Check,
   TrendingUp,
+  Mail,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -29,7 +30,7 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { format, differenceInDays, startOfToday, isValid, isPast, isToday } from 'date-fns';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { doc, collection, writeBatch, getDoc } from 'firebase/firestore';
-import type { ToDoItem, ImportantDate, Post, Expense, UserProfile } from "@/types";
+import type { ToDoItem, ImportantDate, Post, Expense, UserProfile, LoveLetter } from "@/types";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -168,6 +169,12 @@ export default function DashboardPage() {
   }, [firestore, coupleId]);
   const { data: expenses } = useCollection<Expense>(expensesRef);
 
+  const lettersRef = useMemoFirebase(() => {
+    if (!firestore || !coupleId) return null;
+    return collection(firestore, 'couples', coupleId, 'loveLetters');
+  }, [firestore, coupleId]);
+  const { data: letters } = useCollection<LoveLetter>(lettersRef);
+
   const daysTogether = useMemo(() => {
     if (!userProfile?.relationshipStartDate) return null;
     const today = startOfToday();
@@ -202,6 +209,7 @@ export default function DashboardPage() {
 
   const pendingTodos = useMemo(() => (todos || []).filter(t => t.status !== 'Concluído'), [todos]);
   const latestPost = useMemo(() => (posts || []).sort((a, b) => (b.dateTime?.toDate?.().getTime() || 0) - (a.dateTime?.toDate?.().getTime() || 0))[0], [posts]);
+  const latestLetter = useMemo(() => (letters || []).sort((a, b) => (b.dateTime?.toDate?.().getTime() || 0) - (a.dateTime?.toDate?.().getTime() || 0))[0], [letters]);
   
   const chartData = useMemo(() => {
     if (!expenses) return [];
@@ -284,6 +292,34 @@ export default function DashboardPage() {
           </Card>
         </Link>
 
+        {/* Bento: Love Letters (4 cols) */}
+        <Link href="/messages" className="md:col-span-4 group h-full">
+          <Card className="h-full group-hover:bg-accent/50 overflow-hidden border-primary/20">
+            <CardHeader className="flex flex-row items-center justify-between pb-4">
+              <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Cartas de Amor</CardTitle>
+              <Mail className="w-5 h-5 text-primary" />
+            </CardHeader>
+            <CardContent>
+              {latestLetter ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Heart className="size-3 text-primary fill-primary" />
+                    </div>
+                    <span className="text-xs font-medium">De: {latestLetter.author.displayName}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground italic line-clamp-2 leading-relaxed">
+                    "{latestLetter.message}"
+                  </p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                    {latestLetter.dateTime ? format(latestLetter.dateTime.toDate(), 'dd/MM/yy') : 'Recente'}
+                  </p>
+                </div>
+              ) : <p className="text-sm text-muted-foreground py-2">O baú está esperando por você.</p>}
+            </CardContent>
+          </Card>
+        </Link>
+
         {/* Bento: Quick Tasks (4 cols) */}
         <Link href="/todos" className="md:col-span-4 group h-full">
           <Card className="h-full group-hover:bg-accent/50">
@@ -305,9 +341,9 @@ export default function DashboardPage() {
           </Card>
         </Link>
 
-        {/* Bento: Finances Chart (12 cols) */}
-        <Link href="/finances" className="md:col-span-12 group">
-          <Card className="group-hover:border-primary/30">
+        {/* Bento: Finances Chart (8 cols) */}
+        <Link href="/finances" className="md:col-span-8 group">
+          <Card className="group-hover:border-primary/30 h-full">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Visão Financeira</CardTitle>
