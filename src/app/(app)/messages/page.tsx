@@ -15,32 +15,32 @@ import { ptBR } from 'date-fns/locale';
 function LetterPaper({ message, onBack }: { message: LoveLetter; onBack: () => void }) {
   return (
     <div className="animate-in fade-in zoom-in duration-500 flex flex-col items-center max-w-2xl mx-auto w-full">
-      <Button variant="ghost" onClick={onBack} className="self-start mb-4 group">
+      <Button variant="ghost" onClick={onBack} className="self-start mb-4 group text-muted-foreground hover:text-primary">
         <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
         Voltar para o Baú
       </Button>
       
-      <div className="relative w-full aspect-[3/4] md:aspect-[4/5] bg-white shadow-2xl rounded-sm p-8 md:p-12 overflow-y-auto border-t-[12px] border-primary/20">
+      <div className="relative w-full min-h-[600px] bg-white shadow-2xl rounded-sm p-8 md:p-16 overflow-y-auto border-t-[12px] border-primary/10">
         {/* Paper Texture Overlay */}
         <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[url('https://www.transparenttextures.com/patterns/paper.png')]" />
         
-        <div className="flex justify-between items-start mb-8">
+        <div className="flex justify-between items-start mb-12">
           <div className="space-y-1">
-            <p className="text-xs text-muted-foreground uppercase tracking-widest">De:</p>
-            <p className="font-cursive text-xl text-primary">{message.author.displayName}</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-bold">De:</p>
+            <p className="font-cursive text-2xl text-primary">{message.author.displayName}</p>
           </div>
           <div className="text-right">
-             <p className="text-xs text-muted-foreground uppercase tracking-widest">Data:</p>
-             <p className="text-sm font-medium">{message.dateTime ? format(message.dateTime.toDate(), "dd 'de' MMMM, yyyy", { locale: ptBR }) : 'Hoje'}</p>
+             <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-bold">Data:</p>
+             <p className="text-sm font-medium text-slate-500">{message.dateTime ? format(message.dateTime.toDate(), "dd 'de' MMMM, yyyy", { locale: ptBR }) : 'Hoje'}</p>
           </div>
         </div>
 
-        <div className="font-cursive text-2xl md:text-3xl leading-relaxed text-slate-800 whitespace-pre-wrap py-4">
+        <div className="font-cursive text-2xl md:text-3xl leading-[1.6] text-slate-800 whitespace-pre-wrap py-4 italic">
           {message.message}
         </div>
 
-        <div className="mt-12 flex justify-center">
-          <Heart className="text-primary fill-primary/10 size-8 animate-pulse" />
+        <div className="mt-20 flex justify-center">
+          <Heart className="text-primary/20 fill-primary/10 size-12 animate-pulse" />
         </div>
       </div>
     </div>
@@ -116,7 +116,7 @@ export default function MessagesPage() {
           <h1 className="text-3xl font-bold font-headline">Baú de Cartas</h1>
           <p className="text-muted-foreground">Onde cada palavra guardada é um pedaço da nossa história.</p>
         </div>
-        <Button onClick={() => setIsWriting(true)} disabled={!coupleId} className="shadow-lg hover:scale-105 transition-transform">
+        <Button onClick={() => setIsWriting(true)} disabled={!coupleId} className="shadow-lg hover:scale-105 transition-all">
           <Mail className="mr-2 h-4 w-4" />
           Escrever Nova Carta
         </Button>
@@ -136,47 +136,61 @@ export default function MessagesPage() {
             </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {sortedMessages.map((letter) => (
             <div 
               key={letter.id} 
               onClick={() => setSelectedLetter(letter)}
-              className="group cursor-pointer perspective-1000"
+              className="group cursor-pointer"
             >
-              <div className="relative bg-white dark:bg-slate-900 border shadow-md hover:shadow-xl transition-all duration-500 rounded-sm overflow-hidden p-6 aspect-video flex flex-col justify-between group-hover:-translate-y-2">
-                {/* Envelope Fold Effect */}
-                <div className="absolute top-0 left-0 w-full h-2 bg-primary/30" />
+              <div className="relative bg-white border border-border/60 shadow-sm hover:shadow-xl transition-all duration-500 rounded-xl overflow-hidden aspect-[4/3] flex flex-col justify-between group-hover:-translate-y-2">
+                {/* Top Border Band */}
+                <div className="absolute top-0 left-0 w-full h-[6px] bg-primary/20" />
                 
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-2">
+                {/* Header Content */}
+                <div className="p-6 pb-0 flex justify-between items-start">
+                  <div className="flex items-center gap-3">
                     <Mail className="size-4 text-primary" />
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-                        {letter.senderId === user?.uid ? 'Sua para o par' : `De: ${letter.author.displayName.split(' ')[0]}`}
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
+                        {letter.senderId === user?.uid ? 'SUA PARA O PAR' : `DE: ${letter.author.displayName.split(' ')[0]}`}
                     </span>
                   </div>
                   <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive hover:bg-destructive/10 transition-opacity"
+                    className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive hover:bg-destructive/10 transition-opacity"
                     onClick={(e) => handleDeleteLetter(e, letter.id)}
                   >
-                    <Trash2 className="size-3" />
+                    <Trash2 className="size-4" />
                   </Button>
                 </div>
 
-                <div className="flex flex-col items-center py-4">
-                    <div className="relative">
-                        <Heart className="size-10 text-primary/20 fill-primary/10" />
-                        <Heart className="size-6 text-primary fill-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 group-hover:scale-110 transition-transform" />
+                {/* Central Sealed Heart */}
+                <div className="flex flex-col items-center justify-center flex-1">
+                    <div className="relative flex items-center justify-center">
+                        {/* Glow effect */}
+                        <div className="absolute size-14 bg-primary/10 rounded-full blur-xl animate-pulse" />
+                        {/* Outer heart (ring) */}
+                        <div className="absolute size-12 rounded-full border-2 border-primary/10 flex items-center justify-center">
+                           <div className="size-8 rounded-full border border-primary/20 flex items-center justify-center" />
+                        </div>
+                        {/* Main heart */}
+                        <Heart className="size-8 text-primary fill-primary relative z-10 transition-transform duration-300 group-hover:scale-110" />
                     </div>
                 </div>
 
-                <div className="flex justify-between items-end border-t pt-3">
-                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground uppercase">
-                    <Calendar className="size-3" />
-                    {letter.dateTime ? format(letter.dateTime.toDate(), 'dd/MM/yy') : 'Recent'}
+                {/* Footer Content */}
+                <div className="px-6 pb-6">
+                  <div className="h-px w-full bg-slate-100 mb-4" />
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-2 text-[10px] font-medium text-slate-400 uppercase tracking-widest">
+                      <Calendar className="size-3" />
+                      {letter.dateTime ? format(letter.dateTime.toDate(), 'dd/MM/yy') : 'RECENTE'}
+                    </div>
+                    <span className="text-[10px] font-bold text-primary uppercase tracking-[0.15em] group-hover:underline transition-all">
+                        ABRIR CARTA
+                    </span>
                   </div>
-                  <span className="text-[10px] font-bold text-primary group-hover:underline">ABRIR CARTA</span>
                 </div>
               </div>
             </div>
@@ -186,29 +200,29 @@ export default function MessagesPage() {
 
       <Dialog open={isWriting} onOpenChange={setIsWriting}>
         <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none bg-transparent shadow-none">
-          <div className="bg-white rounded-sm shadow-2xl overflow-hidden flex flex-col h-[500px]">
-            <div className="p-4 bg-primary text-primary-foreground flex justify-between items-center">
-              <span className="font-bold font-headline uppercase tracking-widest text-xs">Nova Carta de Amor</span>
+          <div className="bg-white rounded-sm shadow-2xl overflow-hidden flex flex-col h-[550px]">
+            <div className="p-4 bg-primary/90 text-primary-foreground flex justify-between items-center backdrop-blur-sm">
+              <span className="font-bold font-headline uppercase tracking-widest text-[10px]">Escrevendo uma carta de amor</span>
               <Heart className="size-4 fill-current" />
             </div>
             
-            <div className="flex-1 relative p-8">
+            <div className="flex-1 relative p-8 md:p-12">
                <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[url('https://www.transparenttextures.com/patterns/paper.png')]" />
-               <div className="flex justify-between mb-4 border-b pb-2">
-                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-tighter">Escrevendo para seu par...</span>
-                  <span className="text-xs text-muted-foreground">{format(new Date(), 'dd/MM/yyyy')}</span>
+               <div className="flex justify-between mb-6 border-b border-slate-100 pb-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Para seu par...</span>
+                  <span className="text-[10px] text-slate-400 font-medium">{format(new Date(), 'dd/MM/yyyy')}</span>
                </div>
                <Textarea 
                  placeholder="Deixe seu coração falar..." 
-                 className="h-full border-none focus-visible:ring-0 text-xl font-cursive leading-relaxed bg-transparent resize-none placeholder:text-muted-foreground/50"
+                 className="h-full border-none focus-visible:ring-0 text-xl font-cursive leading-relaxed bg-transparent resize-none placeholder:text-slate-300 italic"
                  value={newMessage}
                  onChange={(e) => setNewMessage(e.target.value)}
                />
             </div>
 
-            <div className="p-6 bg-slate-50 border-t flex justify-end gap-3">
-               <Button variant="ghost" onClick={() => setIsWriting(false)}>Descartar</Button>
-               <Button onClick={handleSendMessage} disabled={!newMessage.trim()} className="px-8">
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
+               <Button variant="ghost" onClick={() => setIsWriting(false)} className="text-slate-500">Descartar</Button>
+               <Button onClick={handleSendMessage} disabled={!newMessage.trim()} className="px-8 shadow-md">
                  <Send className="mr-2 h-4 w-4" />
                  Enviar Selada
                </Button>
