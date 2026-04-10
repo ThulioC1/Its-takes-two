@@ -85,4 +85,8 @@
   .bento-grid {
     @apply grid grid-cols-1 md:grid-cols-12 gap-4;
   }
+
+  .font-cursive {
+    font-family: 'Dancing Script', cursive;
+  }
 }

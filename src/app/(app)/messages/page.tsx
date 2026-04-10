@@ -1,51 +1,56 @@
 'use client';
-import { useState, useMemo, useEffect } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, MoreHorizontal } from "lucide-react";
+import { Send, Mail, Heart, ArrowLeft, Trash2, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, doc, addDoc, serverTimestamp, Timestamp, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, doc, addDoc, serverTimestamp, updateDoc, deleteDoc } from "firebase/firestore";
 import type { LoveLetter, UserProfile } from "@/types";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
-function MessageForm({ message, onSave, onCancel }: { message: LoveLetter; onSave: (content: string) => void; onCancel: () => void; }) {
-  const [content, setContent] = useState(message.message);
-
-  useEffect(() => {
-    setContent(message.message);
-  }, [message]);
-
-  const handleSave = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (content.trim()) {
-      onSave(content);
-    }
-  };
-
+function LetterPaper({ message, onBack }: { message: LoveLetter; onBack: () => void }) {
   return (
-    <form onSubmit={handleSave} className="grid gap-4 py-4">
-      <div className="grid grid-cols-4 items-center gap-4">
-        <Label htmlFor="content" className="text-right">Mensagem</Label>
-        <Textarea id="content" name="content" className="col-span-3" value={content} onChange={(e) => setContent(e.target.value)} required />
+    <div className="animate-in fade-in zoom-in duration-500 flex flex-col items-center max-w-2xl mx-auto w-full">
+      <Button variant="ghost" onClick={onBack} className="self-start mb-4 group">
+        <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+        Voltar para o Baú
+      </Button>
+      
+      <div className="relative w-full aspect-[3/4] md:aspect-[4/5] bg-white shadow-2xl rounded-sm p-8 md:p-12 overflow-y-auto border-t-[12px] border-primary/20">
+        {/* Paper Texture Overlay */}
+        <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[url('https://www.transparenttextures.com/patterns/paper.png')]" />
+        
+        <div className="flex justify-between items-start mb-8">
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground uppercase tracking-widest">De:</p>
+            <p className="font-cursive text-xl text-primary">{message.author.displayName}</p>
+          </div>
+          <div className="text-right">
+             <p className="text-xs text-muted-foreground uppercase tracking-widest">Data:</p>
+             <p className="text-sm font-medium">{message.dateTime ? format(message.dateTime.toDate(), "dd 'de' MMMM, yyyy", { locale: ptBR }) : 'Hoje'}</p>
+          </div>
+        </div>
+
+        <div className="font-cursive text-2xl md:text-3xl leading-relaxed text-slate-800 whitespace-pre-wrap py-4">
+          {message.message}
+        </div>
+
+        <div className="mt-12 flex justify-center">
+          <Heart className="text-primary fill-primary/10 size-8 animate-pulse" />
+        </div>
       </div>
-      <DialogFooter>
-        <Button type="button" variant="ghost" onClick={onCancel}>Cancelar</Button>
-        <Button type="submit">Salvar</Button>
-      </DialogFooter>
-    </form>
+    </div>
   );
 }
 
-
 export default function MessagesPage() {
+  const [isWriting, setIsWriting] = useState(false);
+  const [selectedLetter, setSelectedLetter] = useState<LoveLetter | null>(null);
   const [newMessage, setNewMessage] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingMessage, setEditingMessage] = useState<LoveLetter | null>(null);
 
   const firestore = useFirestore();
   const { user } = useUser();
@@ -70,7 +75,7 @@ export default function MessagesPage() {
     return [...messages].sort((a, b) => {
         const timeA = a.dateTime?.toDate?.()?.getTime() || 0;
         const timeB = b.dateTime?.toDate?.()?.getTime() || 0;
-        return timeA - timeB;
+        return timeB - timeA;
     });
   }, [messages]);
 
@@ -79,7 +84,7 @@ export default function MessagesPage() {
 
     await addDoc(messagesRef, {
       senderId: user.uid,
-      recipientId: '', // This needs logic to determine partner's ID
+      recipientId: '', 
       message: newMessage,
       dateTime: serverTimestamp(),
       author: {
@@ -90,116 +95,126 @@ export default function MessagesPage() {
       }
     });
     setNewMessage("");
+    setIsWriting(false);
   };
 
-  const handleOpenDialog = (message: LoveLetter | null = null) => {
-    setEditingMessage(message);
-    setIsDialogOpen(true);
-  };
-  
-  const handleCloseDialog = () => {
-    setEditingMessage(null);
-    setIsDialogOpen(false);
-  };
-
-  const handleSaveMessage = async (content: string) => {
-    if (!messagesRef || !editingMessage) return;
-    const messageDoc = doc(messagesRef, editingMessage.id);
-    await updateDoc(messageDoc, { message: content });
-    handleCloseDialog();
-  };
-
-  const handleDeleteMessage = async (id: string) => {
+  const handleDeleteLetter = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
     if (!messagesRef) return;
     await deleteDoc(doc(messagesRef, id));
+    if (selectedLetter?.id === id) setSelectedLetter(null);
+  };
+
+  if (selectedLetter) {
+    return <LetterPaper message={selectedLetter} onBack={() => setSelectedLetter(null)} />;
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-theme(spacing.24))]">
-        <div className="mb-6">
-            <h1 className="text-3xl font-bold font-headline">Cartas de Amor</h1>
-            <p className="text-muted-foreground">Um cantinho para mensagens e surpresas.</p>
+    <div className="max-w-6xl mx-auto flex flex-col gap-8 pb-20">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold font-headline">Baú de Cartas</h1>
+          <p className="text-muted-foreground">Onde cada palavra guardada é um pedaço da nossa história.</p>
         </div>
-      
-      <Card className="flex-1 flex flex-col">
-        <CardContent className="p-6 flex-1 flex flex-col gap-6 overflow-y-auto">
-          {isLoading && <p className="text-center text-muted-foreground">Carregando mensagens...</p>}
-          {!isLoading && sortedMessages?.length === 0 && <p className="text-center text-muted-foreground">Nenhuma mensagem ainda.</p>}
-          {sortedMessages?.map(message => (
-            <div key={message.id} className={cn("flex items-end gap-3 group", message.senderId === user?.uid ? "justify-end" : "justify-start")}>
-               {message.senderId === user?.uid && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onSelect={() => handleOpenDialog(message)}>Editar</DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive" onSelect={() => handleDeleteMessage(message.id)}>Apagar</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
+        <Button onClick={() => setIsWriting(true)} disabled={!coupleId} className="shadow-lg hover:scale-105 transition-transform">
+          <Mail className="mr-2 h-4 w-4" />
+          Escrever Nova Carta
+        </Button>
+      </div>
 
-              {message.senderId !== user?.uid && (
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={message.author?.photoURL || ''} /> 
-                  <AvatarFallback>{message.author?.displayName?.charAt(0) || 'P'}</AvatarFallback>
-                </Avatar>
-              )}
-              <div className={cn(
-                  "max-w-xs md:max-w-md rounded-2xl p-3", 
-                  message.senderId === user?.uid ? "bg-primary text-primary-foreground rounded-br-none" : "bg-accent rounded-bl-none",
-                  )}>
-                <p className="text-sm">{message.message}</p>
-                <p className={cn("text-xs mt-1 opacity-70", message.senderId === user?.uid ? "text-right" : "text-left")}>
-                    {message.dateTime && message.dateTime.toDate ? message.dateTime.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
-                </p>
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <div className="animate-bounce"><Mail className="size-12 text-primary/40" /></div>
+          <p className="text-muted-foreground animate-pulse">Organizando os envelopes...</p>
+        </div>
+      ) : sortedMessages.length === 0 ? (
+        <Card className="border-dashed py-20 bg-accent/20">
+            <CardContent className="flex flex-col items-center text-center">
+                <Mail className="size-16 text-muted-foreground/30 mb-4" />
+                <h3 className="text-xl font-semibold mb-2">O baú está vazio</h3>
+                <p className="text-muted-foreground max-w-xs">Que tal ser a primeira pessoa a deixar uma lembrança hoje?</p>
+            </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sortedMessages.map((letter) => (
+            <div 
+              key={letter.id} 
+              onClick={() => setSelectedLetter(letter)}
+              className="group cursor-pointer perspective-1000"
+            >
+              <div className="relative bg-white dark:bg-slate-900 border shadow-md hover:shadow-xl transition-all duration-500 rounded-sm overflow-hidden p-6 aspect-video flex flex-col justify-between group-hover:-translate-y-2">
+                {/* Envelope Fold Effect */}
+                <div className="absolute top-0 left-0 w-full h-2 bg-primary/30" />
+                
+                <div className="flex justify-between items-start">
+                  <div className="flex items-center gap-2">
+                    <Mail className="size-4 text-primary" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+                        {letter.senderId === user?.uid ? 'Sua para o par' : `De: ${letter.author.displayName.split(' ')[0]}`}
+                    </span>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive hover:bg-destructive/10 transition-opacity"
+                    onClick={(e) => handleDeleteLetter(e, letter.id)}
+                  >
+                    <Trash2 className="size-3" />
+                  </Button>
+                </div>
+
+                <div className="flex flex-col items-center py-4">
+                    <div className="relative">
+                        <Heart className="size-10 text-primary/20 fill-primary/10" />
+                        <Heart className="size-6 text-primary fill-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 group-hover:scale-110 transition-transform" />
+                    </div>
+                </div>
+
+                <div className="flex justify-between items-end border-t pt-3">
+                  <div className="flex items-center gap-1 text-[10px] text-muted-foreground uppercase">
+                    <Calendar className="size-3" />
+                    {letter.dateTime ? format(letter.dateTime.toDate(), 'dd/MM/yy') : 'Recent'}
+                  </div>
+                  <span className="text-[10px] font-bold text-primary group-hover:underline">ABRIR CARTA</span>
+                </div>
               </div>
-              {message.senderId === user?.uid && (
-                <Avatar className="h-8 w-8">
-                   <AvatarImage src={user?.photoURL || ''} />
-                   <AvatarFallback>{user?.displayName?.charAt(0) || 'V'}</AvatarFallback>
-                </Avatar>
-              )}
             </div>
           ))}
-        </CardContent>
-        <div className="p-4 border-t">
-          <div className="relative">
-            <Textarea 
-                placeholder="Escreva uma carta de amor..." 
-                className="pr-14"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={(e) => {
-                    if(e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                    }
-                }}
-                disabled={!coupleId}
-            />
-            <div className="absolute top-1/2 right-3 -translate-y-1/2 flex gap-1">
-                <Button size="icon" onClick={handleSendMessage} disabled={!coupleId || !newMessage.trim()}><Send className="h-5 w-5"/></Button>
+        </div>
+      )}
+
+      <Dialog open={isWriting} onOpenChange={setIsWriting}>
+        <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none bg-transparent shadow-none">
+          <div className="bg-white rounded-sm shadow-2xl overflow-hidden flex flex-col h-[500px]">
+            <div className="p-4 bg-primary text-primary-foreground flex justify-between items-center">
+              <span className="font-bold font-headline uppercase tracking-widest text-xs">Nova Carta de Amor</span>
+              <Heart className="size-4 fill-current" />
+            </div>
+            
+            <div className="flex-1 relative p-8">
+               <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[url('https://www.transparenttextures.com/patterns/paper.png')]" />
+               <div className="flex justify-between mb-4 border-b pb-2">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-tighter">Escrevendo para seu par...</span>
+                  <span className="text-xs text-muted-foreground">{format(new Date(), 'dd/MM/yyyy')}</span>
+               </div>
+               <Textarea 
+                 placeholder="Deixe seu coração falar..." 
+                 className="h-full border-none focus-visible:ring-0 text-xl font-cursive leading-relaxed bg-transparent resize-none placeholder:text-muted-foreground/50"
+                 value={newMessage}
+                 onChange={(e) => setNewMessage(e.target.value)}
+               />
+            </div>
+
+            <div className="p-6 bg-slate-50 border-t flex justify-end gap-3">
+               <Button variant="ghost" onClick={() => setIsWriting(false)}>Descartar</Button>
+               <Button onClick={handleSendMessage} disabled={!newMessage.trim()} className="px-8">
+                 <Send className="mr-2 h-4 w-4" />
+                 Enviar Selada
+               </Button>
             </div>
           </div>
-        </div>
-      </Card>
-
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent>
-              <DialogHeader>
-                  <DialogTitle>Editar Mensagem</DialogTitle>
-              </DialogHeader>
-              {editingMessage && (
-                <MessageForm
-                    message={editingMessage}
-                    onSave={handleSaveMessage}
-                    onCancel={handleCloseDialog}
-                />
-              )}
-          </DialogContent>
+        </DialogContent>
       </Dialog>
     </div>
   );
