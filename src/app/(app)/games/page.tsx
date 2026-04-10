@@ -21,11 +21,11 @@ import { Textarea } from "@/components/ui/textarea";
 
 const StarRating = ({ rating, onRatingChange, readOnly = false }: { rating: number; onRatingChange?: (rating: number) => void; readOnly?: boolean }) => {
     return (
-        <div className="flex gap-1">
+        <div className="flex gap-0.5 sm:gap-1">
             {[1, 2, 3, 4, 5].map((star) => (
                 <Star
                     key={star}
-                    className={`h-5 w-5 ${rating >= star ? 'text-amber-400 fill-amber-400' : 'text-gray-300'} ${!readOnly && onRatingChange ? 'cursor-pointer' : ''}`}
+                    className={`h-3 w-3 sm:h-5 sm:w-5 ${rating >= star ? 'text-amber-400 fill-amber-400' : 'text-gray-300'} ${!readOnly && onRatingChange ? 'cursor-pointer' : ''}`}
                     onClick={() => !readOnly && onRatingChange?.(star)}
                 />
             ))}
@@ -370,15 +370,15 @@ export default function GamesPage() {
         return (
         <Card key={item.id} className="overflow-hidden w-full group flex flex-col">
             <div className="relative aspect-[3/4] cursor-pointer" onClick={() => handleOpenDetails(item)}>
-                <Image src={item.link || `https://picsum.photos/seed/${item.id}/300/450`} alt={item.name} fill objectFit="cover" data-ai-hint="game cover" />
-                 <div className="absolute top-2 left-2 right-2 flex justify-between items-start">
-                    {item.platform && <Badge variant="secondary">{item.platform}</Badge>}
+                <Image src={item.link || `https://picsum.photos/seed/${item.id}/300/450`} alt={item.name} fill className="object-cover" data-ai-hint="game cover" />
+                 <div className="absolute top-1 sm:top-2 left-1 sm:left-2 right-1 sm:right-2 flex justify-between items-start">
+                    {item.platform && <Badge variant="secondary" className="text-[9px] sm:text-xs px-1 sm:px-2">{item.platform}</Badge>}
                  </div>
-                 <div className="absolute top-1 right-1">
+                 <div className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-white bg-black/20 hover:bg-black/50 hover:text-white" onClick={(e) => e.stopPropagation()}>
-                          <MoreHorizontal className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="h-6 w-6 sm:h-8 sm:w-8 text-white bg-black/20 hover:bg-black/50 hover:text-white" onClick={(e) => e.stopPropagation()}>
+                          <MoreHorizontal className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
@@ -398,37 +398,37 @@ export default function GamesPage() {
                     </DropdownMenu>
                  </div>
             </div>
-            <CardContent className="p-3 flex-grow cursor-pointer" onClick={() => handleOpenDetails(item)}>
-                <h3 className="font-semibold font-headline truncate text-sm">{item.name}</h3>
-                <div className="flex items-center justify-between text-xs text-muted-foreground mt-1">
+            <CardContent className="p-2 sm:p-3 flex-grow cursor-pointer" onClick={() => handleOpenDetails(item)}>
+                <h3 className="font-semibold font-headline truncate text-[11px] sm:text-sm">{item.name}</h3>
+                <div className="flex items-center justify-between text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1">
                     {averageRating > 0 ? (
-                        <div className="flex items-center gap-1">
-                            <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                        <div className="flex items-center gap-0.5 sm:gap-1">
+                            <Star className="w-2.5 h-2.5 sm:w-4 sm:h-4 text-amber-400 fill-amber-400" />
                             <span className="font-semibold">{averageRating.toFixed(1)}</span>
                         </div>
                     ) : <div />}
                     {item.reviews && item.reviews.length > 0 && (
                         <div className="flex items-center gap-1">
-                            <MessageSquare className="w-4 h-4" />
+                            <MessageSquare className="w-2.5 h-2.5 sm:w-4 sm:h-4" />
                             <span>{item.reviews.length}</span>
                         </div>
                     )}
                 </div>
             </CardContent>
-            <CardFooter className="p-3 pt-0 text-xs text-muted-foreground flex justify-between items-center">
-                 <div>
+            <CardFooter className="p-2 sm:p-3 pt-0 text-[9px] sm:text-xs text-muted-foreground flex justify-between items-center border-t border-border/10">
+                 <div className="truncate pr-1">
                     {item.status === 'Zerado' && item.completionDate && item.completionDate.toDate ? (
-                        <span>Zerado em {format(item.completionDate.toDate(), 'dd/MM/yy')}</span>
+                        <span>Zerado {format(item.completionDate.toDate(), 'dd/MM/yy')}</span>
                     ) : item.status === 'Jogando' && item.startDate && item.startDate.toDate ? (
-                        <span>Iniciado em {format(item.startDate.toDate(), 'dd/MM/yy')}</span>
+                        <span>Iniciado {format(item.startDate.toDate(), 'dd/MM/yy')}</span>
                     ) : <span />}
                 </div>
                  {item.author && (
                     <Tooltip>
                         <TooltipTrigger>
-                            <Avatar className="h-5 w-5">
+                            <Avatar className="h-4 w-4 sm:h-5 sm:w-5">
                                  <AvatarImage src={item.author.photoURL || ''} />
-                                <AvatarFallback className="text-[10px]">{item.author.displayName?.charAt(0) || '?'}</AvatarFallback>
+                                <AvatarFallback className="text-[8px] sm:text-[10px]">{item.author.displayName?.charAt(0) || '?'}</AvatarFallback>
                             </Avatar>
                         </TooltipTrigger>
                         <TooltipContent>
@@ -473,7 +473,7 @@ export default function GamesPage() {
             <>
               <DialogHeader>
                   <div className="relative aspect-[3/4] w-full rounded-lg overflow-hidden mb-4">
-                      <Image src={selectedItem.link || `https://picsum.photos/seed/${selectedItem.id}/300/450`} alt={selectedItem.name || ''} layout="fill" objectFit="cover" />
+                      <Image src={selectedItem.link || `https://picsum.photos/seed/${selectedItem.id}/300/450`} alt={selectedItem.name || ''} fill className="object-cover" />
                   </div>
                   <DialogTitle className="font-headline text-2xl">{selectedItem.name}</DialogTitle>
                   <DialogDescription>{selectedItem.platform}</DialogDescription>
@@ -496,22 +496,22 @@ export default function GamesPage() {
     <TooltipProvider>
       <Tabs defaultValue="Jogando">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="Para Jogar">Para Jogar</TabsTrigger>
-          <TabsTrigger value="Jogando">Jogando</TabsTrigger>
-          <TabsTrigger value="Zerados">Zerados</TabsTrigger>
+          <TabsTrigger value="Para Jogar" className="text-xs sm:text-sm">Para Jogar</TabsTrigger>
+          <TabsTrigger value="Jogando" className="text-xs sm:text-sm">Jogando</TabsTrigger>
+          <TabsTrigger value="Zerados" className="text-xs sm:text-sm">Zerados</TabsTrigger>
         </TabsList>
         <TabsContent value="Para Jogar" className="mt-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 min-[480px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
             {renderList('Para Jogar')}
           </div>
         </TabsContent>
         <TabsContent value="Jogando" className="mt-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 min-[480px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
              {renderList('Jogando')}
           </div>
         </TabsContent>
         <TabsContent value="Zerados" className="mt-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 min-[480px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
             {renderList('Zerado')}
           </div>
         </TabsContent>
