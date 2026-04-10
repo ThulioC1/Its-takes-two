@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
@@ -200,6 +201,9 @@ export default function MessagesPage() {
 
       <Dialog open={isWriting} onOpenChange={setIsWriting}>
         <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none bg-transparent shadow-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Escrever Nova Carta de Amor</DialogTitle>
+          </DialogHeader>
           <div className="bg-white rounded-sm shadow-2xl overflow-hidden flex flex-col h-[550px]">
             <div className="p-4 bg-primary/90 text-primary-foreground flex justify-between items-center backdrop-blur-sm">
               <span className="font-bold font-headline uppercase tracking-widest text-[10px]">Escrevendo uma carta de amor</span>
