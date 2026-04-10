@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo, useEffect } from 'react';
 import Image from "next/image";
@@ -14,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, doc, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import type { Memory, UserProfile } from "@/types";
+import { motion, AnimatePresence } from "framer-motion";
 
 function MemoryForm({ memory, onSave, onCancel }: { memory?: Memory | null; onSave: (data: Partial<Memory & { dateString?: string }>) => void; onCancel: () => void; }) {
     const [dateValue, setDateValue] = useState<string>(
@@ -121,8 +123,6 @@ export default function MemoriesPage() {
     };
 
     if (dateString) {
-        // The date comes in as 'YYYY-MM-DD', but the new Date() constructor needs to be careful with timezones.
-        // Adding 'T00:00:00' makes it parse as local time, avoiding timezone shifts.
         dataToSave.date = Timestamp.fromDate(new Date(dateString + 'T00:00:00'));
     }
 
@@ -150,15 +150,14 @@ export default function MemoriesPage() {
     await deleteDoc(memoryDoc);
   };
 
-
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold font-headline">Álbum de Memórias</h1>
-          <p className="text-muted-foreground">Uma linha do tempo dos seus momentos mais especiais.</p>
+          <p className="text-muted-foreground">Momentos eternizados do casal.</p>
         </div>
-        <Button className="w-full sm:w-auto" onClick={() => handleOpenDialog()} disabled={!coupleId}>
+        <Button className="w-full sm:w-auto shadow-md" onClick={() => handleOpenDialog()} disabled={!coupleId}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Adicionar Memória
         </Button>
@@ -177,73 +176,73 @@ export default function MemoriesPage() {
         </DialogContent>
       </Dialog>
       
-      {isLoading && <p className="text-center text-muted-foreground">Carregando memórias...</p>}
-      {!isLoading && sortedMemories?.length === 0 && <p className="text-center text-muted-foreground pt-10">Nenhuma memória adicionada.</p>}
-
-      <div className="relative pl-6 after:absolute after:inset-y-0 after:left-8 after:w-px after:bg-border md:pl-0 md:after:left-1/2 md:after:-translate-x-1/2">
-        {sortedMemories?.map((memory, index) => {
-          const authorInitial = memory.author?.displayName?.charAt(0) || '?';
-          return (
-            <div key={memory.id} className="relative grid md:grid-cols-[1fr_auto_1fr] md:gap-x-12 mb-12">
-              {/* Card */}
-              <div className={`flex items-center w-full md:max-w-md ${index % 2 === 0 ? 'md:order-3 md:justify-start' : 'md:order-1 md:justify-end'}`}>
-                  <Card className="w-full">
-                      <CardHeader className="p-0">
-                          <div className="relative aspect-video w-full overflow-hidden rounded-t-lg">
-                              {memory.image ? (
-                                  <Image 
-                                      src={memory.image} 
-                                      alt={memory.description} 
-                                      fill 
-                                      className="object-cover"
-                                      data-ai-hint="couple memory"
-                                  />
-                              ) : <div className="bg-muted w-full h-full flex items-center justify-center">Sem foto</div> }
-                          </div>
-                      </CardHeader>
-                      <CardContent className="p-4">
-                          <CardDescription>{memory.description}</CardDescription>
-                      </CardContent>
-                  </Card>
-              </div>
-
-              {/* Icon */}
-              <div className="absolute top-1/2 -translate-y-1/2 left-[-36px] md:static md:order-2 md:transform-none">
-                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-background border-2 border-primary shadow-md z-10">
-                  <Camera className="w-5 h-5 text-primary" />
-                </div>
-              </div>
-              
-              {/* Date & Actions */}
-               <div className={`flex items-center mt-4 md:mt-0 w-full md:max-w-md ${index % 2 === 0 ? 'md:order-1 md:justify-end' : 'md:order-3 md:justify-start'}`}>
-                  <div className={`p-4 w-full flex justify-between items-center ${index % 2 === 0 ? 'md:text-right' : ''}`}>
-                      <div>
-                        <p className="font-semibold text-lg font-headline">{memory.date ? format(memory.date.toDate(), "dd 'de' MMMM, yyyy", { locale: ptBR }) : ''}</p>
-                        {memory.location && (
-                            <div className={`flex items-center text-muted-foreground mt-1 ${index % 2 === 0 ? 'md:justify-end' : ''}`}>
-                                <MapPin className="w-4 h-4 mr-1"/>
-                                <span>{memory.location}</span>
-                            </div>
-                        )}
-                      </div>
-                       <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <span className="sr-only">Abrir menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onSelect={() => handleOpenDialog(memory)}>Editar</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(memory.id)}>Deletar</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground animate-pulse">Revelando fotos...</p>
+        </div>
+      ) : sortedMemories?.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-64 border-2 border-dashed rounded-xl border-border/60 bg-accent/10">
+            <Camera className="size-12 text-muted-foreground/30 mb-4" />
+            <p className="text-muted-foreground">Nenhuma memória ainda. Comecem o álbum hoje!</p>
+        </div>
+      ) : (
+        <div className="masonry-grid">
+          <AnimatePresence>
+            {sortedMemories.map((memory) => (
+              <motion.div
+                key={memory.id}
+                layout
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="masonry-item"
+              >
+                <Card className="overflow-hidden group hover:shadow-xl transition-all duration-500">
+                  <div className="relative aspect-auto">
+                    {memory.image && (
+                      <Image 
+                        src={memory.image} 
+                        alt={memory.description} 
+                        width={600}
+                        height={400}
+                        className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105"
+                      />
+                    )}
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="secondary" size="icon" className="h-8 w-8 bg-black/40 text-white hover:bg-black/60 backdrop-blur-md">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onSelect={() => handleOpenDialog(memory)}>Editar</DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(memory.id)}>Deletar</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+                  <CardContent className="p-4 space-y-3">
+                    <p className="text-sm font-medium leading-relaxed">{memory.description}</p>
+                    <div className="flex items-center justify-between pt-2 border-t border-border/40">
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">
+                        <Camera className="size-3" />
+                        {memory.date ? format(memory.date.toDate(), "dd/MM/yyyy", { locale: ptBR }) : ''}
+                      </div>
+                      {memory.location && (
+                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium italic">
+                          <MapPin className="size-3" />
+                          {memory.location}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      )}
     </div>
   );
 }

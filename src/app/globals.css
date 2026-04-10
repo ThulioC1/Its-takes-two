@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -24,7 +25,7 @@
     --input: 240 5.9% 90%;
     --ring: 340 82% 76%;
     --radius: 0.75rem;
-    --sidebar-background: 0 0% 100%;
+    --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 340 82% 76%;
     --sidebar-primary-foreground: 0 0% 100%;
@@ -37,7 +38,7 @@
   .dark {
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
+    --card: 240 10% 8%;
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
@@ -54,7 +55,7 @@
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
     --ring: 340 82% 76%;
-    --sidebar-background: 240 10% 3.9%;
+    --sidebar-background: 240 10% 6%;
     --sidebar-foreground: 240 5% 64.9%;
     --sidebar-primary: 340 82% 76%;
     --sidebar-primary-foreground: 0 0% 100%;
@@ -88,5 +89,28 @@
 
   .font-cursive {
     font-family: 'Dancing Script', cursive;
+  }
+
+  /* Masonry Column Layout */
+  .masonry-grid {
+    column-count: 1;
+    column-gap: 1.5rem;
+  }
+
+  @media (min-width: 640px) {
+    .masonry-grid {
+      column-count: 2;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .masonry-grid {
+      column-count: 3;
+    }
+  }
+
+  .masonry-item {
+    break-inside: avoid;
+    margin-bottom: 1.5rem;
   }
 }

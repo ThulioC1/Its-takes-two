@@ -1,8 +1,9 @@
+
 'use client'
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import React from 'react'
+import React, { useMemo } from 'react'
 import {
   CalendarHeart,
   CircleDollarSign,
@@ -14,7 +15,7 @@ import {
   LogOut,
   Mail,
   Users,
-  User,
+  User as UserIcon,
   Gamepad2,
   Heart,
   ChevronRight,
@@ -33,26 +34,16 @@ import {
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { useAuth, useUser } from "@/firebase"
+import { useAuth, useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase"
 import { signOut } from "firebase/auth"
 import { Separator } from "@/components/ui/separator"
 import { BottomNavigation } from "@/components/ui/bottom-navigation"
 import { cn } from "@/lib/utils"
+import { motion, AnimatePresence } from "framer-motion"
+import { collection, doc } from "firebase/firestore"
+import type { UserProfile, ToDoItem, Post, LoveLetter } from "@/types"
 
-export const navItems = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/wall", icon: Users, label: "Mural" },
-  { href: "/todos", icon: ListTodo, label: "Tarefas" },
-  { href: "/finances", icon: CircleDollarSign, label: "Finanças" },
-  { href: "/watchlist", icon: Clapperboard, label: "Cinema" },
-  { href: "/games", icon: Gamepad2, label: "Games" },
-  { href: "/dates", icon: CalendarHeart, label: "Datas" },
-  { href: "/memories", icon: ImageIcon, label: "Memórias" },
-  { href: "/messages", icon: Mail, label: "Cartas" },
-  { href: "/goals", icon: Goal, label: "Metas" },
-]
-
-function UserProfile() {
+function UserProfileComponent() {
     const { user, isUserLoading } = useUser();
     const auth = useAuth();
     const handleLogout = () => auth && signOut(auth);
@@ -68,7 +59,7 @@ function UserProfile() {
             <div className="flex flex-col min-w-0 flex-1">
                 <span className="text-xs font-semibold truncate">{user?.displayName || 'Usuário'}</span>
             </div>
-            <Button variant="ghost" size="icon" onClick={handleLogout} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive">
+            <Button variant="ghost" size="icon" onClick={handleLogout} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive transition-colors">
                 <LogOut className="h-4 w-4" />
             </Button>
         </div>
@@ -77,9 +68,47 @@ function UserProfile() {
 
 export default function AppLayout({ children }: { children: React.React.Node }) {  
   const pathname = usePathname()
+  const { user } = useUser()
+  const firestore = useFirestore()
+
+  const userProfileRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
+  const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
+  const coupleId = userProfile?.coupleId;
+
+  // Real-time notification data
+  const todosRef = useMemoFirebase(() => {
+    if (!firestore || !coupleId) return null;
+    return collection(firestore, 'couples', coupleId, 'todos');
+  }, [firestore, coupleId]);
+  const { data: todos } = useCollection<ToDoItem>(todosRef);
+
+  const postsRef = useMemoFirebase(() => {
+    if (!firestore || !coupleId) return null;
+    return collection(firestore, 'couples', coupleId, 'posts');
+  }, [firestore, coupleId]);
+  const { data: posts } = useCollection<Post>(postsRef);
+
+  const pendingCount = useMemo(() => todos?.filter(t => t.status === 'Pendente').length || 0, [todos]);
+
+  const navItems = [
+    { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { href: "/wall", icon: Users, label: "Mural" },
+    { href: "/todos", icon: ListTodo, label: "Tarefas", badge: pendingCount > 0 ? pendingCount : undefined },
+    { href: "/finances", icon: CircleDollarSign, label: "Finanças" },
+    { href: "/watchlist", icon: Clapperboard, label: "Cinema" },
+    { href: "/games", icon: Gamepad2, label: "Games" },
+    { href: "/dates", icon: CalendarHeart, label: "Datas" },
+    { href: "/memories", icon: ImageIcon, label: "Memórias" },
+    { href: "/messages", icon: Mail, label: "Cartas" },
+    { href: "/goals", icon: Goal, label: "Metas" },
+  ]
+
   return (
     <SidebarProvider>
-      <div className="relative min-h-screen md:flex w-full bg-background">
+      <div className="relative min-h-screen md:flex w-full bg-background selection:bg-primary/30 selection:text-primary-foreground">
         <Sidebar className="border-r border-border/40 bg-sidebar/95 backdrop-blur-xl md:bg-card/40">
           <SidebarHeader className="p-6">
             <div className="flex items-center gap-3">
@@ -99,16 +128,23 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
                     asChild 
                     isActive={pathname === item.href}
                     className={cn(
-                      "rounded-lg transition-all duration-200 h-10 px-3",
+                      "rounded-lg transition-all duration-200 h-10 px-3 group",
                       pathname === item.href ? "bg-primary/10 text-primary shadow-sm" : "hover:bg-accent/50 text-muted-foreground"
                     )}
                   >
                     <Link href={item.href} className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-3">
-                          <item.icon className={cn("h-4 w-4", pathname === item.href ? "text-primary" : "")} />
+                          <item.icon className={cn("h-4 w-4 transition-transform group-hover:scale-110", pathname === item.href ? "text-primary" : "")} />
                           <span className="text-sm font-medium">{item.label}</span>
                         </div>
-                        {pathname === item.href && <ChevronRight className="h-3 w-3" />}
+                        <div className="flex items-center gap-2">
+                          {item.badge !== undefined && (
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
+                              {item.badge}
+                            </span>
+                          )}
+                          {pathname === item.href && <ChevronRight className="h-3 w-3 animate-in fade-in slide-in-from-left-2" />}
+                        </div>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -118,8 +154,8 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
             <SidebarMenu className="px-3">
                 <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={pathname === '/profile'}>
-                        <Link href="/profile" className="flex items-center gap-3 text-sm font-medium text-muted-foreground">
-                            <User className="h-4 w-4" />
+                        <Link href="/profile" className="flex items-center gap-3 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                            <UserIcon className="h-4 w-4" />
                             <span>Ajustes</span>
                         </Link>
                     </SidebarMenuButton>
@@ -127,7 +163,7 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter className="p-4">
-              <UserProfile />
+              <UserProfileComponent />
           </SidebarFooter>
         </Sidebar>
         <div className="flex-1 flex flex-col min-w-0">
@@ -142,11 +178,20 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
                   {navItems.find(i => i.href === pathname)?.label || 'Ajustes'}
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-              </div>
           </header>
           <main className="flex-1 overflow-y-auto p-6 md:p-10 pb-24 md:pb-10">
-              {children}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={pathname}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  className="h-full"
+                >
+                  {children}
+                </motion.div>
+              </AnimatePresence>
           </main>
         </div>
         <BottomNavigation navItems={navItems} />
