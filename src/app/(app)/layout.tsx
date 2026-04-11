@@ -3,7 +3,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import React, { useMemo } from 'react'
+import React, { useMemo, useState, useEffect } from 'react'
 import {
   CalendarHeart,
   CircleDollarSign,
@@ -19,6 +19,8 @@ import {
   Gamepad2,
   Heart,
   ChevronRight,
+  Sun,
+  Moon,
 } from "lucide-react"
 
 import {
@@ -41,7 +43,7 @@ import { BottomNavigation } from "@/components/ui/bottom-navigation"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
 import { collection, doc } from "firebase/firestore"
-import type { UserProfile, ToDoItem, Post, LoveLetter } from "@/types"
+import type { UserProfile, ToDoItem, Post } from "@/types"
 
 function UserProfileComponent() {
     const { user, isUserLoading } = useUser();
@@ -66,6 +68,33 @@ function UserProfileComponent() {
     )
 }
 
+function ThemeToggle() {
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light');
+    setTheme(initialTheme);
+    document.documentElement.classList.toggle('dark', initialTheme === 'dark');
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    document.documentElement.classList.toggle('dark', newTheme === 'dark');
+  };
+
+  return (
+    <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-9 w-9 rounded-lg">
+      <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0 text-amber-500" />
+      <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100 text-primary" />
+      <span className="sr-only">Alternar tema</span>
+    </Button>
+  );
+}
+
 export default function AppLayout({ children }: { children: React.React.Node }) {  
   const pathname = usePathname()
   const { user } = useUser()
@@ -84,12 +113,6 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
     return collection(firestore, 'couples', coupleId, 'todos');
   }, [firestore, coupleId]);
   const { data: todos } = useCollection<ToDoItem>(todosRef);
-
-  const postsRef = useMemoFirebase(() => {
-    if (!firestore || !coupleId) return null;
-    return collection(firestore, 'couples', coupleId, 'posts');
-  }, [firestore, coupleId]);
-  const { data: posts } = useCollection<Post>(postsRef);
 
   const pendingCount = useMemo(() => todos?.filter(t => t.status === 'Pendente').length || 0, [todos]);
 
@@ -177,6 +200,9 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
                 <div className="hidden md:block text-xs font-medium text-muted-foreground uppercase tracking-widest">
                   {navItems.find(i => i.href === pathname)?.label || 'Ajustes'}
                 </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
               </div>
           </header>
           <main className="flex-1 overflow-y-auto p-6 md:p-10 pb-24 md:pb-10">
