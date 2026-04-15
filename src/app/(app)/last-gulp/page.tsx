@@ -27,15 +27,17 @@ export default function LastGulpPage() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
 
+  // State document path: /couples/{id}/lastGulpGame/state
   const gameStateRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return doc(firestore, 'couples', coupleId, 'lastGulpGame', 'state');
   }, [firestore, coupleId]);
   const { data: gameState } = useDoc<LastGulpGame>(gameStateRef);
 
+  // History collection path: /couples/{id}/lastGulpGame/state/history (5 segments, valid for collection)
   const historyRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
-    return collection(firestore, 'couples', coupleId, 'lastGulpGame', 'history');
+    return collection(firestore, 'couples', coupleId, 'lastGulpGame', 'state', 'history');
   }, [firestore, coupleId]);
   const { data: history } = useCollection<LastGulpHistory>(historyRef);
 
@@ -47,7 +49,6 @@ export default function LastGulpPage() {
   const handleGulp = () => {
     if (!user || !gameStateRef || !historyRef || !firestore) return;
 
-    // Use a multi-step update to ensure document exists and increments score without overwriting the scores map
     const baseData = {
       lastDrinkerId: user.uid,
       lastDrinkerName: user.displayName || 'Parceiro',
@@ -68,7 +69,6 @@ export default function LastGulpPage() {
     updateDoc(gameStateRef, {
       [`scores.${user.uid}`]: increment(1)
     }).catch(async (error) => {
-        // Silence not-found as it's handled by step 1
         if (error.code !== 'not-found') {
             errorEmitter.emit('permission-error', new FirestorePermissionError({
                 path: gameStateRef.path,

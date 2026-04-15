@@ -636,7 +636,7 @@
         }
       },
       {
-        "path": "/couples/{coupleId}/lastGulpGame/history/{gulpId}",
+        "path": "/couples/{coupleId}/lastGulpGame/state/history/{gulpId}",
         "definition": {
           "entityName": "LastGulpHistory",
           "schema": {
