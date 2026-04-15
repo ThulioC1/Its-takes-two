@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -6,14 +7,14 @@ import { Heart, Trophy, History, Beer, Sparkles } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, setDoc, addDoc, serverTimestamp, increment } from 'firebase/firestore';
+import { doc, collection, setDoc, addDoc, serverTimestamp, increment, updateDoc } from 'firebase/firestore';
 import type { LastGulpGame, LastGulpHistory, UserProfile } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 export default function LastGulpPage() {
   const { user } = useUser();
@@ -44,26 +45,38 @@ export default function LastGulpPage() {
   }, [history]);
 
   const handleGulp = () => {
-    if (!user || !gameStateRef || !historyRef) return;
+    if (!user || !gameStateRef || !historyRef || !firestore) return;
 
-    const gulpData = {
+    // Use a multi-step update to ensure document exists and increments score without overwriting the scores map
+    const baseData = {
       lastDrinkerId: user.uid,
       lastDrinkerName: user.displayName || 'Parceiro',
       timestamp: serverTimestamp(),
-      scores: {
-        [user.uid]: increment(1)
-      }
     };
 
-    // Update state
-    setDoc(gameStateRef, gulpData, { merge: true })
+    // 1. Initial set or update of basic info
+    setDoc(gameStateRef, baseData, { merge: true })
       .catch(async (error) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: gameStateRef.path,
           operation: 'write',
-          requestResourceData: gulpData
-        }));
+          requestResourceData: baseData
+        } satisfies SecurityRuleContext));
       });
+
+    // 2. Atomic increment of score inside the scores map
+    updateDoc(gameStateRef, {
+      [`scores.${user.uid}`]: increment(1)
+    }).catch(async (error) => {
+        // Silence not-found as it's handled by step 1
+        if (error.code !== 'not-found') {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: gameStateRef.path,
+                operation: 'update',
+                requestResourceData: { [`scores.${user.uid}`]: 'increment' }
+            } satisfies SecurityRuleContext));
+        }
+    });
 
     const historyData = {
       drinkerId: user.uid,
@@ -78,7 +91,7 @@ export default function LastGulpPage() {
           path: historyRef.path,
           operation: 'create',
           requestResourceData: historyData
-        }));
+        } satisfies SecurityRuleContext));
       });
   };
 
@@ -128,10 +141,10 @@ export default function LastGulpPage() {
             </div>
 
             <div className="text-center space-y-1">
-              <p className="text-sm text-muted-foreground font-medium">
-                {gameState?.timestamp ? (
+              <p className="text-sm text-muted-foreground font-medium h-5">
+                {gameState?.timestamp?.toDate ? (
                   <>Última vez: <span className="text-foreground">{formatDistanceToNow(gameState.timestamp.toDate(), { addSuffix: true, locale: ptBR })}</span></>
-                ) : 'Ninguém bebeu ainda...'}
+                ) : gameState?.timestamp ? 'Sincronizando...' : 'Ninguém bebeu ainda...'}
               </p>
             </div>
 
@@ -157,13 +170,13 @@ export default function LastGulpPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {gameState?.scores ? Object.entries(gameState.scores).map(([uid, score]) => (
+                {gameState?.scores && Object.keys(gameState.scores).length > 0 ? Object.entries(gameState.scores).map(([uid, score]) => (
                   <div key={uid} className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className={`size-2 rounded-full ${uid === user?.uid ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
                       <span className="font-medium">{uid === user?.uid ? 'Você' : 'Parceiro(a)'}</span>
                     </div>
-                    <span className="text-2xl font-bold font-headline">{score}</span>
+                    <span className="text-2xl font-bold font-headline">{Number(score)}</span>
                   </div>
                 )) : <p className="text-sm text-muted-foreground text-center">0 a 0. Quem vai abrir o placar?</p>}
               </div>
@@ -183,7 +196,7 @@ export default function LastGulpPage() {
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
                         <AvatarFallback className="text-[10px] bg-secondary">
-                          {gulp.drinkerName.charAt(0)}
+                          {gulp.drinkerName?.charAt(0) || '?'}
                         </AvatarFallback>
                       </Avatar>
                       <div>
@@ -192,7 +205,7 @@ export default function LastGulpPage() {
                       </div>
                     </div>
                     <span className="text-[10px] text-muted-foreground font-medium">
-                      {gulp.timestamp ? formatDistanceToNow(gulp.timestamp.toDate(), { locale: ptBR }) : 'agora'}
+                      {gulp.timestamp?.toDate ? formatDistanceToNow(gulp.timestamp.toDate(), { locale: ptBR }) : 'agora'}
                     </span>
                   </div>
                 )) : <div className="p-8 text-center text-sm text-muted-foreground italic">Sem registros no baú...</div>}

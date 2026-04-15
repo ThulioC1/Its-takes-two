@@ -1,5 +1,5 @@
 
-import type { Timestamp } from 'firebase/firestore';
+import type { Timestamp, FieldValue } from 'firebase/firestore';
 
 export interface Author {
     uid: string;
@@ -140,8 +140,8 @@ export interface Game {
 export interface LastGulpGame {
     lastDrinkerId: string;
     lastDrinkerName: string;
-    timestamp: Timestamp;
-    scores: Record<string, number>;
+    timestamp: Timestamp | null;
+    scores: Record<string, number | FieldValue>;
 }
 
 export interface LastGulpHistory {
