@@ -1,17 +1,19 @@
-
 'use client';
 
 import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, Trophy, History, Beer, Sparkles } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, collection, setDoc, addDoc, serverTimestamp, increment } from 'firebase/firestore';
 import type { LastGulpGame, LastGulpHistory, UserProfile } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function LastGulpPage() {
   const { user } = useUser();
@@ -41,25 +43,43 @@ export default function LastGulpPage() {
     return [...history].sort((a, b) => (b.timestamp?.toDate?.().getTime() || 0) - (a.timestamp?.toDate?.().getTime() || 0)).slice(0, 10);
   }, [history]);
 
-  const handleGulp = async () => {
+  const handleGulp = () => {
     if (!user || !gameStateRef || !historyRef) return;
 
-    // Update state
-    setDoc(gameStateRef, {
+    const gulpData = {
       lastDrinkerId: user.uid,
       lastDrinkerName: user.displayName || 'Parceiro',
       timestamp: serverTimestamp(),
       scores: {
         [user.uid]: increment(1)
       }
-    }, { merge: true });
+    };
 
-    // Add to history
-    addDoc(historyRef, {
+    // Update state
+    setDoc(gameStateRef, gulpData, { merge: true })
+      .catch(async (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: gameStateRef.path,
+          operation: 'write',
+          requestResourceData: gulpData
+        }));
+      });
+
+    const historyData = {
       drinkerId: user.uid,
       drinkerName: user.displayName || 'Parceiro',
       timestamp: serverTimestamp()
-    });
+    };
+
+    // Add to history
+    addDoc(historyRef, historyData)
+      .catch(async (error) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: historyRef.path,
+          operation: 'create',
+          requestResourceData: historyData
+        }));
+      });
   };
 
   const isLastDrinker = gameState?.lastDrinkerId === user?.uid;
@@ -101,7 +121,7 @@ export default function LastGulpPage() {
                 </motion.div>
               </AnimatePresence>
               <div className="absolute -bottom-4 left-1/2 -translate-x-1/2">
-                <Badge className="bg-primary text-white shadow-lg px-4 py-1">
+                <Badge className="bg-primary text-white shadow-lg px-4 py-1 text-[10px] font-bold uppercase tracking-widest border-none">
                   {gameState ? (isLastDrinker ? 'VOCÊ BEBEU!' : `${gameState.lastDrinkerName} BEBEU!`) : 'COMECE A JOGAR!'}
                 </Badge>
               </div>
@@ -118,7 +138,7 @@ export default function LastGulpPage() {
             <Button
               size="lg"
               onClick={handleGulp}
-              disabled={isLastDrinker}
+              disabled={isLastDrinker || !coupleId}
               className={`w-full h-16 text-lg font-bold rounded-2xl shadow-xl transition-all active:scale-95 ${isLastDrinker ? 'bg-secondary text-muted-foreground' : 'bg-primary hover:bg-primary/90'}`}
             >
               {isLastDrinker ? 'Você já bebeu o último!' : 'EU BEBI O ÚLTIMO GOLE!'}
@@ -183,12 +203,4 @@ export default function LastGulpPage() {
       </div>
     </div>
   );
-}
-
-function Badge({ children, className }: { children: React.ReactNode, className?: string }) {
-  return (
-    <div className={`rounded-full text-[10px] font-bold uppercase tracking-widest ${className}`}>
-      {children}
-    </div>
-  )
 }

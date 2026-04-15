@@ -63,8 +63,10 @@ service cloud.firestore {
       match /goals/{goalId} {
         allow read, write: if isMemberOfCouple(coupleId);
       }
+
+      match /lastGulpGame/{document=**} {
+        allow read, write: if isMemberOfCouple(coupleId);
+      }
     }
   }
 }
-
-    
