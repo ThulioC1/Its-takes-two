@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "ToDoItem": {
@@ -520,6 +521,31 @@
         "displayName"
       ]
     },
+    "LastGulpGame": {
+      "title": "LastGulpGame",
+      "type": "object",
+      "description": "Stores the state of the 'Last Gulp' game.",
+      "properties": {
+        "lastDrinkerId": { "type": "string" },
+        "lastDrinkerName": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "scores": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        }
+      }
+    },
+    "LastGulpHistory": {
+      "title": "LastGulpHistory",
+      "type": "object",
+      "description": "A record of a single last gulp.",
+      "properties": {
+        "id": { "type": "string" },
+        "drinkerId": { "type": "string" },
+        "drinkerName": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
+    },
     "CoupleDetails": {
       "title": "CoupleDetails",
       "type": "object",
@@ -597,6 +623,26 @@
               "description": "Unique identifier for the couple."
             }
           ]
+        }
+      },
+      {
+        "path": "/couples/{coupleId}/lastGulpGame/state",
+        "definition": {
+          "entityName": "LastGulpGame",
+          "schema": {
+            "$ref": "#/entities/LastGulpGame"
+          },
+          "description": "Current state of the Last Gulp game."
+        }
+      },
+      {
+        "path": "/couples/{coupleId}/lastGulpGame/history/{gulpId}",
+        "definition": {
+          "entityName": "LastGulpHistory",
+          "schema": {
+            "$ref": "#/entities/LastGulpHistory"
+          },
+          "description": "History of last gulps."
         }
       },
       {

@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Sun,
   Moon,
+  Beer,
 } from "lucide-react"
 
 import {
@@ -127,6 +128,7 @@ export default function AppLayout({ children }: { children: React.React.Node }) 
     { href: "/memories", icon: ImageIcon, label: "Memórias" },
     { href: "/messages", icon: Mail, label: "Cartas" },
     { href: "/goals", icon: Goal, label: "Metas" },
+    { href: "/last-gulp", icon: Beer, label: "Último Gole" },
   ]
 
   return (

@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export interface Author {
@@ -20,7 +21,7 @@ export interface UserProfile {
 export interface CoupleDetails {
     memberIds: string[];
     bannerUrl?: string;
-    partnerId?: string; // Add this
+    partnerId?: string;
 }
 
 export interface ToDoItem {
@@ -134,4 +135,18 @@ export interface Game {
     author: Author;
     reviews?: Review[];
     creationDate: Timestamp;
+}
+
+export interface LastGulpGame {
+    lastDrinkerId: string;
+    lastDrinkerName: string;
+    timestamp: Timestamp;
+    scores: Record<string, number>;
+}
+
+export interface LastGulpHistory {
+    id: string;
+    drinkerId: string;
+    drinkerName: string;
+    timestamp: Timestamp;
 }
