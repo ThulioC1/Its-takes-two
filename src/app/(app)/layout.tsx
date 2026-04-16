@@ -56,7 +56,7 @@ function UserProfileComponent() {
     return (
         <div className="flex items-center gap-3 p-2 bg-secondary/30 rounded-xl border border-border/50">
             <Avatar className="h-8 w-8 border">
-                <AvatarImage src={user?.photoURL || ''} />
+                <AvatarImage src={user?.photoURL || undefined} />
                 <AvatarFallback>{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col min-w-0 flex-1">

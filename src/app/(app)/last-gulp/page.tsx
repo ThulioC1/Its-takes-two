@@ -42,7 +42,7 @@ export default function LastGulpPage() {
     // Adiciona membros da query global
     if (membersData) {
       membersData.forEach(m => { 
-        map[m.id] = m; // ID do documento é o UID
+        map[m.id] = m;
         if (m.uid) map[m.uid] = m;
       });
     }
@@ -142,7 +142,7 @@ export default function LastGulpPage() {
                   <div className={`size-56 rounded-full border-4 flex items-center justify-center bg-primary/5 transition-all duration-500 overflow-hidden ${gameState?.lastDrinkerId ? 'border-primary shadow-[0_0_30px_rgba(var(--primary),0.4)]' : 'border-primary/20'}`}>
                     {lastDrinkerProfile ? (
                       <Avatar className="size-full rounded-none">
-                        <AvatarImage src={lastDrinkerProfile.photoURL} className="object-cover" />
+                        <AvatarImage src={lastDrinkerProfile.photoURL || undefined} className="object-cover" />
                         <AvatarFallback className="bg-transparent flex flex-col items-center justify-center text-primary text-4xl font-bold">
                           {lastDrinkerProfile.displayName?.charAt(0)}
                         </AvatarFallback>
@@ -222,7 +222,7 @@ export default function LastGulpPage() {
                     <div key={uid} className="flex items-center justify-between p-3 rounded-xl bg-accent/20">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10 border-2 border-background shadow-sm">
-                          <AvatarImage src={member?.photoURL} />
+                          <AvatarImage src={member?.photoURL || undefined} />
                           <AvatarFallback className="bg-primary/10 text-primary font-bold">
                             {name.charAt(0)}
                           </AvatarFallback>
@@ -254,7 +254,7 @@ export default function LastGulpPage() {
                     <div key={gulp.id} className="p-4 flex items-center justify-between hover:bg-accent/30 transition-colors">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8 border shadow-sm">
-                          <AvatarImage src={drinker?.photoURL} />
+                          <AvatarImage src={drinker?.photoURL || undefined} />
                           <AvatarFallback className="text-[10px] bg-secondary font-bold">
                             {drinker?.displayName?.charAt(0) || gulp.drinkerName?.charAt(0) || '?'}
                           </AvatarFallback>
