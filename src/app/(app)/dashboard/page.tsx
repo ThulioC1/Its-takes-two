@@ -30,7 +30,7 @@ import {
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { format, differenceInDays, startOfToday, isValid, isPast, isToday } from 'date-fns';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { doc, collection, writeBatch, getDoc, setDoc } from 'firebase/firestore';
+import { doc, collection, writeBatch, getDoc, serverTimestamp } from 'firebase/firestore';
 import type { ToDoItem, ImportantDate, Post, Expense, UserProfile, LoveLetter } from "@/types";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -350,7 +350,7 @@ export default function DashboardPage() {
                 ))}
               </div>
             </CardContent>
-          </Link>
+          </Card>
         </Link>
 
         {/* Bento: Finances Chart (8 cols) */}

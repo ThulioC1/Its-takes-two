@@ -28,7 +28,6 @@ export default function LastGulpPage() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
 
-  // Sincronização em tempo real dos membros baseada no coupleId compartilhado
   useEffect(() => {
     const fetchMembers = async () => {
       if (!firestore || !coupleId) return;
@@ -78,7 +77,6 @@ export default function LastGulpPage() {
       timestamp: serverTimestamp(),
     };
 
-    // Atualiza o estado global
     setDoc(gameStateRef, baseData, { merge: true })
       .catch(async (error) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -88,7 +86,6 @@ export default function LastGulpPage() {
         } satisfies SecurityRuleContext));
       });
 
-    // Incremento atômico de scores
     updateDoc(gameStateRef, {
       [`scores.${user.uid}`]: increment(1)
     }).catch(async (error) => {
@@ -106,7 +103,6 @@ export default function LastGulpPage() {
         }
     });
 
-    // Adiciona ao histórico
     const historyData = {
       drinkerId: user.uid,
       drinkerName: userProfile.displayName || user.displayName || 'Parceiro',
