@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
@@ -29,7 +30,7 @@ import {
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { format, differenceInDays, startOfToday, isValid, isPast, isToday } from 'date-fns';
 import { useCollection, useFirestore, useUser, useMemoFirebase, useDoc } from "@/firebase";
-import { doc, collection, writeBatch, getDoc } from 'firebase/firestore';
+import { doc, collection, writeBatch, getDoc, setDoc } from 'firebase/firestore';
 import type { ToDoItem, ImportantDate, Post, Expense, UserProfile, LoveLetter } from "@/types";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -66,21 +67,32 @@ function CoupleLinker() {
     setIsLinking(true);
     const partnerId = partnerCode.trim();
     const partnerProfileRef = doc(firestore, 'users', partnerId);
+    
     try {
       const partnerDoc = await getDoc(partnerProfileRef);
       if (!partnerDoc.exists()) throw new Error("Código do parceiro(a) não encontrado.");
+      
       const newCoupleId = partnerDoc.data().coupleId;
       if (!newCoupleId) throw new Error("Parceiro(a) não possui um código de casal válido.");
+      
       const batch = writeBatch(firestore);
+      
+      // Atualiza o perfil do usuário atual
       const currentUserProfileRef = doc(firestore, 'users', user.uid);
       batch.update(currentUserProfileRef, { coupleId: newCoupleId });
+      
+      // Atualiza o documento central do casal com ambos os IDs
       const coupleDocRef = doc(firestore, "couples", newCoupleId);
-      batch.update(coupleDocRef, { memberIds: [user.uid, partnerId] });
+      batch.set(coupleDocRef, { 
+        memberIds: [user.uid, partnerId],
+        updatedAt: serverTimestamp() 
+      }, { merge: true });
+      
       await batch.commit();
       toast({ title: 'Casal vinculado!', description: 'Contas conectadas com sucesso.' });
     } catch (error: any) {
       const permissionError = new FirestorePermissionError({
-          path: `users/${user.uid} or users/${partnerId}`,
+          path: `users/${user.uid} or couples/${partnerCode.trim()}`,
           operation: 'write',
           requestResourceData: { coupleId: partnerCode.trim() },
       });
@@ -338,7 +350,7 @@ export default function DashboardPage() {
                 ))}
               </div>
             </CardContent>
-          </Card>
+          </Link>
         </Link>
 
         {/* Bento: Finances Chart (8 cols) */}

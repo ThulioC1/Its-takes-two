@@ -3,7 +3,7 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Trophy, History, Beer, Sparkles, User } from 'lucide-react';
+import { Beer, Trophy, History, Sparkles, User } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@/firebase';
@@ -28,7 +28,7 @@ export default function LastGulpPage() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
 
-  // Real-time synchronization of members based on shared coupleId
+  // Sincronização em tempo real dos membros baseada no coupleId compartilhado
   useEffect(() => {
     const fetchMembers = async () => {
       if (!firestore || !coupleId) return;
@@ -46,7 +46,7 @@ export default function LastGulpPage() {
         
         setCoupleMembers(membersMap);
       } catch (e) {
-        console.error("Error fetching couple members:", e);
+        console.error("Erro ao buscar membros do casal:", e);
       }
     };
     fetchMembers();
@@ -78,7 +78,7 @@ export default function LastGulpPage() {
       timestamp: serverTimestamp(),
     };
 
-    // Update global state
+    // Atualiza o estado global
     setDoc(gameStateRef, baseData, { merge: true })
       .catch(async (error) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -88,12 +88,11 @@ export default function LastGulpPage() {
         } satisfies SecurityRuleContext));
       });
 
-    // Atomic increment of scores
+    // Incremento atômico de scores
     updateDoc(gameStateRef, {
       [`scores.${user.uid}`]: increment(1)
     }).catch(async (error) => {
         if (error.code === 'not-found') {
-            // If the document doesn't exist yet, we initialize it
             setDoc(gameStateRef, {
               ...baseData,
               scores: { [user.uid]: 1 }
@@ -107,7 +106,7 @@ export default function LastGulpPage() {
         }
     });
 
-    // Add record to history
+    // Adiciona ao histórico
     const historyData = {
       drinkerId: user.uid,
       drinkerName: userProfile.displayName || user.displayName || 'Parceiro',
@@ -126,7 +125,6 @@ export default function LastGulpPage() {
 
   const isLastDrinker = gameState?.lastDrinkerId === user?.uid;
   
-  // Logic to find the last drinker's profile dynamically
   const lastDrinkerProfile = useMemo(() => {
     if (!gameState?.lastDrinkerId) return null;
     return coupleMembers[gameState.lastDrinkerId] || null;
@@ -140,7 +138,6 @@ export default function LastGulpPage() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-8 items-start">
-        {/* Main Game Card */}
         <Card className="relative overflow-hidden border-primary/20 bg-card/40 backdrop-blur-xl shadow-2xl md:sticky md:top-24">
           <div className="absolute top-0 left-0 w-full h-1.5 bg-primary" />
           <CardHeader className="text-center">
@@ -210,9 +207,7 @@ export default function LastGulpPage() {
           </CardContent>
         </Card>
 
-        {/* Stats & History */}
         <div className="space-y-6">
-          {/* Placar */}
           <Card className="border-none shadow-lg bg-card/60 backdrop-blur-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-lg font-bold">Placar de Goles</CardTitle>
@@ -244,7 +239,6 @@ export default function LastGulpPage() {
             </CardContent>
           </Card>
 
-          {/* Histórico */}
           <Card className="border-none shadow-lg bg-card/60 backdrop-blur-sm overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-lg font-bold">Últimos Registros</CardTitle>
@@ -269,7 +263,7 @@ export default function LastGulpPage() {
                         </div>
                       </div>
                       <span className="text-[10px] text-muted-foreground font-bold bg-accent/50 px-2 py-1 rounded-full">
-                        {gulp.timestamp?.toDate ? formatDistanceToNow(gulp.timestamp.toDate(), { locale: ptBR }) : 'agora'}
+                        {gulp.timestamp?.toDate ? formatDistanceToNow(gulp.timestamp.toDate(), { locale: ptBR, addSuffix: true }) : 'agora'}
                       </span>
                     </div>
                   );
