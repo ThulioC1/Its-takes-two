@@ -1,13 +1,13 @@
 
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Beer, Trophy, History, Sparkles, User } from 'lucide-react';
+import { Beer, Trophy, History as HistoryIcon, Sparkles, User } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, setDoc, addDoc, serverTimestamp, increment, updateDoc, query, where, getDocs } from 'firebase/firestore';
+import { doc, collection, setDoc, addDoc, serverTimestamp, increment, updateDoc, query, where } from 'firebase/firestore';
 import type { LastGulpGame, LastGulpHistory, UserProfile } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -19,8 +19,8 @@ import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/e
 export default function LastGulpPage() {
   const { user } = useUser();
   const firestore = useFirestore();
-  const [coupleMembers, setCoupleMembers] = useState<Record<string, UserProfile>>({});
 
+  // 1. Obter o perfil do usuário logado para saber o coupleId
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'users', user.uid);
@@ -28,29 +28,27 @@ export default function LastGulpPage() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
 
-  useEffect(() => {
-    const fetchMembers = async () => {
-      if (!firestore || !coupleId) return;
-      
-      try {
-        const usersRef = collection(firestore, 'users');
-        const q = query(usersRef, where('coupleId', '==', coupleId));
-        const querySnapshot = await getDocs(q);
-        
-        const membersMap: Record<string, UserProfile> = {};
-        querySnapshot.forEach((doc) => {
-          const profile = doc.data() as UserProfile;
-          membersMap[profile.uid] = profile;
-        });
-        
-        setCoupleMembers(membersMap);
-      } catch (e) {
-        console.error("Erro ao buscar membros do casal:", e);
-      }
-    };
-    fetchMembers();
+  // 2. Escutar em tempo real todos os usuários que pertencem a este casal
+  const membersQuery = useMemoFirebase(() => {
+    if (!firestore || !coupleId) return null;
+    return query(collection(firestore, 'users'), where('coupleId', '==', coupleId));
   }, [firestore, coupleId]);
+  const { data: membersData } = useCollection<UserProfile>(membersQuery);
 
+  // 3. Criar um mapa de membros para acesso rápido (ID -> Perfil)
+  const coupleMembers = useMemo(() => {
+    const map: Record<string, UserProfile> = {};
+    if (membersData) {
+      membersData.forEach(m => { map[m.uid] = m; });
+    }
+    // Garantir que o perfil atual esteja no mapa mesmo antes da query terminar
+    if (userProfile) {
+      map[userProfile.uid] = userProfile;
+    }
+    return map;
+  }, [membersData, userProfile]);
+
+  // 4. Estado do Jogo e Histórico
   const gameStateRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return doc(firestore, 'couples', coupleId, 'lastGulpGame', 'state');
@@ -77,8 +75,9 @@ export default function LastGulpPage() {
       timestamp: serverTimestamp(),
     };
 
+    // Atualiza quem foi o último a beber
     setDoc(gameStateRef, baseData, { merge: true })
-      .catch(async (error) => {
+      .catch(async () => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: gameStateRef.path,
           operation: 'write',
@@ -86,6 +85,7 @@ export default function LastGulpPage() {
         } satisfies SecurityRuleContext));
       });
 
+    // Incrementa o placar
     updateDoc(gameStateRef, {
       [`scores.${user.uid}`]: increment(1)
     }).catch(async (error) => {
@@ -103,6 +103,7 @@ export default function LastGulpPage() {
         }
     });
 
+    // Adiciona ao histórico
     const historyData = {
       drinkerId: user.uid,
       drinkerName: userProfile.displayName || user.displayName || 'Parceiro',
@@ -110,7 +111,7 @@ export default function LastGulpPage() {
     };
 
     addDoc(historyRef, historyData)
-      .catch(async (error) => {
+      .catch(async () => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: historyRef.path,
           operation: 'create',
@@ -120,11 +121,7 @@ export default function LastGulpPage() {
   };
 
   const isLastDrinker = gameState?.lastDrinkerId === user?.uid;
-  
-  const lastDrinkerProfile = useMemo(() => {
-    if (!gameState?.lastDrinkerId) return null;
-    return coupleMembers[gameState.lastDrinkerId] || null;
-  }, [gameState?.lastDrinkerId, coupleMembers]);
+  const lastDrinkerProfile = gameState?.lastDrinkerId ? coupleMembers[gameState.lastDrinkerId] : null;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-20">
@@ -134,6 +131,7 @@ export default function LastGulpPage() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-8 items-start">
+        {/* Card Principal: Quem bebeu? */}
         <Card className="relative overflow-hidden border-primary/20 bg-card/40 backdrop-blur-xl shadow-2xl md:sticky md:top-24">
           <div className="absolute top-0 left-0 w-full h-1.5 bg-primary" />
           <CardHeader className="text-center">
@@ -153,17 +151,23 @@ export default function LastGulpPage() {
                     {lastDrinkerProfile ? (
                       <Avatar className="size-full rounded-none">
                         <AvatarImage src={lastDrinkerProfile.photoURL} className="object-cover" />
-                        <AvatarFallback className="bg-transparent flex flex-col items-center justify-center text-primary">
-                          <User className="size-20 mb-2 opacity-20" />
-                          <span className="font-bold text-lg">{lastDrinkerProfile.displayName?.charAt(0)}</span>
+                        <AvatarFallback className="bg-transparent flex flex-col items-center justify-center text-primary text-4xl font-bold">
+                          {lastDrinkerProfile.displayName?.charAt(0)}
                         </AvatarFallback>
                       </Avatar>
                     ) : (
-                      <div className="flex flex-col items-center justify-center">
-                        <Beer className={`size-24 transition-all duration-500 ${isLastDrinker ? 'text-primary' : 'text-muted-foreground/40'}`} />
-                        <p className="text-[10px] uppercase tracking-tighter text-muted-foreground mt-2 font-bold">
-                           {gameState?.lastDrinkerId ? 'Buscando perfil...' : 'Aguardando...'}
-                        </p>
+                      <div className="flex flex-col items-center justify-center text-center p-4">
+                        {gameState?.lastDrinkerId ? (
+                             <div className="animate-pulse flex flex-col items-center">
+                                <User className="size-16 mb-2 text-primary/20" />
+                                <p className="text-[10px] uppercase font-bold text-muted-foreground">Buscando Perfil...</p>
+                             </div>
+                        ) : (
+                            <>
+                                <Beer className="size-24 text-muted-foreground/20" />
+                                <p className="text-[10px] uppercase font-bold text-muted-foreground mt-2">Aguardando Primeiro Gole</p>
+                            </>
+                        )}
                       </div>
                     )}
                   </div>
@@ -204,6 +208,7 @@ export default function LastGulpPage() {
         </Card>
 
         <div className="space-y-6">
+          {/* Placar */}
           <Card className="border-none shadow-lg bg-card/60 backdrop-blur-sm">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-lg font-bold">Placar de Goles</CardTitle>
@@ -235,10 +240,11 @@ export default function LastGulpPage() {
             </CardContent>
           </Card>
 
+          {/* Histórico */}
           <Card className="border-none shadow-lg bg-card/60 backdrop-blur-sm overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-lg font-bold">Últimos Registros</CardTitle>
-              <History className="size-5 text-muted-foreground" />
+              <HistoryIcon className="size-5 text-muted-foreground" />
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y divide-border/30">
@@ -250,7 +256,7 @@ export default function LastGulpPage() {
                         <Avatar className="h-8 w-8 border shadow-sm">
                           <AvatarImage src={drinker?.photoURL} />
                           <AvatarFallback className="text-[10px] bg-secondary font-bold">
-                            {drinker?.displayName?.charAt(0) || '?'}
+                            {drinker?.displayName?.charAt(0) || gulp.drinkerName?.charAt(0) || '?'}
                           </AvatarFallback>
                         </Avatar>
                         <div>
