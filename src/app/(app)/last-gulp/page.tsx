@@ -7,8 +7,8 @@ import { Heart, Trophy, History, Beer, Sparkles, User } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useFirestore, useUser, useDoc, useCollection, useMemoFirebase } from '@/firebase';
-import { doc, collection, setDoc, addDoc, serverTimestamp, increment, updateDoc, getDoc } from 'firebase/firestore';
-import type { LastGulpGame, LastGulpHistory, UserProfile, CoupleDetails } from '@/types';
+import { doc, collection, setDoc, addDoc, serverTimestamp, increment, updateDoc, query, where, getDocs } from 'firebase/firestore';
+import type { LastGulpGame, LastGulpHistory, UserProfile } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -28,37 +28,29 @@ export default function LastGulpPage() {
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
 
-  // Fetch couple details to get both member profiles
+  // Real-time synchronization of members based on shared coupleId
   useEffect(() => {
     const fetchMembers = async () => {
-      if (!firestore || !coupleId || !user) return;
+      if (!firestore || !coupleId) return;
       
-      const coupleRef = doc(firestore, 'couples', coupleId);
-      const coupleSnap = await getDoc(coupleRef);
-      
-      const membersMap: Record<string, UserProfile> = {};
-      
-      if (coupleSnap.exists()) {
-        const data = coupleSnap.data() as CoupleDetails;
-        const memberIds = data.memberIds || [user.uid];
-        const memberPromises = memberIds.map(id => getDoc(doc(firestore!, 'users', id)));
-        const memberSnaps = await Promise.all(memberPromises);
+      try {
+        const usersRef = collection(firestore, 'users');
+        const q = query(usersRef, where('coupleId', '==', coupleId));
+        const querySnapshot = await getDocs(q);
         
-        memberSnaps.forEach(snap => {
-          if (snap.exists()) {
-            const profile = snap.data() as UserProfile;
-            membersMap[profile.uid] = profile;
-          }
+        const membersMap: Record<string, UserProfile> = {};
+        querySnapshot.forEach((doc) => {
+          const profile = doc.data() as UserProfile;
+          membersMap[profile.uid] = profile;
         });
-      } else if (userProfile) {
-        // Fallback for unlinked user
-        membersMap[user.uid] = userProfile;
+        
+        setCoupleMembers(membersMap);
+      } catch (e) {
+        console.error("Error fetching couple members:", e);
       }
-      
-      setCoupleMembers(membersMap);
     };
     fetchMembers();
-  }, [firestore, coupleId, user, userProfile]);
+  }, [firestore, coupleId]);
 
   const gameStateRef = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
@@ -78,14 +70,15 @@ export default function LastGulpPage() {
   }, [history]);
 
   const handleGulp = () => {
-    if (!user || !gameStateRef || !historyRef || !firestore) return;
+    if (!user || !gameStateRef || !historyRef || !firestore || !userProfile) return;
 
     const baseData = {
       lastDrinkerId: user.uid,
-      lastDrinkerName: user.displayName || 'Parceiro',
+      lastDrinkerName: userProfile.displayName || user.displayName || 'Parceiro',
       timestamp: serverTimestamp(),
     };
 
+    // Update global state
     setDoc(gameStateRef, baseData, { merge: true })
       .catch(async (error) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -95,10 +88,17 @@ export default function LastGulpPage() {
         } satisfies SecurityRuleContext));
       });
 
+    // Atomic increment of scores
     updateDoc(gameStateRef, {
       [`scores.${user.uid}`]: increment(1)
     }).catch(async (error) => {
-        if (error.code !== 'not-found') {
+        if (error.code === 'not-found') {
+            // If the document doesn't exist yet, we initialize it
+            setDoc(gameStateRef, {
+              ...baseData,
+              scores: { [user.uid]: 1 }
+            }, { merge: true });
+        } else {
             errorEmitter.emit('permission-error', new FirestorePermissionError({
                 path: gameStateRef.path,
                 operation: 'update',
@@ -107,9 +107,10 @@ export default function LastGulpPage() {
         }
     });
 
+    // Add record to history
     const historyData = {
       drinkerId: user.uid,
-      drinkerName: user.displayName || 'Parceiro',
+      drinkerName: userProfile.displayName || user.displayName || 'Parceiro',
       timestamp: serverTimestamp()
     };
 
@@ -124,6 +125,8 @@ export default function LastGulpPage() {
   };
 
   const isLastDrinker = gameState?.lastDrinkerId === user?.uid;
+  
+  // Logic to find the last drinker's profile dynamically
   const lastDrinkerProfile = useMemo(() => {
     if (!gameState?.lastDrinkerId) return null;
     return coupleMembers[gameState.lastDrinkerId] || null;
@@ -153,19 +156,21 @@ export default function LastGulpPage() {
                   exit={{ scale: 0.8, opacity: 0 }}
                   className="relative z-10"
                 >
-                  <div className={`size-56 rounded-full border-4 flex items-center justify-center bg-primary/5 transition-all duration-500 overflow-hidden ${isLastDrinker ? 'border-primary shadow-[0_0_30px_rgba(var(--primary),0.4)]' : 'border-primary/20'}`}>
+                  <div className={`size-56 rounded-full border-4 flex items-center justify-center bg-primary/5 transition-all duration-500 overflow-hidden ${gameState?.lastDrinkerId ? 'border-primary shadow-[0_0_30px_rgba(var(--primary),0.4)]' : 'border-primary/20'}`}>
                     {lastDrinkerProfile ? (
                       <Avatar className="size-full rounded-none">
                         <AvatarImage src={lastDrinkerProfile.photoURL} className="object-cover" />
                         <AvatarFallback className="bg-transparent flex flex-col items-center justify-center text-primary">
                           <User className="size-20 mb-2 opacity-20" />
-                          <span className="font-bold text-lg">{lastDrinkerProfile.displayName.charAt(0)}</span>
+                          <span className="font-bold text-lg">{lastDrinkerProfile.displayName?.charAt(0)}</span>
                         </AvatarFallback>
                       </Avatar>
                     ) : (
                       <div className="flex flex-col items-center justify-center">
                         <Beer className={`size-24 transition-all duration-500 ${isLastDrinker ? 'text-primary' : 'text-muted-foreground/40'}`} />
-                        <p className="text-[10px] uppercase tracking-tighter text-muted-foreground mt-2 font-bold">Aguardando...</p>
+                        <p className="text-[10px] uppercase tracking-tighter text-muted-foreground mt-2 font-bold">
+                           {gameState?.lastDrinkerId ? 'Buscando perfil...' : 'Aguardando...'}
+                        </p>
                       </div>
                     )}
                   </div>
@@ -180,7 +185,7 @@ export default function LastGulpPage() {
               </AnimatePresence>
               <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 z-20">
                 <Badge className="bg-primary text-primary-foreground shadow-lg px-6 py-1.5 text-[10px] font-bold uppercase tracking-widest border-none whitespace-nowrap rounded-full">
-                  {gameState ? (isLastDrinker ? 'VOCÊ BEBEU!' : `${gameState.lastDrinkerName} BEBEU!`) : 'TOQUE PARA COMEÇAR'}
+                  {gameState ? (isLastDrinker ? 'VOCÊ BEBEU!' : `${lastDrinkerProfile?.displayName?.split(' ')[0] || gameState.lastDrinkerName} BEBEU!`) : 'TOQUE PARA COMEÇAR'}
                 </Badge>
               </div>
             </div>
@@ -197,7 +202,7 @@ export default function LastGulpPage() {
               size="lg"
               onClick={handleGulp}
               disabled={isLastDrinker || !coupleId}
-              className={`w-full h-16 text-lg font-bold rounded-2xl shadow-xl transition-all active:scale-95 group ${isLastDrinker ? 'bg-secondary text-muted-foreground' : 'bg-primary hover:bg-primary/90'}`}
+              className={`w-full h-16 text-lg font-bold rounded-2xl shadow-xl transition-all active:scale-95 group ${isLastDrinker ? 'bg-secondary text-muted-foreground cursor-not-allowed' : 'bg-primary hover:bg-primary/90'}`}
             >
               {isLastDrinker ? 'Você já bebeu o último!' : 'EU BEBI O ÚLTIMO GOLE!'}
               {!isLastDrinker && <Sparkles className="ml-2 size-5 group-hover:animate-pulse" />}
@@ -255,11 +260,11 @@ export default function LastGulpPage() {
                         <Avatar className="h-8 w-8 border shadow-sm">
                           <AvatarImage src={drinker?.photoURL} />
                           <AvatarFallback className="text-[10px] bg-secondary font-bold">
-                            {gulp.drinkerName?.charAt(0) || '?'}
+                            {drinker?.displayName?.charAt(0) || '?'}
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="text-sm font-semibold">{gulp.drinkerName}</p>
+                          <p className="text-sm font-semibold">{drinker?.displayName || gulp.drinkerName}</p>
                           <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium">Bebeu o último gole</p>
                         </div>
                       </div>

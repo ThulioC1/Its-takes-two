@@ -1,3 +1,4 @@
+
 'use client';
 
 import Image from 'next/image';
@@ -5,6 +6,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
 import { LoginForm } from '@/components/auth/login-form';
+import { SocialLogin } from '@/components/auth/social-login';
 import { Icons } from '@/components/icons';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
@@ -19,7 +21,7 @@ export default function LoginPage() {
   return (
       <div className="w-full h-screen lg:grid lg:grid-cols-2">
         <div className="flex items-center justify-center py-12">
-          <div className="mx-auto grid w-[350px] gap-8">
+          <div className="mx-auto grid w-[350px] gap-6">
             <div className="grid gap-4 text-center">
               <div className="flex justify-center items-center gap-2">
                   <Icons.logo className="h-8 w-8 text-primary" />
@@ -29,7 +31,12 @@ export default function LoginPage() {
                 Faça login para continuar no seu espaço.
               </p>
             </div>
-            {isClient && <LoginForm />}
+            {isClient && (
+              <div className="grid gap-6">
+                <LoginForm />
+                <SocialLogin />
+              </div>
+            )}
             <p className="px-8 text-center text-sm text-muted-foreground">
               Não tem uma conta?{' '}
               <Link
