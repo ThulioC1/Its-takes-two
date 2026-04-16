@@ -20,33 +20,40 @@ export default function LastGulpPage() {
   const { user } = useUser();
   const firestore = useFirestore();
 
-  // 1. Obter o perfil do usuário logado para saber o coupleId
+  // 1. Obter o perfil do usuário logado
   const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
-  const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
   const coupleId = userProfile?.coupleId;
 
-  // 2. Escutar em tempo real todos os usuários que pertencem a este casal
+  // 2. Escutar em tempo real todos os usuários do casal
   const membersQuery = useMemoFirebase(() => {
     if (!firestore || !coupleId) return null;
     return query(collection(firestore, 'users'), where('coupleId', '==', coupleId));
   }, [firestore, coupleId]);
-  const { data: membersData } = useCollection<UserProfile>(membersQuery);
+  const { data: membersData, isLoading: isMembersLoading } = useCollection<UserProfile>(membersQuery);
 
-  // 3. Criar um mapa de membros para acesso rápido (ID -> Perfil)
+  // 3. Mapa de membros resiliente (ID -> Perfil)
   const coupleMembers = useMemo(() => {
     const map: Record<string, UserProfile> = {};
+    
+    // Adiciona membros da query global
     if (membersData) {
-      membersData.forEach(m => { map[m.uid] = m; });
+      membersData.forEach(m => { 
+        map[m.id] = m; // ID do documento é o UID
+        if (m.uid) map[m.uid] = m;
+      });
     }
-    // Garantir que o perfil atual esteja no mapa mesmo antes da query terminar
-    if (userProfile) {
-      map[userProfile.uid] = userProfile;
+    
+    // Garante que o perfil atual esteja no mapa (prioridade)
+    if (userProfile && user) {
+      map[user.uid] = userProfile;
     }
+    
     return map;
-  }, [membersData, userProfile]);
+  }, [membersData, userProfile, user]);
 
   // 4. Estado do Jogo e Histórico
   const gameStateRef = useMemoFirebase(() => {
@@ -75,7 +82,6 @@ export default function LastGulpPage() {
       timestamp: serverTimestamp(),
     };
 
-    // Atualiza quem foi o último a beber
     setDoc(gameStateRef, baseData, { merge: true })
       .catch(async () => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -85,7 +91,6 @@ export default function LastGulpPage() {
         } satisfies SecurityRuleContext));
       });
 
-    // Incrementa o placar
     updateDoc(gameStateRef, {
       [`scores.${user.uid}`]: increment(1)
     }).catch(async (error) => {
@@ -94,34 +99,21 @@ export default function LastGulpPage() {
               ...baseData,
               scores: { [user.uid]: 1 }
             }, { merge: true });
-        } else {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: gameStateRef.path,
-                operation: 'update',
-                requestResourceData: { [`scores.${user.uid}`]: 'increment' }
-            } satisfies SecurityRuleContext));
         }
     });
 
-    // Adiciona ao histórico
     const historyData = {
       drinkerId: user.uid,
       drinkerName: userProfile.displayName || user.displayName || 'Parceiro',
       timestamp: serverTimestamp()
     };
 
-    addDoc(historyRef, historyData)
-      .catch(async () => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: historyRef.path,
-          operation: 'create',
-          requestResourceData: historyData
-        } satisfies SecurityRuleContext));
-      });
+    addDoc(historyRef, historyData);
   };
 
   const isLastDrinker = gameState?.lastDrinkerId === user?.uid;
   const lastDrinkerProfile = gameState?.lastDrinkerId ? coupleMembers[gameState.lastDrinkerId] : null;
+  const isDataLoading = isProfileLoading || isMembersLoading;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-20">
@@ -131,7 +123,7 @@ export default function LastGulpPage() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-8 items-start">
-        {/* Card Principal: Quem bebeu? */}
+        {/* Card Principal */}
         <Card className="relative overflow-hidden border-primary/20 bg-card/40 backdrop-blur-xl shadow-2xl md:sticky md:top-24">
           <div className="absolute top-0 left-0 w-full h-1.5 bg-primary" />
           <CardHeader className="text-center">
@@ -157,11 +149,18 @@ export default function LastGulpPage() {
                       </Avatar>
                     ) : (
                       <div className="flex flex-col items-center justify-center text-center p-4">
-                        {gameState?.lastDrinkerId ? (
+                        {gameState?.lastDrinkerId && isDataLoading ? (
                              <div className="animate-pulse flex flex-col items-center">
                                 <User className="size-16 mb-2 text-primary/20" />
                                 <p className="text-[10px] uppercase font-bold text-muted-foreground">Buscando Perfil...</p>
                              </div>
+                        ) : gameState?.lastDrinkerId ? (
+                            <div className="flex flex-col items-center">
+                                <div className="size-20 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                                    <span className="text-3xl font-bold text-primary">{gameState.lastDrinkerName?.charAt(0)}</span>
+                                </div>
+                                <p className="text-[10px] uppercase font-bold text-muted-foreground">{gameState.lastDrinkerName}</p>
+                            </div>
                         ) : (
                             <>
                                 <Beer className="size-24 text-muted-foreground/20" />
@@ -182,7 +181,7 @@ export default function LastGulpPage() {
               </AnimatePresence>
               <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 z-20">
                 <Badge className="bg-primary text-primary-foreground shadow-lg px-6 py-1.5 text-[10px] font-bold uppercase tracking-widest border-none whitespace-nowrap rounded-full">
-                  {gameState ? (isLastDrinker ? 'VOCÊ BEBEU!' : `${lastDrinkerProfile?.displayName?.split(' ')[0] || gameState.lastDrinkerName} BEBEU!`) : 'TOQUE PARA COMEÇAR'}
+                  {gameState ? (isLastDrinker ? 'VOCÊ BEBEU!' : `${lastDrinkerProfile?.displayName?.split(' ')[0] || gameState.lastDrinkerName?.split(' ')[0]} BEBEU!`) : 'TOQUE PARA COMEÇAR'}
                 </Badge>
               </div>
             </div>
@@ -218,16 +217,17 @@ export default function LastGulpPage() {
               <div className="space-y-4">
                 {gameState?.scores && Object.keys(gameState.scores).length > 0 ? Object.entries(gameState.scores).map(([uid, score]) => {
                   const member = coupleMembers[uid];
+                  const name = uid === user?.uid ? 'Você' : (member?.displayName || 'Parceiro(a)');
                   return (
                     <div key={uid} className="flex items-center justify-between p-3 rounded-xl bg-accent/20">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10 border-2 border-background shadow-sm">
                           <AvatarImage src={member?.photoURL} />
                           <AvatarFallback className="bg-primary/10 text-primary font-bold">
-                            {member?.displayName?.charAt(0) || '?'}
+                            {name.charAt(0)}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="font-semibold text-sm">{uid === user?.uid ? 'Você' : (member?.displayName || 'Parceiro(a)')}</span>
+                        <span className="font-semibold text-sm">{name}</span>
                       </div>
                       <div className="flex items-baseline gap-1">
                         <span className="text-3xl font-black font-headline text-primary">{Number(score)}</span>
